@@ -7,7 +7,10 @@
     "url": "https://github.com/aragon"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.0.1"
+    "@aragon/osx": "aragon/osx",
+    "@aragon/osx-commons-repo": "aragon/osx-commons",
+    "@openzeppelin/contracts": "4.9.6",
+    "@openzeppelin/contracts-upgradeable": "4.9.6"
   },
   "devDependencies": {
     "forge-std": "github:foundry-rs/forge-std#v1.8.1",

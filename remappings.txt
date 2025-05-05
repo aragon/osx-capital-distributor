@@ -1,2 +1,8 @@
-@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
 forge-std/=node_modules/forge-std/
+
+@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
+@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/
+
+@aragon/osx/=node_modules/@aragon/osx/packages/contracts/src/
+@aragon/commons/=node_modules/@aragon/osx-commons-repo/contracts/src/
+@aragon/osx-commons-contracts/=node_modules/@aragon/osx-commons-repo/contracts/

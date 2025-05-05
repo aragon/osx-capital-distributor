@@ -4,7 +4,10 @@
     "": {
       "name": "@prb/foundry-template",
       "dependencies": {
-        "@openzeppelin/contracts": "^5.0.1",
+        "@aragon/osx": "aragon/osx",
+        "@aragon/osx-commons-repo": "aragon/osx-commons",
+        "@openzeppelin/contracts": "4.9.6",
+        "@openzeppelin/contracts-upgradeable": "4.9.6",
       },
       "devDependencies": {
         "forge-std": "github:foundry-rs/forge-std#v1.8.1",
@@ -14,13 +17,19 @@
     },
   },
   "packages": {
+    "@aragon/osx": ["@aragon/osx@github:aragon/osx#b817881", {}, "aragon-osx-b817881"],
+
+    "@aragon/osx-commons-repo": ["@aragon/osx-commons-repo@github:aragon/osx-commons#83b26dd", {}, "aragon-osx-commons-83b26dd"],
+
     "@babel/code-frame": ["@babel/code-frame@7.23.5", "", { "dependencies": { "@babel/highlight": "^7.23.4", "chalk": "^2.4.2" } }, "sha512-CgH3s1a96LipHCmSUmYFPwY7MNx8C3avkq7i4Wl3cfa662ldtUe4VM1TPXX70pfmrlWTb6jLqTYrZyT2ZTJBgA=="],
 
     "@babel/helper-validator-identifier": ["@babel/helper-validator-identifier@7.22.20", "", {}, "sha512-Y4OZ+ytlatR8AI+8KZfKuL5urKp7qey08ha31L8b3BwewJAoJamTzyvxPR/5D+KkdJCGPq/+8TukHBlY10FX9A=="],
 
     "@babel/highlight": ["@babel/highlight@7.23.4", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.22.20", "chalk": "^2.4.2", "js-tokens": "^4.0.0" } }, "sha512-acGdbYSfp2WheJoJm/EBBBLh/ID8KDc64ISZ9DYtBmC8/Q204PZJLHyzeB5qMzJ5trcOkybd78M4x2KWsUq++A=="],
 
-    "@openzeppelin/contracts": ["@openzeppelin/contracts@5.0.1", "", {}, "sha512-yQJaT5HDp9hYOOp4jTYxMsR02gdFZFXhewX5HW9Jo4fsqSVqqyIO/xTHdWDaKX5a3pv1txmf076Lziz+sO7L1w=="],
+    "@openzeppelin/contracts": ["@openzeppelin/contracts@4.9.6", "", {}, "sha512-xSmezSupL+y9VkHZJGDoCBpmnB2ogM13ccaYDWqJTfS3dbuHkgjuwDFUmaFauBCboQMGB/S5UqUl2y54X99BmA=="],
+
+    "@openzeppelin/contracts-upgradeable": ["@openzeppelin/contracts-upgradeable@4.9.6", "", {}, "sha512-m4iHazOsOCv1DgM7eD7GupTJ+NFVujRZt1wzddDPSVGpWdKq1SKkla5htKG7+IS4d2XOCtzkUNwRZ7Vq5aEUMA=="],
 
     "@solidity-parser/parser": ["@solidity-parser/parser@0.16.2", "", { "dependencies": { "antlr4ts": "^0.5.0-alpha.4" } }, "sha512-PI9NfoA3P8XK2VBkK5oIfRgKDsicwDZfkVq9ZTBCQYGOP1N2owgY2dyLGyU5/J/hQs8KRk55kdmvTLjy3Mu3vg=="],
 

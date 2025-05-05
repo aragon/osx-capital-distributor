@@ -14,6 +14,7 @@
   solc = "0.8.29"
   src = "src"
   test = "tests"
+libs = ["node_modules", "lib"]
 
 [profile.ci]
   fuzz = { runs = 10_000 }
