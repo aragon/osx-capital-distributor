@@ -71,6 +71,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             permissionId: DAO(payable(_dao)).EXECUTE_PERMISSION_ID()
         });
 
+        // The DAO is the one who can create Campaings through any of its governance mechanisms
         permissions[2] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Grant,
             where: plugin,

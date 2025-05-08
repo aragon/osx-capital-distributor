@@ -21,6 +21,40 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     /// @notice The ID of the permission required to create a proposal.
     bytes32 public constant CAMPAIGN_CREATOR_PERMISSION_ID = keccak256("CAMPAIGN_CREATOR_PERMISSION");
 
+    /**
+     * @notice Represents a distribution campaign.
+     * @custom:storage-location erc7201:capital.distributor.campaigns.struct
+     * @param metadataURI URI pointing to the campaign's metadata (e.g., IPFS hash).
+     * @param allocationStrategy The contract address responsible for determining allocation logic.
+     * @param vault The contract address of the vault holding the assets for this campaign.
+     */
+    struct Campaign {
+        bytes metadataURI;
+        address allocationStrategy;
+        address vault;
+    }
+
+    /**
+     * @notice Stores all campaign configurations, mapping a campaign ID to its Campaign struct.
+     * The public visibility automatically creates a getter function:
+     * `function campaigns(uint256 _campaignId) external view returns (bytes memory metadataURI, address allocationStrategy, address vault)`
+     */
+    mapping(uint256 => Campaign) public campaigns;
+
+    /**
+     * @notice Emitted when a campaign's details are created.
+     * @param campaignId The unique identifier of the campaign that was updated.
+     * @param metadataURI The new metadata URI for the campaign.
+     * @param allocationStrategy The new allocation strategy address for the campaign.
+     * @param vault The new vault address for the campaign.
+     */
+    event CampaignCreated(
+        uint256 indexed campaignId,
+        bytes metadataURI,
+        address indexed allocationStrategy,
+        address indexed vault
+    );
+
     /// @notice Thrown if a date is out of bounds.
     /// @param limit The limit value.
     /// @param actual The actual value.
@@ -31,6 +65,39 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     /// @param _dao The IDAO interface of the associated DAO.
     function initialize(IDAO _dao) external initializer {
         __PluginUUPSUpgradeable_init(_dao);
+    }
+
+    /**
+     * @notice Creates the details for a specific campaign.
+     * @dev This function allows an authorized address to configure a new campaign or modify an existing one.
+     * @param _campaignId The unique identifier for the campaign.
+     * @param _metadataURI The URI for the campaign's metadata.
+     * @param _allocationStrategy The address of the allocation strategy contract.
+     * @param _vault The address of the vault contract.
+     */
+    function setCampaign(
+        uint256 _campaignId,
+        bytes calldata _metadataURI,
+        address _allocationStrategy,
+        address _vault
+    ) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) {
+        // Add appropriate access control
+        campaigns[_campaignId] = Campaign({
+            metadataURI: _metadataURI,
+            allocationStrategy: _allocationStrategy,
+            vault: _vault
+        });
+
+        emit CampaignCreated(_campaignId, _metadataURI, _allocationStrategy, _vault);
+    }
+
+    /**
+     * @notice Retrieves the full Campaign struct for a given campaign ID.
+     * @param _campaignId The unique identifier for the campaign.
+     * @return The Campaign struct containing its metadataURI, allocationStrategy, and vault.
+     */
+    function getCampaign(uint256 _campaignId) public view returns (Campaign memory) {
+        return campaigns[_campaignId];
     }
 
     /// @notice Checks if this or the parent contract supports an interface by its ID.
