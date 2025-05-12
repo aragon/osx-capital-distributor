@@ -7,10 +7,16 @@
     "url": "https://github.com/aragon"
   },
   "dependencies": {
+    "@aragon/admin-plugin": "aragon/admin-plugin",
+    "@aragon/multisig-plugin": "aragon/multisig-plugin",
     "@aragon/osx": "aragon/osx",
     "@aragon/osx-commons-repo": "aragon/osx-commons",
+    "@aragon/osx-plugin-template": "aragon/token-voting-plugin",
+    "@ensdomains/ens-contracts": "0.0.11",
     "@openzeppelin/contracts": "4.9.6",
-    "@openzeppelin/contracts-upgradeable": "4.9.6"
+    "@openzeppelin/contracts-upgradeable": "4.9.6",
+    "protocol-factory": "aragon/protocol-factory",
+    "staged-proposal-processor-plugin": "aragon/staged-proposal-processor-plugin"
   },
   "devDependencies": {
     "forge-std": "github:foundry-rs/forge-std#v1.8.1",

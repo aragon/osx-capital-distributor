@@ -10,6 +10,8 @@ import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 import {PluginUUPSUpgradeable} from "@aragon/commons/plugin/PluginUUPSUpgradeable.sol";
 
+import {IAllocatorStrategy} from "./interfaces/IAllocatorStrategy.sol";
+
 /// @title OptimisticTokenVotingPlugin
 /// @author Aragon Association - 2023
 /// @notice The abstract implementation of optimistic majority plugins.
@@ -30,7 +32,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
      */
     struct Campaign {
         bytes metadataURI;
-        address allocationStrategy;
+        IAllocatorStrategy allocationStrategy;
         address vault;
     }
 
@@ -84,7 +86,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         // Add appropriate access control
         campaigns[_campaignId] = Campaign({
             metadataURI: _metadataURI,
-            allocationStrategy: _allocationStrategy,
+            allocationStrategy: IAllocatorStrategy(_allocationStrategy),
             vault: _vault
         });
 

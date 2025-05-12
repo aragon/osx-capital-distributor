@@ -2,6 +2,8 @@
 
 pragma solidity ^0.8.29;
 
+import {console2} from "forge-std/console2.sol";
+
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
@@ -23,6 +25,10 @@ import {CapitalDistributorPlugin} from "./CapitalDistributorPlugin.sol";
 contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
     using ProxyLib for address;
 
+    bytes32 internal constant EXECUTE_PERMISSION_ID = keccak256("EXECUTE_PERMISSION");
+    bytes32 public constant UPGRADE_PLUGIN_PERMISSION_ID = keccak256("UPGRADE_PLUGIN_PERMISSION_ID");
+    bytes32 public constant CAMPAIGN_CREATOR_PERMISSION_ID = keccak256("CAMPAIGN_CREATOR_PERMISSION");
+
     /// @notice The address of the `CapitalDistributorPlugin` base contract.
     CapitalDistributorPlugin private immutable capitalDistributorPluginBase;
 
@@ -43,7 +49,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
         // () = decodeInstallationParams(_installParameters);
 
         // Prepare helpers.
-        address[] memory helpers = new address[](1);
+        address[] memory helpers = new address[](0);
 
         // Prepare and deploy plugin proxy.
         plugin = IMPLEMENTATION.deployUUPSProxy(abi.encodeCall(CapitalDistributorPlugin.initialize, (IDAO(_dao))));
@@ -59,8 +65,9 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             where: plugin,
             who: _dao,
             condition: PermissionLib.NO_CONDITION,
-            permissionId: capitalDistributorPluginBase.UPGRADE_PLUGIN_PERMISSION_ID()
+            permissionId: UPGRADE_PLUGIN_PERMISSION_ID
         });
+        console2.log("here");
 
         // The plugin can make the DAO execute actions
         permissions[1] = PermissionLib.MultiTargetPermission({
@@ -68,7 +75,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             where: _dao,
             who: plugin,
             condition: PermissionLib.NO_CONDITION,
-            permissionId: DAO(payable(_dao)).EXECUTE_PERMISSION_ID()
+            permissionId: EXECUTE_PERMISSION_ID
         });
 
         // The DAO is the one who can create Campaings through any of its governance mechanisms
@@ -77,7 +84,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             where: plugin,
             who: _dao,
             condition: PermissionLib.NO_CONDITION,
-            permissionId: capitalDistributorPluginBase.CAMPAIGN_CREATOR_PERMISSION_ID()
+            permissionId: CAMPAIGN_CREATOR_PERMISSION_ID
         });
 
         preparedSetupData.helpers = helpers;

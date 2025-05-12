@@ -1,8 +1,17 @@
-forge-std/=node_modules/forge-std/
+forge-std/=node_modules/forge-std/src/
 
 @openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
 @openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/
 
+@aragon/protocol-factory/=node_modules/protocol-factory/
 @aragon/osx/=node_modules/@aragon/osx/packages/contracts/src/
 @aragon/commons/=node_modules/@aragon/osx-commons-repo/contracts/src/
 @aragon/osx-commons-contracts/=node_modules/@aragon/osx-commons-repo/contracts/
+@aragon/admin-plugin/=node_modules/@aragon/admin-plugin/packages/contracts/src/
+@aragon/multisig-plugin/=node_modules/@aragon/multisig-plugin/packages/contracts/src/
+@aragon/token-voting-plugin/=node_modules/@aragon/osx-plugin-template/packages/contracts/src/
+@aragon/token-voting-plugin/=node_modules/@aragon/osx-plugin-template/packages/contracts/src/
+@aragon/staged-proposal-processor-plugin/=node_modules/staged-proposal-processor-plugin/src/
+
+@ensdomains/ens-contracts/=node_modules/@ensdomains/ens-contracts/
+@ensdomains/buffer/=node_modules/@ensdomains/buffer/
