@@ -82,7 +82,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         bytes calldata _metadataURI,
         address _allocationStrategy,
         address _vault
-    ) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) {
+    ) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) returns (uint256 id) {
         // Add appropriate access control
         campaigns[_campaignId] = Campaign({
             metadataURI: _metadataURI,
@@ -91,6 +91,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         });
 
         emit CampaignCreated(_campaignId, _metadataURI, _allocationStrategy, _vault);
+        return _campaignId;
     }
 
     /**
