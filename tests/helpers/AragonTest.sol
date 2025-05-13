@@ -75,15 +75,6 @@ contract AragonTest is Test {
                 pluginAddress.push(address(uint160(uint256(logEntries[i].topics[2]))));
             }
         }
-
-        // 7. Logging the resulting addresses
-        console2.log("Plugin Setup: ", address(pluginSetup));
-        console2.log("Plugin Repo: ", address(pluginRepo));
-        console2.log("Created DAO: ", address(createdDAO));
-        console2.log("Installed Plugins: ");
-        for (uint256 i = 0; i < pluginAddress.length; i++) {
-            console2.log("- ", pluginAddress[i]);
-        }
     }
 
     function deployPluginSetup() internal returns (CapitalDistributorPluginSetup) {

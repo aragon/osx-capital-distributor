@@ -67,7 +67,6 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             condition: PermissionLib.NO_CONDITION,
             permissionId: UPGRADE_PLUGIN_PERMISSION_ID
         });
-        console2.log("here");
 
         // The plugin can make the DAO execute actions
         permissions[1] = PermissionLib.MultiTargetPermission({
