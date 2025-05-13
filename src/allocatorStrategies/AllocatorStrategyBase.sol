@@ -14,6 +14,7 @@ abstract contract AllocatorStrategyBase is IAllocatorStrategy, DaoAuthorizable {
 
     uint256 private epochDuration;
     bool private claimOpen;
+    mapping(uint256 campaignId => mapping(address receiver => uint256 amount)) private payouts;
 
     // =========================================================================
     // Constructor
@@ -51,11 +52,24 @@ abstract contract AllocatorStrategyBase is IAllocatorStrategy, DaoAuthorizable {
 
     /// @inheritdoc IAllocatorStrategy
     function getPayoutAmount(
+        uint256 _campaignId,
         address _account,
         bytes calldata _auxData
     ) public view virtual override returns (uint256 amount) {
         // Placeholder logic; should be implemented by derived contracts
         return 0;
+    }
+
+    /// @inheritdoc IAllocatorStrategy
+    function setPayoutAmount(
+        uint256 _campaignId,
+        address _account,
+        bytes calldata _auxData
+    ) public virtual override returns (uint256 amount) {
+        // Placeholder logic; should be implemented by derived contracts
+        amount = getPayoutAmount(_campaignId, _account, _auxData);
+        payouts[_campaignId][_account] = amount;
+        return amount;
     }
 
     // =========================================================================

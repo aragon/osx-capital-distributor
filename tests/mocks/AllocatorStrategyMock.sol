@@ -24,7 +24,11 @@ contract AllocatorStrategyMock is AllocatorStrategyBase {
     }
 
     /// @inheritdoc IAllocatorStrategy
-    function getPayoutAmount(address _account, bytes calldata _auxData) public view override returns (uint256 amount) {
+    function getPayoutAmount(
+        uint256 _campaignId,
+        address _account,
+        bytes calldata _auxData
+    ) public view override returns (uint256 amount) {
         return 1 ether; // Mock logic: fixed payout of 1 ether
     }
 

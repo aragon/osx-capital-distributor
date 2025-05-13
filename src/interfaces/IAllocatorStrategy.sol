@@ -64,9 +64,27 @@ interface IAllocatorStrategy {
     /// @dev This function calculates the potential payout. The actual claiming mechanism might be separate.
     /// The `_auxData` parameter allows for passing strategy-specific information required for the calculation,
     /// such as a Merkle proof, a signed message, or other contextual data.
+    /// @param _campaignId The id of the campaign getting the payout from
     /// @param _account The address of the account for which to calculate the payout.
     /// @param _auxData Strategy-specific auxiliary data. Pass `bytes("")` if not required by the strategy.
     /// @return amount The amount of tokens/value the account is eligible to receive.
-    function getPayoutAmount(address _account, bytes calldata _auxData) external view returns (uint256 amount);
-}
+    function getPayoutAmount(
+        uint256 _campaignId,
+        address _account,
+        bytes calldata _auxData
+    ) external view returns (uint256 amount);
 
+    /// @notice Sets the payout amount an account is entitled to based on the strategy.
+    /// @dev This function calculates the potential payout. The actual claiming mechanism might be separate.
+    /// The `_auxData` parameter allows for passing strategy-specific information required for the calculation,
+    /// such as a Merkle proof, a signed message, or other contextual data.
+    /// @param _campaignId The id of the campaign getting the payout from
+    /// @param _account The address of the account for which to calculate the payout.
+    /// @param _auxData Strategy-specific auxiliary data. Pass `bytes("")` if not required by the strategy.
+    /// @return amount The amount of tokens/value the account is eligible to receive.
+    function setPayoutAmount(
+        uint256 _campaignId,
+        address _account,
+        bytes calldata _auxData
+    ) external returns (uint256 amount);
+}

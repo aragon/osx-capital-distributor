@@ -10,13 +10,18 @@ import {CapitalDistributorPlugin} from "../src/CapitalDistributorPlugin.sol";
 import {AragonTest} from "./helpers/AragonTest.sol";
 import {IAllocatorStrategy} from "../src/interfaces/IAllocatorStrategy.sol";
 
+import {MintableERC20} from "./mocks/MintableERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+
 contract CapitalDistributorPluginTest is AragonTest {
     CapitalDistributorPlugin capitalDistributorPlugin;
+    MintableERC20 token;
 
     /// @dev A function invoked before each test case is run.
     function setUp() public virtual {
         // Instantiate the contract-under-test.
         capitalDistributorPlugin = CapitalDistributorPlugin(pluginAddress[0]);
+        token = new MintableERC20();
     }
 
     function test_CreateCampaign() public {
@@ -24,8 +29,8 @@ contract CapitalDistributorPluginTest is AragonTest {
         bytes memory metadata = "";
 
         vm.expectEmit();
-        emit CapitalDistributorPlugin.CampaignCreated(0, "", address(0), address(0));
-        uint256 campaignId = capitalDistributorPlugin.setCampaign(0, metadata, address(0), address(0));
+        emit CapitalDistributorPlugin.CampaignCreated(0, "", address(0), address(0), IERC20(token));
+        uint256 campaignId = capitalDistributorPlugin.setCampaign(0, metadata, address(0), address(0), IERC20(token));
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
 
@@ -39,6 +44,6 @@ contract CapitalDistributorPluginTest is AragonTest {
         bytes memory metadata = "";
 
         vm.expectRevert();
-        capitalDistributorPlugin.setCampaign(0, metadata, address(0), address(0));
+        capitalDistributorPlugin.setCampaign(0, metadata, address(0), address(0), IERC20(token));
     }
 }

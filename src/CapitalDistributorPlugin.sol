@@ -5,7 +5,9 @@ pragma solidity ^0.8.17;
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
+import {Action, IExecutor} from "@aragon/commons/executors/IExecutor.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 import {PluginUUPSUpgradeable} from "@aragon/commons/plugin/PluginUUPSUpgradeable.sol";
@@ -29,11 +31,13 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
      * @param metadataURI URI pointing to the campaign's metadata (e.g., IPFS hash).
      * @param allocationStrategy The contract address responsible for determining allocation logic.
      * @param vault The contract address of the vault holding the assets for this campaign.
+     * @param token The address of the token that will be used for the payouts
      */
     struct Campaign {
         bytes metadataURI;
         IAllocatorStrategy allocationStrategy;
         address vault;
+        IERC20 token;
     }
 
     /**
@@ -54,7 +58,8 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         uint256 indexed campaignId,
         bytes metadataURI,
         address indexed allocationStrategy,
-        address indexed vault
+        address indexed vault,
+        IERC20 token
     );
 
     /// @notice Thrown if a date is out of bounds.
@@ -81,16 +86,18 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         uint256 _campaignId,
         bytes calldata _metadataURI,
         address _allocationStrategy,
-        address _vault
+        address _vault,
+        IERC20 _token
     ) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) returns (uint256 id) {
         // Add appropriate access control
         campaigns[_campaignId] = Campaign({
             metadataURI: _metadataURI,
             allocationStrategy: IAllocatorStrategy(_allocationStrategy),
-            vault: _vault
+            vault: _vault,
+            token: _token
         });
 
-        emit CampaignCreated(_campaignId, _metadataURI, _allocationStrategy, _vault);
+        emit CampaignCreated(_campaignId, _metadataURI, _allocationStrategy, _vault, _token);
         return _campaignId;
     }
 
@@ -101,6 +108,47 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
      */
     function getCampaign(uint256 _campaignId) public view returns (Campaign memory) {
         return campaigns[_campaignId];
+    }
+
+    /**
+     * @notice Retrieves the amount of tokens to send to the recipient of a campaign
+     * @param _campaignId The unique identifier for the campaign.
+     * @param _recipient The address to get the payout
+     * @param _auxData The data needed by the strategy to calculate the payout
+     * @return amountToSend The amount of tokens the recipient should get
+     */
+    function getCampaignPayout(
+        uint256 _campaignId,
+        address _recipient,
+        bytes calldata _auxData
+    ) public view returns (uint256 amountToSend) {
+        Campaign memory campaign = campaigns[_campaignId];
+
+        amountToSend = campaign.allocationStrategy.getPayoutAmount(_campaignId, _recipient, _auxData);
+    }
+
+    /**
+     * @notice Sends the amount of tokens to the recipient of a campaign
+     * @param _campaignId The unique identifier for the campaign.
+     * @param _receiver The address to get the payout
+     * @param _auxData The data needed by the strategy to calculate the payout
+     * @return amountToSend The amount of tokens the recipient should get
+     */
+    function sendCampaignPayout(
+        uint256 _campaignId,
+        address _receiver,
+        bytes calldata _auxData
+    ) public returns (uint256 amountToSend) {
+        Campaign memory campaign = campaigns[_campaignId];
+
+        amountToSend = campaign.allocationStrategy.setPayoutAmount(_campaignId, _receiver, _auxData);
+
+        Action[] memory actions = new Action[](1);
+
+        actions[0].to = address(campaign.token);
+        actions[0].data = abi.encodeCall(IERC20.transfer, (_receiver, amountToSend));
+        // TODO: Change the call Id for something dynamic
+        IExecutor(address(dao())).execute(bytes32(uint256(1)), actions, 0);
     }
 
     /// @notice Checks if this or the parent contract supports an interface by its ID.
