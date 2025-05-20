@@ -11,14 +11,18 @@ import {CapitalDistributorPlugin} from "../src/CapitalDistributorPlugin.sol";
 import {AragonTest} from "./helpers/AragonTest.sol";
 import {IAllocatorStrategy} from "../src/interfaces/IAllocatorStrategy.sol";
 import {AllocatorStrategyMock} from "./mocks/AllocatorStrategyMock.sol";
+import {VaultDepositPayoutActionBuilder} from "../src/payoutActionBuilders/VaultDepositPayoutActionBuilder.sol";
 
 import {MintableERC20} from "./mocks/MintableERC20.sol";
+import {ERC4626Mock} from "./mocks/ERC4626Mock.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 contract CapitalDistributorPluginTest is AragonTest {
     CapitalDistributorPlugin capitalDistributorPlugin;
     AllocatorStrategyMock strategy;
     MintableERC20 token;
+    ERC4626Mock vaultToSendTokens;
+    VaultDepositPayoutActionBuilder vaultDepositActionBuilder;
 
     /// @dev A function invoked before each test case is run.
     function setUp() public virtual {
@@ -26,6 +30,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         capitalDistributorPlugin = CapitalDistributorPlugin(pluginAddress[0]);
         token = new MintableERC20();
         strategy = new AllocatorStrategyMock(createdDAO, 1 days, true);
+        vaultToSendTokens = new ERC4626Mock(address(token));
     }
 
     function test_CreateCampaign() public {
@@ -91,5 +96,30 @@ contract CapitalDistributorPluginTest is AragonTest {
         capitalDistributorPlugin.sendCampaignPayout(campaignId, alice, metadata);
         assertEq(token.balanceOf(address(createdDAO)), 0 ether, "DAO has funds");
         assertEq(token.balanceOf(alice), 1 ether, "Alice has funds");
+    }
+
+    function test_PayoutIsSentToVault() public {
+        token.mint(address(createdDAO), 1 ether);
+        vm.startPrank(address(createdDAO));
+        bytes memory metadata = "";
+
+        uint256 campaignId = 0;
+        vaultDepositActionBuilder = new VaultDepositPayoutActionBuilder(createdDAO);
+        vaultDepositActionBuilder.setCampaignVault(campaignId, address(vaultToSendTokens));
+
+        capitalDistributorPlugin.setCampaign(
+            campaignId,
+            metadata,
+            address(strategy),
+            address(0),
+            IERC20(token),
+            vaultDepositActionBuilder
+        );
+
+        assertEq(token.balanceOf(address(createdDAO)), 1 ether, "DAO doesn't have funds");
+        assertEq(token.balanceOf(alice), 0 ether, "Alice has funds");
+        capitalDistributorPlugin.sendCampaignPayout(campaignId, alice, metadata);
+        assertEq(token.balanceOf(address(createdDAO)), 0 ether, "DAO has funds");
+        assertEq(token.balanceOf(address(vaultToSendTokens)), 1 ether, "Vault has funds");
     }
 }
