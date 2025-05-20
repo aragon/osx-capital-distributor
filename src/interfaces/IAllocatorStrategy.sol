@@ -56,9 +56,15 @@ interface IAllocatorStrategy {
 
     /// @notice Checks if a specific account is eligible for a payout according to the strategy's rules
     /// and current state.
+    /// @param _campaignId The id of the campaign getting the payout from
     /// @param _account The address of the account to check for eligibility.
+    /// @param _auxData Strategy-specific auxiliary data. Pass `bytes("")` if not required by the strategy.
     /// @return eligible True if the account is eligible for a payout, false otherwise.
-    function isEligible(address _account) external view returns (bool eligible);
+    function isEligible(
+        uint256 _campaignId,
+        address _account,
+        bytes calldata _auxData
+    ) external view returns (bool eligible);
 
     /// @notice Retrieves the payout amount an account is entitled to based on the strategy.
     /// @dev This function calculates the potential payout. The actual claiming mechanism might be separate.

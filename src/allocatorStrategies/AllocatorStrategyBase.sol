@@ -45,7 +45,11 @@ abstract contract AllocatorStrategyBase is IAllocatorStrategy, DaoAuthorizable {
     }
 
     /// @inheritdoc IAllocatorStrategy
-    function isEligible(address _account) public view virtual override returns (bool eligible) {
+    function isEligible(
+        uint256 _campaignId,
+        address _account,
+        bytes calldata _auxData
+    ) public view virtual override returns (bool eligible) {
         // Placeholder logic; should be implemented by derived contracts
         return false;
     }

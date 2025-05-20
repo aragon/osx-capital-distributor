@@ -19,7 +19,11 @@ contract AllocatorStrategyMock is AllocatorStrategyBase {
     ) AllocatorStrategyBase(_dao, _epochDuration, _claimOpen) {}
 
     /// @inheritdoc IAllocatorStrategy
-    function isEligible(address _account) public view override returns (bool eligible) {
+    function isEligible(
+        uint256 _campaignId,
+        address _account,
+        bytes calldata _auxData
+    ) public view override returns (bool eligible) {
         return true; // Mock logic: always eligible
     }
 
