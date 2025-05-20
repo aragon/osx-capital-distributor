@@ -6,6 +6,7 @@ import {console2} from "forge-std/console2.sol";
 
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 
+import {IPayoutActionBuilder} from "../src/interfaces/IPayoutActionBuilder.sol";
 import {CapitalDistributorPlugin} from "../src/CapitalDistributorPlugin.sol";
 import {AragonTest} from "./helpers/AragonTest.sol";
 import {IAllocatorStrategy} from "../src/interfaces/IAllocatorStrategy.sol";
@@ -36,13 +37,21 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
         bytes memory metadata = "";
 
         vm.expectEmit();
-        emit CapitalDistributorPlugin.CampaignCreated(0, "", address(strategy), address(0), IERC20(token));
+        emit CapitalDistributorPlugin.CampaignCreated(
+            0,
+            "",
+            address(strategy),
+            address(0),
+            IERC20(token),
+            IPayoutActionBuilder(address(0))
+        );
         uint256 campaignId = capitalDistributorPlugin.setCampaign(
             0,
             metadata,
             address(strategy),
             address(0),
-            IERC20(token)
+            IERC20(token),
+            IPayoutActionBuilder(address(0))
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
@@ -57,7 +66,14 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
         bytes memory metadata = "";
 
         vm.expectRevert();
-        capitalDistributorPlugin.setCampaign(0, metadata, address(0), address(0), IERC20(token));
+        capitalDistributorPlugin.setCampaign(
+            0,
+            metadata,
+            address(0),
+            address(0),
+            IERC20(token),
+            IPayoutActionBuilder(address(0))
+        );
     }
 
     function test_PayoutIsSent() public {
@@ -71,7 +87,8 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
             metadata,
             address(strategy),
             address(0),
-            IERC20(token)
+            IERC20(token),
+            IPayoutActionBuilder(address(0))
         );
 
         CallBasedAllocatorStrategy.ActionCall memory isEligibleCall = CallBasedAllocatorStrategy.ActionCall(

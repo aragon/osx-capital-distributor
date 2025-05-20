@@ -13,6 +13,7 @@ import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 import {PluginUUPSUpgradeable} from "@aragon/commons/plugin/PluginUUPSUpgradeable.sol";
 
 import {IAllocatorStrategy} from "./interfaces/IAllocatorStrategy.sol";
+import {IPayoutActionBuilder} from "./interfaces/IPayoutActionBuilder.sol";
 
 /// @title OptimisticTokenVotingPlugin
 /// @author Aragon Association - 2023
@@ -38,6 +39,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         IAllocatorStrategy allocationStrategy;
         address vault;
         IERC20 token;
+        IPayoutActionBuilder defaultPayoutActionBuilder;
     }
 
     /**
@@ -45,7 +47,10 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
      * The public visibility automatically creates a getter function:
      * `function campaigns(uint256 _campaignId) external view returns (bytes memory metadataURI, address allocationStrategy, address vault)`
      */
-    mapping(uint256 => Campaign) public campaigns;
+    mapping(uint256 campaignId => Campaign) public campaigns;
+
+    mapping(uint256 campaignId => mapping(address recipient => IPayoutActionBuilder actionBuilder))
+        public campaignRecipientPayoutBuilders;
 
     /**
      * @notice Emitted when a campaign's details are created.
@@ -59,7 +64,8 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         bytes metadataURI,
         address indexed allocationStrategy,
         address indexed vault,
-        IERC20 token
+        IERC20 token,
+        IPayoutActionBuilder defaultPayoutActionBuilder
     );
 
     /// @notice Thrown if a date is out of bounds.
@@ -87,17 +93,26 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         bytes calldata _metadataURI,
         address _allocationStrategy,
         address _vault,
-        IERC20 _token
+        IERC20 _token,
+        IPayoutActionBuilder _defaultPayoutActionBuilder
     ) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) returns (uint256 id) {
         // Add appropriate access control
         campaigns[_campaignId] = Campaign({
             metadataURI: _metadataURI,
             allocationStrategy: IAllocatorStrategy(_allocationStrategy),
             vault: _vault,
-            token: _token
+            token: _token,
+            defaultPayoutActionBuilder: _defaultPayoutActionBuilder
         });
 
-        emit CampaignCreated(_campaignId, _metadataURI, _allocationStrategy, _vault, _token);
+        emit CampaignCreated(
+            _campaignId,
+            _metadataURI,
+            _allocationStrategy,
+            _vault,
+            _token,
+            _defaultPayoutActionBuilder
+        );
         return _campaignId;
     }
 
@@ -143,10 +158,21 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
 
         amountToSend = campaign.allocationStrategy.setPayoutAmount(_campaignId, _receiver, _auxData);
 
-        Action[] memory actions = new Action[](1);
+        Action[] memory actions;
+        if (address(campaign.defaultPayoutActionBuilder) == address(0)) {
+            actions = new Action[](1);
+            actions[0].to = address(campaign.token);
+            actions[0].data = abi.encodeCall(IERC20.transfer, (_receiver, amountToSend));
+        } else {
+            actions = campaign.defaultPayoutActionBuilder.buildActions(
+                campaign.token,
+                _receiver,
+                amountToSend,
+                msg.sender,
+                _campaignId
+            );
+        }
 
-        actions[0].to = address(campaign.token);
-        actions[0].data = abi.encodeCall(IERC20.transfer, (_receiver, amountToSend));
         // TODO: Change the call Id for something dynamic
         IExecutor(address(dao())).execute(bytes32(uint256(1)), actions, 0);
     }
