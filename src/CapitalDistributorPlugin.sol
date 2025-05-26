@@ -13,7 +13,7 @@ import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 import {PluginUUPSUpgradeable} from "@aragon/commons/plugin/PluginUUPSUpgradeable.sol";
 
 import {IAllocatorStrategy} from "./interfaces/IAllocatorStrategy.sol";
-import {IPayoutActionBuilder} from "./interfaces/IPayoutActionBuilder.sol";
+import {IPayoutActionEncoder} from "./interfaces/IPayoutActionEncoder.sol";
 
 /// @title OptimisticTokenVotingPlugin
 /// @author Aragon Association - 2023
@@ -33,14 +33,21 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
      * @param allocationStrategy The contract address responsible for determining allocation logic.
      * @param vault The contract address of the vault holding the assets for this campaign.
      * @param token The address of the token that will be used for the payouts
+     * @param defaultPayoutActionEncoder The logic to execute when claiming the payout
      */
     struct Campaign {
         bytes metadataURI;
         IAllocatorStrategy allocationStrategy;
         address vault;
         IERC20 token;
-        IPayoutActionBuilder defaultPayoutActionBuilder;
+        IPayoutActionEncoder defaultPayoutActionEncoder;
+        bool multipleClaimsAllowed;
     }
+
+    /**
+     * @notice Stores the amount claimed by a receiver for a specific campaign.
+     */
+    mapping(uint256 campaignId => mapping(address receiver => uint256 amount)) public claimed;
 
     /**
      * @notice Stores all campaign configurations, mapping a campaign ID to its Campaign struct.
@@ -49,8 +56,13 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
      */
     mapping(uint256 campaignId => Campaign) public campaigns;
 
-    mapping(uint256 campaignId => mapping(address recipient => IPayoutActionBuilder actionBuilder))
-        public campaignRecipientPayoutBuilders;
+    /**
+     * @notice Stores all campaign recipient payout encoders, mapping a campaign ID to its recipient payout encoders.
+     * The public visibility automatically creates a getter function:
+     * `function campaignRecipientPayoutEncoder(uint256 _campaignId, address _recipient) external view returns (IPayoutActionEncoder)`
+     */
+    mapping(uint256 campaignId => mapping(address recipient => IPayoutActionEncoder actionEncoder))
+        public campaignRecipientPayoutEncoder;
 
     /**
      * @notice Emitted when a campaign's details are created.
@@ -65,13 +77,14 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         address indexed allocationStrategy,
         address indexed vault,
         IERC20 token,
-        IPayoutActionBuilder defaultPayoutActionBuilder
+        IPayoutActionEncoder defaultPayoutActionEncoder
     );
 
     /// @notice Thrown if a date is out of bounds.
     /// @param limit The limit value.
     /// @param actual The actual value.
     error DateOutOfBounds(uint64 limit, uint64 actual);
+    error NoPayoutToClaim();
 
     /// @notice Initializes the component to be used by inheriting contracts.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
@@ -88,22 +101,25 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
      * @param _allocationStrategy The address of the allocation strategy contract.
      * @param _vault The address of the vault contract.
      */
-    function setCampaign(
+    function createCampaign(
         uint256 _campaignId,
         bytes calldata _metadataURI,
         address _allocationStrategy,
+        bytes calldata _allocationStrategyAuxData,
         address _vault,
         IERC20 _token,
-        IPayoutActionBuilder _defaultPayoutActionBuilder
+        IPayoutActionEncoder _defaultPayoutActionEncoder
     ) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) returns (uint256 id) {
-        // Add appropriate access control
-        campaigns[_campaignId] = Campaign({
-            metadataURI: _metadataURI,
-            allocationStrategy: IAllocatorStrategy(_allocationStrategy),
-            vault: _vault,
-            token: _token,
-            defaultPayoutActionBuilder: _defaultPayoutActionBuilder
-        });
+        // TODO: Add appropriate access control
+        Campaign storage campaign = campaigns[_campaignId];
+        campaign.metadataURI = _metadataURI;
+        campaign.allocationStrategy = IAllocatorStrategy(_allocationStrategy);
+        campaign.vault = _vault;
+        campaign.token = _token;
+        campaign.defaultPayoutActionEncoder = _defaultPayoutActionEncoder;
+
+        IAllocatorStrategy(_allocationStrategy).setAllocationCampaign(_campaignId, _allocationStrategyAuxData);
+        // TODO: Call the Encoder to setup the campaign on its end
 
         emit CampaignCreated(
             _campaignId,
@@ -111,15 +127,15 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
             _allocationStrategy,
             _vault,
             _token,
-            _defaultPayoutActionBuilder
+            _defaultPayoutActionEncoder
         );
         return _campaignId;
     }
 
     /**
-     * @notice Retrieves the full Campaign struct for a given campaign ID.
+     * @notice Retrieves the publicly accessible fields of a Campaign for a given campaign ID.
      * @param _campaignId The unique identifier for the campaign.
-     * @return The Campaign struct containing its metadataURI, allocationStrategy, and vault.
+     * @return The campaign details.
      */
     function getCampaign(uint256 _campaignId) public view returns (Campaign memory) {
         return campaigns[_campaignId];
@@ -139,7 +155,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     ) public view returns (uint256 amountToSend) {
         Campaign memory campaign = campaigns[_campaignId];
 
-        amountToSend = campaign.allocationStrategy.getPayoutAmount(_campaignId, _recipient, _auxData);
+        amountToSend = campaign.allocationStrategy.getClaimeableAmount(_campaignId, _recipient, _auxData);
     }
 
     /**
@@ -149,22 +165,29 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
      * @param _auxData The data needed by the strategy to calculate the payout
      * @return amountToSend The amount of tokens the recipient should get
      */
-    function sendCampaignPayout(
+    function claimCampaignPayout(
         uint256 _campaignId,
         address _receiver,
         bytes calldata _auxData
     ) public returns (uint256 amountToSend) {
+        // TODO: Check if the campaign allow for claiming multiple times
         Campaign memory campaign = campaigns[_campaignId];
 
-        amountToSend = campaign.allocationStrategy.setPayoutAmount(_campaignId, _receiver, _auxData);
+        // TODO: Try getting the storage of the strategy out
+        amountToSend = campaign.allocationStrategy.getClaimeableAmount(_campaignId, _receiver, _auxData);
+
+        // TODO Check if the amount claimed is greater than new claimeable
+        if (claimed[_campaignId][_receiver] >= amountToSend) {
+            revert NoPayoutToClaim();
+        }
 
         Action[] memory actions;
-        if (address(campaign.defaultPayoutActionBuilder) == address(0)) {
+        if (address(campaign.defaultPayoutActionEncoder) == address(0)) {
             actions = new Action[](1);
             actions[0].to = address(campaign.token);
             actions[0].data = abi.encodeCall(IERC20.transfer, (_receiver, amountToSend));
         } else {
-            actions = campaign.defaultPayoutActionBuilder.buildActions(
+            actions = campaign.defaultPayoutActionEncoder.buildActions(
                 campaign.token,
                 _receiver,
                 amountToSend,
@@ -173,8 +196,18 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
             );
         }
 
+        claimed[_campaignId][_receiver] += amountToSend;
+
         // TODO: Change the call Id for something dynamic
         IExecutor(address(dao())).execute(bytes32(uint256(1)), actions, 0);
+    }
+
+    /// @notice Returns the amount of tokens claimed by an account for a specific campaign.
+    /// @param _campaignId The ID of the campaign.
+    /// @param _account The address of the account.
+    /// @return amount The amount of tokens claimed.
+    function getClaimedAmount(uint256 _campaignId, address _account) public view returns (uint256 amount) {
+        return claimed[_campaignId][_account];
     }
 
     /// @notice Checks if this or the parent contract supports an interface by its ID.

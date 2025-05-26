@@ -92,13 +92,13 @@ contract AragonTest is Test {
         );
     }
 
-    function getDAOSettings() public view returns (DAOFactory.DAOSettings memory) {
+    function getDAOSettings() public pure returns (DAOFactory.DAOSettings memory) {
         return DAOFactory.DAOSettings(address(0), "", "capital-distributor", "");
     }
 
     function getPluginSettings(
         PluginRepo pluginRepo
-    ) public view returns (DAOFactory.PluginSettings[] memory pluginSettings) {
+    ) public pure returns (DAOFactory.PluginSettings[] memory pluginSettings) {
         bytes memory pluginSettingsData = bytes("");
         PluginRepo.Tag memory tag = PluginRepo.Tag(1, 1);
         pluginSettings = new DAOFactory.PluginSettings[](1);

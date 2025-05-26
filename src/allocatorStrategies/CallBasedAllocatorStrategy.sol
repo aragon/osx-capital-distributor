@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.29;
 
-import {console2} from "forge-std/console2.sol";
-
 import {IAllocatorStrategy} from "../interfaces/IAllocatorStrategy.sol";
 import {AllocatorStrategyBase} from "./AllocatorStrategyBase.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
@@ -21,10 +19,8 @@ contract CallBasedAllocatorStrategy is AllocatorStrategyBase {
     }
 
     struct AllocationCampaign {
-        bool multipleClaimsAllowed;
         ActionCall isEligibleAction;
         ActionCall getPayoutAmountAction;
-        mapping(address => uint256) allocated;
     }
 
     mapping(address plugin => mapping(uint256 campaignId => AllocationCampaign)) allocationCampaigns;
@@ -38,36 +34,37 @@ contract CallBasedAllocatorStrategy is AllocatorStrategyBase {
         bool _claimOpen
     ) AllocatorStrategyBase(_dao, _epochDuration, _claimOpen) {}
 
-    function setAllocationCampaign(
-        address _plugin,
-        uint256 _campaignId,
-        bool _multipleClaimsAllowed,
-        ActionCall calldata _isEligibleAction,
-        ActionCall calldata _getPayoutAmountAction
-    ) public {
+    function decodeAllocationCampaignParams(
+        bytes calldata _auxData
+    ) internal pure returns (ActionCall memory isEligibleAction, ActionCall memory getPayoutAmountAction) {
+        return abi.decode(_auxData, (ActionCall, ActionCall));
+    }
+
+    function setAllocationCampaign(uint256 _campaignId, bytes calldata _audData) public override {
+        // TODO: Revert when the aux data doesn't fit
+        // TODO: Ensure this call is being done by the plugin
+
+        address _plugin = msg.sender;
         if (allocationCampaigns[_plugin][_campaignId].isEligibleAction.to != address(0)) {
             revert AllocationCampaignAlreadyExists(_plugin, _campaignId);
         }
 
         AllocationCampaign storage campaign = allocationCampaigns[_plugin][_campaignId];
-        campaign.multipleClaimsAllowed = _multipleClaimsAllowed;
+
+        (
+            ActionCall memory _isEligibleAction,
+            ActionCall memory _getPayoutAmountAction
+        ) = decodeAllocationCampaignParams(_audData);
+
         campaign.isEligibleAction = _isEligibleAction;
         campaign.getPayoutAmountAction = _getPayoutAmountAction;
     }
 
-    /// @inheritdoc IAllocatorStrategy
-    function isEligible(
-        uint256 _campaignId,
-        address _account,
-        bytes calldata
-    ) public view override returns (bool eligible) {
+    function canClaim(uint256 _campaignId, address _account, bytes calldata) public view returns (bool eligible) {
         AllocationCampaign storage _allocationCampaign = allocationCampaigns[msg.sender][_campaignId];
         if (_allocationCampaign.getPayoutAmountAction.to == address(0)) return false;
 
-        if (_allocationCampaign.multipleClaimsAllowed == false && _allocationCampaign.allocated[_account] > 0)
-            return false;
-
-        // 3. Call if it's eligible
+        // Call if it's eligible
         if (_allocationCampaign.isEligibleAction.to == address(0)) return true;
         else {
             bytes memory callData = abi.encodeWithSelector(
@@ -81,12 +78,12 @@ contract CallBasedAllocatorStrategy is AllocatorStrategyBase {
     }
 
     /// @inheritdoc IAllocatorStrategy
-    function getPayoutAmount(
+    function getClaimeableAmount(
         uint256 _campaignId,
         address _account,
         bytes calldata _auxData
     ) public view override returns (uint256 amount) {
-        if (isEligible(_campaignId, _account, _auxData) == false) return 0;
+        if (canClaim(_campaignId, _account, _auxData) == false) return 0;
         AllocationCampaign storage _allocationCampaign = allocationCampaigns[msg.sender][_campaignId];
 
         bytes memory callData = abi.encodeWithSelector(

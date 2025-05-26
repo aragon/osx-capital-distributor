@@ -45,33 +45,23 @@ abstract contract AllocatorStrategyBase is IAllocatorStrategy, DaoAuthorizable {
     }
 
     /// @inheritdoc IAllocatorStrategy
-    function isEligible(
+    function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) public virtual override;
+
+    /// @inheritdoc IAllocatorStrategy
+    function getClaimeableAmount(
         uint256 _campaignId,
         address _account,
         bytes calldata _auxData
-    ) public view virtual override returns (bool eligible) {
-        // Placeholder logic; should be implemented by derived contracts
-        return false;
-    }
+    ) public view virtual override returns (uint256 amount);
 
     /// @inheritdoc IAllocatorStrategy
-    function getPayoutAmount(
-        uint256 _campaignId,
-        address _account,
-        bytes calldata _auxData
-    ) public view virtual override returns (uint256 amount) {
-        // Placeholder logic; should be implemented by derived contracts
-        return 0;
-    }
-
-    /// @inheritdoc IAllocatorStrategy
-    function setPayoutAmount(
+    function setClaimeableAmount(
         uint256 _campaignId,
         address _account,
         bytes calldata _auxData
     ) public virtual override returns (uint256 amount) {
         // Placeholder logic; should be implemented by derived contracts
-        amount = getPayoutAmount(_campaignId, _account, _auxData);
+        amount = getClaimeableAmount(_campaignId, _account, _auxData);
         payouts[_campaignId][_account] = amount;
         return amount;
     }

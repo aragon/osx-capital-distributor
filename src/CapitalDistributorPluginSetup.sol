@@ -145,7 +145,5 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
     }
 
     /// @notice Decodes the given byte array into the original installation parameters
-    function decodeInstallationParams(bytes memory _data) public pure {
-        // TODO
-    }
+    function decodeInstallationParams(bytes memory _data) public pure {}
 }

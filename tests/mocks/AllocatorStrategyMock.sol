@@ -19,20 +19,12 @@ contract AllocatorStrategyMock is AllocatorStrategyBase {
     ) AllocatorStrategyBase(_dao, _epochDuration, _claimOpen) {}
 
     /// @inheritdoc IAllocatorStrategy
-    function isEligible(
-        uint256 _campaignId,
-        address _account,
-        bytes calldata _auxData
-    ) public view override returns (bool eligible) {
-        return true; // Mock logic: always eligible
+    function setAllocationCampaign(uint256, bytes calldata) public pure override {
+        return;
     }
 
     /// @inheritdoc IAllocatorStrategy
-    function getPayoutAmount(
-        uint256 _campaignId,
-        address _account,
-        bytes calldata _auxData
-    ) public view override returns (uint256 amount) {
+    function getClaimeableAmount(uint256, address, bytes calldata) public pure override returns (uint256 amount) {
         return 1 ether; // Mock logic: fixed payout of 1 ether
     }
 

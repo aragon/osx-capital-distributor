@@ -54,17 +54,10 @@ interface IAllocatorStrategy {
     /// @return isOpen True if claims can be made at the time of calling, false otherwise.
     function isClaimOpen() external view returns (bool isOpen);
 
-    /// @notice Checks if a specific account is eligible for a payout according to the strategy's rules
-    /// and current state.
+    /// @notice Called by the plugin only when creating a new campaign
     /// @param _campaignId The id of the campaign getting the payout from
-    /// @param _account The address of the account to check for eligibility.
     /// @param _auxData Strategy-specific auxiliary data. Pass `bytes("")` if not required by the strategy.
-    /// @return eligible True if the account is eligible for a payout, false otherwise.
-    function isEligible(
-        uint256 _campaignId,
-        address _account,
-        bytes calldata _auxData
-    ) external view returns (bool eligible);
+    function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) external;
 
     /// @notice Retrieves the payout amount an account is entitled to based on the strategy.
     /// @dev This function calculates the potential payout. The actual claiming mechanism might be separate.
@@ -74,7 +67,7 @@ interface IAllocatorStrategy {
     /// @param _account The address of the account for which to calculate the payout.
     /// @param _auxData Strategy-specific auxiliary data. Pass `bytes("")` if not required by the strategy.
     /// @return amount The amount of tokens/value the account is eligible to receive.
-    function getPayoutAmount(
+    function getClaimeableAmount(
         uint256 _campaignId,
         address _account,
         bytes calldata _auxData
@@ -88,7 +81,7 @@ interface IAllocatorStrategy {
     /// @param _account The address of the account for which to calculate the payout.
     /// @param _auxData Strategy-specific auxiliary data. Pass `bytes("")` if not required by the strategy.
     /// @return amount The amount of tokens/value the account is eligible to receive.
-    function setPayoutAmount(
+    function setClaimeableAmount(
         uint256 _campaignId,
         address _account,
         bytes calldata _auxData

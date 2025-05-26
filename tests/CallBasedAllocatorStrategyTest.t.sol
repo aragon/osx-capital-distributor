@@ -6,7 +6,7 @@ import {console2} from "forge-std/console2.sol";
 
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 
-import {IPayoutActionBuilder} from "../src/interfaces/IPayoutActionBuilder.sol";
+import {IPayoutActionEncoder} from "../src/interfaces/IPayoutActionEncoder.sol";
 import {CapitalDistributorPlugin} from "../src/CapitalDistributorPlugin.sol";
 import {AragonTest} from "./helpers/AragonTest.sol";
 import {IAllocatorStrategy} from "../src/interfaces/IAllocatorStrategy.sol";
@@ -43,15 +43,16 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
             address(strategy),
             address(0),
             IERC20(token),
-            IPayoutActionBuilder(address(0))
+            IPayoutActionEncoder(address(0))
         );
-        uint256 campaignId = capitalDistributorPlugin.setCampaign(
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
             0,
             metadata,
             address(strategy),
+            getAllocationCampaignAuxData(voter),
             address(0),
             IERC20(token),
-            IPayoutActionBuilder(address(0))
+            IPayoutActionEncoder(address(0))
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
@@ -66,13 +67,14 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
         bytes memory metadata = "";
 
         vm.expectRevert();
-        capitalDistributorPlugin.setCampaign(
+        capitalDistributorPlugin.createCampaign(
             0,
             metadata,
             address(0),
+            metadata, // Doesn't have to be metadata, just empty bytes
             address(0),
             IERC20(token),
-            IPayoutActionBuilder(address(0))
+            IPayoutActionEncoder(address(0))
         );
     }
 
@@ -82,41 +84,39 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
 
-        uint256 campaignId = capitalDistributorPlugin.setCampaign(
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
             0,
             metadata,
             address(strategy),
+            getAllocationCampaignAuxData(voter),
             address(0),
             IERC20(token),
-            IPayoutActionBuilder(address(0))
+            IPayoutActionEncoder(address(0))
         );
-
-        CallBasedAllocatorStrategy.ActionCall memory isEligibleCall = CallBasedAllocatorStrategy.ActionCall(
-            address(voter),
-            voter.isVoting.selector
-        );
-
-        CallBasedAllocatorStrategy.ActionCall memory getPayoutAmountCall = CallBasedAllocatorStrategy.ActionCall(
-            address(voter),
-            voter.balanceOf.selector
-        );
-
         // We create the campaign in the allocation strategy as well
-        strategy.setAllocationCampaign(
-            address(capitalDistributorPlugin),
-            campaignId,
-            false,
-            isEligibleCall,
-            getPayoutAmountCall
-        );
+        vm.stopPrank();
+        vm.startPrank(address(capitalDistributorPlugin));
 
         assertEq(token.balanceOf(address(createdDAO)), 1 ether, "DAO doesn't have funds");
         assertEq(token.balanceOf(alice), 0 ether, "Alice has funds");
         assertEq(voter.balanceOf(alice), 1 ether, "Alice hasn't voter funds");
 
-        capitalDistributorPlugin.sendCampaignPayout(campaignId, alice, metadata);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, metadata);
 
         assertEq(token.balanceOf(address(createdDAO)), 0 ether, "DAO has funds");
         assertEq(token.balanceOf(alice), 1 ether, "Alice has funds");
+    }
+
+    function getAllocationCampaignAuxData(MockVoter _voter) public pure returns (bytes memory auxData) {
+        CallBasedAllocatorStrategy.ActionCall memory isEligibleCall = CallBasedAllocatorStrategy.ActionCall(
+            address(_voter),
+            _voter.isVoting.selector
+        );
+
+        CallBasedAllocatorStrategy.ActionCall memory getPayoutAmountCall = CallBasedAllocatorStrategy.ActionCall(
+            address(_voter),
+            _voter.balanceOf.selector
+        );
+        auxData = abi.encode(isEligibleCall, getPayoutAmountCall);
     }
 }

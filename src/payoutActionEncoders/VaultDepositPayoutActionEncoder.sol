@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.29;
 
-import {IPayoutActionBuilder} from "../interfaces/IPayoutActionBuilder.sol";
+import {IPayoutActionEncoder} from "../interfaces/IPayoutActionEncoder.sol";
 import {Action} from "@aragon/commons/executors/IExecutor.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {DaoAuthorizable} from "@aragon/commons/permission/auth/DaoAuthorizable.sol";
 
 /// @title IVault
-/// @notice A generic interface for a vault that this builder can interact with.
+/// @notice A generic interface for a vault that this encoder can interact with.
 /// Assumes a deposit function that takes a recipient and an amount.
 interface IVault {
     function deposit(uint256 _amount, address _recipient) external;
 }
 
-/// @title VaultDepositPayoutActionBuilder
-/// @notice An IPayoutActionBuilder that approves tokens for a campaign-specific vault and then calls its deposit function.
-/// @dev This contract is DaoAuthorizable. The DAO controlling this builder instance
+/// @title VaultDepositPayoutActionEncoder
+/// @notice An IPayoutActionEncoder that approves tokens for a campaign-specific vault and then calls its deposit function.
+/// @dev This contract is DaoAuthorizable. The DAO controlling this encoder instance
 ///      must grant permission for `setCampaignVault`.
-contract VaultDepositPayoutActionBuilder is IPayoutActionBuilder, DaoAuthorizable {
+contract VaultDepositPayoutActionEncoder is IPayoutActionEncoder, DaoAuthorizable {
     /// @notice Permission ID required to call `setCampaignVault`.
     bytes32 public constant SET_VAULT_PERMISSION_ID = keccak256("SET_VAULT_PERMISSION");
 
@@ -39,7 +39,7 @@ contract VaultDepositPayoutActionBuilder is IPayoutActionBuilder, DaoAuthorizabl
 
     /**
      * @notice Constructor to initialize DaoAuthorizable with the DAO.
-     * @param _dao The IDAO interface of the DAO that will manage permissions for this builder.
+     * @param _dao The IDAO interface of the DAO that will manage permissions for this encoder.
      */
     constructor(IDAO _dao) DaoAuthorizable(_dao) {}
 
@@ -59,7 +59,7 @@ contract VaultDepositPayoutActionBuilder is IPayoutActionBuilder, DaoAuthorizabl
     }
 
     /**
-     * @inheritdoc IPayoutActionBuilder
+     * @inheritdoc IPayoutActionEncoder
      * @dev This implementation creates two actions:
      *      1. Approve the campaign-specific `vaultAddress` to spend `_amount` of `_token`.
      *      2. Call `deposit(_recipient, _amount)` on that `vaultAddress`.
@@ -70,7 +70,7 @@ contract VaultDepositPayoutActionBuilder is IPayoutActionBuilder, DaoAuthorizabl
         IERC20 _token,
         address _recipient,
         uint256 _amount,
-        address, // _caller - not used in this specific builder logic
+        address, // _caller - not used in this specific encoder logic
         uint256 _campaignId
     ) external view override returns (Action[] memory actions) {
         if (_amount == 0) {
