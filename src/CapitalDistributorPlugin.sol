@@ -108,7 +108,8 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         bytes calldata _allocationStrategyAuxData,
         address _vault,
         IERC20 _token,
-        IPayoutActionEncoder _defaultPayoutActionEncoder
+        IPayoutActionEncoder _defaultPayoutActionEncoder,
+        bytes calldata _actionEncoderInitializationAuxData
     ) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) returns (uint256 id) {
         // TODO: Add appropriate access control
         Campaign storage campaign = campaigns[_campaignId];
@@ -119,7 +120,10 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         campaign.defaultPayoutActionEncoder = _defaultPayoutActionEncoder;
 
         IAllocatorStrategy(_allocationStrategy).setAllocationCampaign(_campaignId, _allocationStrategyAuxData);
-        // TODO: Call the Encoder to setup the campaign on its end
+
+        if (address(_defaultPayoutActionEncoder) != address(0)) {
+            campaign.defaultPayoutActionEncoder.setupCampaign(_campaignId, _actionEncoderInitializationAuxData);
+        }
 
         emit CampaignCreated(
             _campaignId,
@@ -170,14 +174,14 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         address _receiver,
         bytes calldata _auxData
     ) public returns (uint256 amountToSend) {
-        // TODO: Check if the campaign allow for claiming multiple times
         Campaign memory campaign = campaigns[_campaignId];
 
-        // TODO: Try getting the storage of the strategy out
         amountToSend = campaign.allocationStrategy.getClaimeableAmount(_campaignId, _receiver, _auxData);
 
-        // TODO Check if the amount claimed is greater than new claimeable
-        if (claimed[_campaignId][_receiver] >= amountToSend) {
+        if (
+            claimed[_campaignId][_receiver] >= amountToSend ||
+            (campaign.multipleClaimsAllowed == false && claimed[_campaignId][_receiver] > 0)
+        ) {
             revert NoPayoutToClaim();
         }
 

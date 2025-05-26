@@ -52,7 +52,8 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
             getAllocationCampaignAuxData(voter),
             address(0),
             IERC20(token),
-            IPayoutActionEncoder(address(0))
+            IPayoutActionEncoder(address(0)),
+            metadata
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
@@ -74,7 +75,8 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
             metadata, // Doesn't have to be metadata, just empty bytes
             address(0),
             IERC20(token),
-            IPayoutActionEncoder(address(0))
+            IPayoutActionEncoder(address(0)),
+            metadata
         );
     }
 
@@ -91,7 +93,8 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
             getAllocationCampaignAuxData(voter),
             address(0),
             IERC20(token),
-            IPayoutActionEncoder(address(0))
+            IPayoutActionEncoder(address(0)),
+            metadata
         );
         // We create the campaign in the allocation strategy as well
         vm.stopPrank();

@@ -53,7 +53,8 @@ contract CapitalDistributorPluginTest is AragonTest {
             metadata, // Doesn't have to be metadata, just empty bytes
             address(0),
             IERC20(token),
-            IPayoutActionEncoder(address(0))
+            IPayoutActionEncoder(address(0)),
+            metadata // Doesn't have to be metadata, just empty bytes
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
@@ -75,7 +76,8 @@ contract CapitalDistributorPluginTest is AragonTest {
             metadata, // Doesn't have to be metadata, just empty bytes
             address(0),
             IERC20(token),
-            IPayoutActionEncoder(address(0))
+            IPayoutActionEncoder(address(0)),
+            metadata // Doesn't have to be metadata, just empty bytes
         );
     }
 
@@ -91,7 +93,8 @@ contract CapitalDistributorPluginTest is AragonTest {
             metadata, // Doesn't have to be metadata, just empty bytes
             address(0),
             IERC20(token),
-            IPayoutActionEncoder(address(0))
+            IPayoutActionEncoder(address(0)),
+            metadata // Doesn't have to be metadata, just empty bytes
         );
 
         assertEq(token.balanceOf(address(createdDAO)), 1 ether, "DAO doesn't have funds");
@@ -108,7 +111,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         uint256 campaignId = 0;
         vaultDepositActionEncoder = new VaultDepositPayoutActionEncoder(createdDAO);
-        vaultDepositActionEncoder.setCampaignVault(campaignId, address(vaultToSendTokens));
+        // vaultDepositActionEncoder.setCampaignVault(campaignId, address(vaultToSendTokens));
 
         capitalDistributorPlugin.createCampaign(
             campaignId,
@@ -117,7 +120,8 @@ contract CapitalDistributorPluginTest is AragonTest {
             metadata, // Doesn't have to be metadata, just empty bytes
             address(0),
             IERC20(token),
-            vaultDepositActionEncoder
+            vaultDepositActionEncoder,
+            abi.encode(address(vaultToSendTokens))
         );
 
         assertEq(token.balanceOf(address(createdDAO)), 1 ether, "DAO doesn't have funds");

@@ -43,19 +43,16 @@ contract VaultDepositPayoutActionEncoder is IPayoutActionEncoder, DaoAuthorizabl
      */
     constructor(IDAO _dao) DaoAuthorizable(_dao) {}
 
-    /**
-     * @notice Sets or updates the vault address for a specific campaign.
-     * @dev Requires `SET_VAULT_PERMISSION_ID` granted to the caller by the DAO.
-     * @param _campaignId The ID of the campaign.
-     * @param _vaultAddress The address of the vault contract for this campaign.
-     */
-    function setCampaignVault(uint256 _campaignId, address _vaultAddress) external {
-        if (msg.sender != address(dao())) revert OnlyDAO();
-        if (_vaultAddress == address(0)) {
+    // @inheritdoc IPayoutActionEncoder
+    function setupCampaign(uint256 _campaignId, bytes calldata _auxData) external override {
+        // TODO: Add the permission so only the plugin can call this
+
+        address vaultAddress = abi.decode(_auxData, (address));
+        if (vaultAddress == address(0)) {
             revert ZeroAddressNotAllowed();
         }
-        campaignVaults[_campaignId] = _vaultAddress;
-        emit CampaignVaultSet(_campaignId, _vaultAddress, msg.sender);
+        campaignVaults[_campaignId] = vaultAddress;
+        emit CampaignVaultSet(_campaignId, vaultAddress, msg.sender);
     }
 
     /**
