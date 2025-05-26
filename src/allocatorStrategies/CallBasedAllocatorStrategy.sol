@@ -40,9 +40,8 @@ contract CallBasedAllocatorStrategy is AllocatorStrategyBase {
         return abi.decode(_auxData, (ActionCall, ActionCall));
     }
 
-    function setAllocationCampaign(uint256 _campaignId, bytes calldata _audData) public override {
-        // TODO: Revert when the aux data doesn't fit
-        // TODO: Ensure this call is being done by the plugin
+    function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) public override {
+        // TODO: Ensure this call is being done by the plugin with a permission
 
         address _plugin = msg.sender;
         if (allocationCampaigns[_plugin][_campaignId].isEligibleAction.to != address(0)) {
@@ -54,7 +53,7 @@ contract CallBasedAllocatorStrategy is AllocatorStrategyBase {
         (
             ActionCall memory _isEligibleAction,
             ActionCall memory _getPayoutAmountAction
-        ) = decodeAllocationCampaignParams(_audData);
+        ) = decodeAllocationCampaignParams(_auxData);
 
         campaign.isEligibleAction = _isEligibleAction;
         campaign.getPayoutAmountAction = _getPayoutAmountAction;
