@@ -11,6 +11,7 @@ import {CapitalDistributorPlugin} from "../src/CapitalDistributorPlugin.sol";
 import {AragonTest} from "./helpers/AragonTest.sol";
 import {IAllocatorStrategy} from "../src/interfaces/IAllocatorStrategy.sol";
 import {AllocatorStrategyMock} from "./mocks/AllocatorStrategyMock.sol";
+import {IAllocatorStrategyFactory} from "../src/interfaces/IAllocatorStrategyFactory.sol";
 import {CallBasedAllocatorStrategy} from "../src/allocatorStrategies/CallBasedAllocatorStrategy.sol";
 
 import {MintableERC20} from "./mocks/MintableERC20.sol";
@@ -28,54 +29,53 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
         // Instantiate the contract-under-test.
         capitalDistributorPlugin = CapitalDistributorPlugin(pluginAddress[0]);
         token = new MintableERC20();
-        strategy = new CallBasedAllocatorStrategy(createdDAO, 1 days, true);
+        strategy = new CallBasedAllocatorStrategy();
         voter = new MockVoter();
+        vm.startPrank(address(createdDAO));
+        allocatorStrategyFactory.registerStrategyType(toBytes32("call-based-strategy"), address(strategy), "");
     }
 
     function test_CreateCampaign() public {
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
+        IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
+            .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
 
-        vm.expectEmit();
-        emit CapitalDistributorPlugin.CampaignCreated(
-            0,
-            "",
-            address(strategy),
-            address(0),
-            IERC20(token),
-            IPayoutActionEncoder(address(0))
-        );
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             0,
             metadata,
-            address(strategy),
+            toBytes32("call-based-strategy"),
+            allocatorDeploymentParams,
             getAllocationCampaignAuxData(voter),
             address(0),
             IERC20(token),
-            IPayoutActionEncoder(address(0)),
+            bytes32(0),
             metadata
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
 
         assertEq(campaign.metadataURI, metadata, "Metadata not equal");
-        assertEq(address(campaign.allocationStrategy), address(strategy), "AllocationStrategy not equal");
+        assertTrue(address(campaign.allocationStrategy) != address(0), "Allocation strategy not set");
         assertEq(address(campaign.vault), address(0), "Vault not equal");
     }
 
     function test_CannotCreateCampaignWithoutPermissions() public {
         vm.startPrank(address(alice));
         bytes memory metadata = "";
+        IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
+            .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
             0,
             metadata,
-            address(0),
-            metadata, // Doesn't have to be metadata, just empty bytes
+            toBytes32("call-based-strategy"),
+            allocatorDeploymentParams,
+            getAllocationCampaignAuxData(voter),
             address(0),
             IERC20(token),
-            IPayoutActionEncoder(address(0)),
+            bytes32(0),
             metadata
         );
     }
@@ -85,15 +85,18 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
         voter.mint(alice, 1 ether);
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
+        IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
+            .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             0,
             metadata,
-            address(strategy),
+            toBytes32("call-based-strategy"),
+            allocatorDeploymentParams,
             getAllocationCampaignAuxData(voter),
             address(0),
             IERC20(token),
-            IPayoutActionEncoder(address(0)),
+            bytes32(0),
             metadata
         );
         // We create the campaign in the allocation strategy as well

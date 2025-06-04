@@ -2,12 +2,12 @@
 pragma solidity ^0.8.29;
 
 import {IAllocatorStrategy} from "../interfaces/IAllocatorStrategy.sol";
-import {DaoAuthorizable} from "@aragon/commons/permission/auth/DaoAuthorizable.sol";
+import {DaoAuthorizableUpgradeable} from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 
 /// @title AllocatorStrategyBase
 /// @notice Base contract implementing the IAllocatorStrategy interface. All natspec is inherited.
-abstract contract AllocatorStrategyBase is IAllocatorStrategy, DaoAuthorizable {
+abstract contract AllocatorStrategyBase is IAllocatorStrategy, DaoAuthorizableUpgradeable {
     // =========================================================================
     // State Variables
     // =========================================================================
@@ -19,8 +19,21 @@ abstract contract AllocatorStrategyBase is IAllocatorStrategy, DaoAuthorizable {
     // =========================================================================
     // Constructor
     // =========================================================================
+    constructor() {
+        // Disable initializers to prevent implementation contract from being initialized
+        _disableInitializers();
+    }
 
-    constructor(IDAO _dao, uint256 _epochDuration, bool _claimOpen) DaoAuthorizable(_dao) {
+    // =========================================================================
+    // Initializer
+    // =========================================================================
+
+    /// @notice Initializes the strategy with the given parameters
+    /// @param _dao The DAO that will control this strategy
+    /// @param _epochDuration The duration of each epoch in seconds
+    /// @param _claimOpen Whether claims are initially open
+    function initialize(IDAO _dao, uint256 _epochDuration, bool _claimOpen) public virtual initializer {
+        __DaoAuthorizableUpgradeable_init(_dao);
         epochDuration = _epochDuration;
         claimOpen = _claimOpen;
     }

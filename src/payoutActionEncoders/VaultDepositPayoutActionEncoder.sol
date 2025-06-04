@@ -5,7 +5,7 @@ import {IPayoutActionEncoder} from "../interfaces/IPayoutActionEncoder.sol";
 import {Action} from "@aragon/commons/executors/IExecutor.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {DaoAuthorizable} from "@aragon/commons/permission/auth/DaoAuthorizable.sol";
+import {DaoAuthorizableUpgradeable} from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
 
 /// @title IVault
 /// @notice A generic interface for a vault that this encoder can interact with.
@@ -18,7 +18,7 @@ interface IVault {
 /// @notice An IPayoutActionEncoder that approves tokens for a campaign-specific vault and then calls its deposit function.
 /// @dev This contract is DaoAuthorizable. The DAO controlling this encoder instance
 ///      must grant permission for `setCampaignVault`.
-contract VaultDepositPayoutActionEncoder is IPayoutActionEncoder, DaoAuthorizable {
+contract VaultDepositPayoutActionEncoder is IPayoutActionEncoder, DaoAuthorizableUpgradeable {
     /// @notice Permission ID required to call `setCampaignVault`.
     bytes32 public constant SET_VAULT_PERMISSION_ID = keccak256("SET_VAULT_PERMISSION");
 
@@ -39,9 +39,17 @@ contract VaultDepositPayoutActionEncoder is IPayoutActionEncoder, DaoAuthorizabl
 
     /**
      * @notice Constructor to initialize DaoAuthorizable with the DAO.
-     * @param _dao The IDAO interface of the DAO that will manage permissions for this encoder.
      */
-    constructor(IDAO _dao) DaoAuthorizable(_dao) {}
+    constructor() {
+        // Disable initializers to prevent implementation contract from being initialized
+        _disableInitializers();
+    }
+
+    /// @notice Initializes the strategy with the given parameters
+    /// @param _dao The DAO that will control this strategy
+    function initialize(IDAO _dao, bytes calldata) public virtual initializer {
+        __DaoAuthorizableUpgradeable_init(_dao);
+    }
 
     // @inheritdoc IPayoutActionEncoder
     function setupCampaign(uint256 _campaignId, bytes calldata _auxData) external override {

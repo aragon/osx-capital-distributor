@@ -28,12 +28,6 @@ contract CallBasedAllocatorStrategy is AllocatorStrategyBase {
     error AllocationCampaignAlreadyExists(address plugin, uint256 campaignId);
     error CallFailed(address plugin, uint256 campaignId, address account);
 
-    constructor(
-        IDAO _dao,
-        uint256 _epochDuration,
-        bool _claimOpen
-    ) AllocatorStrategyBase(_dao, _epochDuration, _claimOpen) {}
-
     function decodeAllocationCampaignParams(
         bytes calldata _auxData
     ) internal pure returns (ActionCall memory isEligibleAction, ActionCall memory getPayoutAmountAction) {

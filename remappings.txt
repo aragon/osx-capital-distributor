@@ -15,3 +15,5 @@ forge-std/=node_modules/forge-std/src/
 
 @ensdomains/ens-contracts/=node_modules/@ensdomains/ens-contracts/
 @ensdomains/buffer/=node_modules/@ensdomains/buffer/
+
+@prb/math/=node_modules/@prb/math/

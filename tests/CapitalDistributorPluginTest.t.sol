@@ -12,6 +12,7 @@ import {AragonTest} from "./helpers/AragonTest.sol";
 import {IAllocatorStrategy} from "../src/interfaces/IAllocatorStrategy.sol";
 import {AllocatorStrategyMock} from "./mocks/AllocatorStrategyMock.sol";
 import {VaultDepositPayoutActionEncoder} from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
+import {IAllocatorStrategyFactory} from "../src/interfaces/IAllocatorStrategyFactory.sol";
 
 import {MintableERC20} from "./mocks/MintableERC20.sol";
 import {ERC4626Mock} from "./mocks/ERC4626Mock.sol";
@@ -29,7 +30,10 @@ contract CapitalDistributorPluginTest is AragonTest {
         // Instantiate the contract-under-test.
         capitalDistributorPlugin = CapitalDistributorPlugin(pluginAddress[0]);
         token = new MintableERC20();
-        strategy = new AllocatorStrategyMock(createdDAO, 1 days, true);
+        strategy = new AllocatorStrategyMock();
+        // Add the strategy to the StrategyFactory
+        allocatorStrategyFactory.registerStrategyType(toBytes32("mock-strategy"), address(strategy), "");
+
         vaultToSendTokens = new ERC4626Mock(address(token));
     }
 
@@ -37,46 +41,44 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
 
-        vm.expectEmit();
-        emit CapitalDistributorPlugin.CampaignCreated(
-            0,
-            "",
-            address(strategy),
-            address(0),
-            IERC20(token),
-            IPayoutActionEncoder(address(0))
-        );
+        IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
+            .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
+
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             0,
             metadata,
-            address(strategy),
+            toBytes32("mock-strategy"),
+            allocatorDeploymentParams,
             metadata, // Doesn't have to be metadata, just empty bytes
             address(0),
             IERC20(token),
-            IPayoutActionEncoder(address(0)),
+            bytes32(0),
             metadata // Doesn't have to be metadata, just empty bytes
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
 
         assertEq(campaign.metadataURI, metadata, "Metadata not equal");
-        assertEq(address(campaign.allocationStrategy), address(strategy), "AllocationStrategy not equal");
+        assertTrue(address(campaign.allocationStrategy) != address(0), "Allocation strategy not set");
         assertEq(address(campaign.vault), address(0), "Vault not equal");
     }
 
     function test_CannotCreateCampaignWithoutPermissions() public {
         vm.startPrank(address(alice));
         bytes memory metadata = "";
+        IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
+            .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
             0,
             metadata,
-            address(0),
+            toBytes32("mock-strategy"),
+            allocatorDeploymentParams,
             metadata, // Doesn't have to be metadata, just empty bytes
             address(0),
             IERC20(token),
-            IPayoutActionEncoder(address(0)),
+            bytes32(0),
             metadata // Doesn't have to be metadata, just empty bytes
         );
     }
@@ -85,15 +87,18 @@ contract CapitalDistributorPluginTest is AragonTest {
         token.mint(address(createdDAO), 1 ether);
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
+        IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
+            .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             0,
             metadata,
-            address(strategy),
+            toBytes32("mock-strategy"),
+            allocatorDeploymentParams,
             metadata, // Doesn't have to be metadata, just empty bytes
             address(0),
             IERC20(token),
-            IPayoutActionEncoder(address(0)),
+            bytes32(0),
             metadata // Doesn't have to be metadata, just empty bytes
         );
 
@@ -108,19 +113,20 @@ contract CapitalDistributorPluginTest is AragonTest {
         token.mint(address(createdDAO), 1 ether);
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
+        IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
+            .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         uint256 campaignId = 0;
-        vaultDepositActionEncoder = new VaultDepositPayoutActionEncoder(createdDAO);
-        // vaultDepositActionEncoder.setCampaignVault(campaignId, address(vaultToSendTokens));
 
         capitalDistributorPlugin.createCampaign(
             campaignId,
             metadata,
-            address(strategy),
+            toBytes32("mock-strategy"),
+            allocatorDeploymentParams,
             metadata, // Doesn't have to be metadata, just empty bytes
             address(0),
             IERC20(token),
-            vaultDepositActionEncoder,
+            toBytes32("vault-deposit-encoder"),
             abi.encode(address(vaultToSendTokens))
         );
 

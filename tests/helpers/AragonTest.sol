@@ -16,6 +16,9 @@ import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 
 import {CapitalDistributorPlugin} from "../../src/CapitalDistributorPlugin.sol";
 import {CapitalDistributorPluginSetup} from "../../src/CapitalDistributorPluginSetup.sol";
+import {AllocatorStrategyFactory} from "../../src/AllocatorStrategyFactory.sol";
+import {ActionEncoderFactory} from "../../src/ActionEncoderFactory.sol";
+import {VaultDepositPayoutActionEncoder} from "../../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
 
 contract AragonTest is Test {
     // Actors
@@ -34,6 +37,9 @@ contract AragonTest is Test {
 
     bytes internal constant EMPTY_BYTES = "";
     ProtocolFactory.Deployment public deployment;
+    AllocatorStrategyFactory public allocatorStrategyFactory;
+    ActionEncoderFactory public actionEncoderFactory;
+
     address[] pluginAddress;
 
     DAO createdDAO;
@@ -60,14 +66,18 @@ contract AragonTest is Test {
         // 3. Defining the DAO Settings
         DAOFactory.DAOSettings memory daoSettings = getDAOSettings();
 
-        // 4. Defining the plugin settings
+        // 4. Deploying the Allocator Strategy Factory
+        allocatorStrategyFactory = new AllocatorStrategyFactory();
+        actionEncoderFactory = new ActionEncoderFactory();
+
+        // 5. Defining the plugin settings
         DAOFactory.PluginSettings[] memory pluginSettings = getPluginSettings(pluginRepo);
 
-        // 5. Deploying the DAO
+        // 6. Deploying the DAO
         vm.recordLogs();
         (createdDAO, ) = DAOFactory(deployment.daoFactory).createDao(daoSettings, pluginSettings);
 
-        // 6. Getting the Plugin Address
+        // 7. Getting the Plugin Address
         Vm.Log[] memory logEntries = vm.getRecordedLogs();
 
         for (uint256 i = 0; i < logEntries.length; i++) {
@@ -75,6 +85,14 @@ contract AragonTest is Test {
                 pluginAddress.push(address(uint160(uint256(logEntries[i].topics[2]))));
             }
         }
+
+        // 8. Deploying the action encoders and adding them
+        VaultDepositPayoutActionEncoder vaultDepositPayoutActionEncoder = new VaultDepositPayoutActionEncoder();
+        actionEncoderFactory.registerActionEncoder(
+            toBytes32("vault-deposit-encoder"),
+            address(vaultDepositPayoutActionEncoder),
+            ""
+        );
     }
 
     function deployPluginSetup() internal returns (CapitalDistributorPluginSetup) {
@@ -98,10 +116,19 @@ contract AragonTest is Test {
 
     function getPluginSettings(
         PluginRepo pluginRepo
-    ) public pure returns (DAOFactory.PluginSettings[] memory pluginSettings) {
-        bytes memory pluginSettingsData = bytes("");
+    ) public view returns (DAOFactory.PluginSettings[] memory pluginSettings) {
+        bytes memory pluginSettingsData = abi.encode(address(allocatorStrategyFactory), address(actionEncoderFactory));
         PluginRepo.Tag memory tag = PluginRepo.Tag(1, 1);
         pluginSettings = new DAOFactory.PluginSettings[](1);
         pluginSettings[0] = DAOFactory.PluginSettings(PluginSetupRef(tag, pluginRepo), pluginSettingsData);
+    }
+
+    function toBytes32(string memory source) public pure returns (bytes32 result) {
+        bytes memory temp = bytes(source);
+        require(temp.length <= 32, "String too long");
+
+        assembly ("memory-safe") {
+            result := mload(add(temp, 32))
+        }
     }
 }

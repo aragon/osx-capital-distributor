@@ -12,12 +12,6 @@ import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 ///      - `getPayoutAmount` always returns `1 ether`.
 ///      It also ensures that internal functions are protected by Aragon OSx's DaoAuthorizable.
 contract AllocatorStrategyMock is AllocatorStrategyBase {
-    constructor(
-        IDAO _dao,
-        uint256 _epochDuration,
-        bool _claimOpen
-    ) AllocatorStrategyBase(_dao, _epochDuration, _claimOpen) {}
-
     /// @inheritdoc IAllocatorStrategy
     function setAllocationCampaign(uint256, bytes calldata) public pure override {
         return;

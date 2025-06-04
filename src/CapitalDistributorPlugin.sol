@@ -14,6 +14,8 @@ import {PluginUUPSUpgradeable} from "@aragon/commons/plugin/PluginUUPSUpgradeabl
 
 import {IAllocatorStrategy} from "./interfaces/IAllocatorStrategy.sol";
 import {IPayoutActionEncoder} from "./interfaces/IPayoutActionEncoder.sol";
+import {AllocatorStrategyFactory} from "./AllocatorStrategyFactory.sol";
+import {ActionEncoderFactory} from "./ActionEncoderFactory.sol";
 
 /// @title OptimisticTokenVotingPlugin
 /// @author Aragon Association - 2023
@@ -25,6 +27,12 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
 
     /// @notice The ID of the permission required to create a proposal.
     bytes32 public constant CAMPAIGN_CREATOR_PERMISSION_ID = keccak256("CAMPAIGN_CREATOR_PERMISSION");
+
+    /// @notice The AllocatorStrategyFactory instance used to deploy strategies.
+    AllocatorStrategyFactory public allocatorStrategyFactory;
+
+    /// @notice The ActionEncoderFactory instance used to encode actions.
+    ActionEncoderFactory public actionEncoderFactory;
 
     /**
      * @notice Represents a distribution campaign.
@@ -89,8 +97,16 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     /// @notice Initializes the component to be used by inheriting contracts.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
     /// @param _dao The IDAO interface of the associated DAO.
-    function initialize(IDAO _dao) external initializer {
+    /// @param _allocatorStrategyFactory The AllocatorStrategyFactory instance.
+    /// @param _actionEncoderFactory The ActionEncoderFactory instance.
+    function initialize(
+        IDAO _dao,
+        AllocatorStrategyFactory _allocatorStrategyFactory,
+        ActionEncoderFactory _actionEncoderFactory
+    ) external initializer {
         __PluginUUPSUpgradeable_init(_dao);
+        allocatorStrategyFactory = _allocatorStrategyFactory;
+        actionEncoderFactory = _actionEncoderFactory;
     }
 
     /**
@@ -98,41 +114,46 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
      * @dev This function allows an authorized address to configure a new campaign or modify an existing one.
      * @param _campaignId The unique identifier for the campaign.
      * @param _metadataURI The URI for the campaign's metadata.
-     * @param _allocationStrategy The address of the allocation strategy contract.
+     * @param _strategyId The strategy type ID to deploy or use.
+     * @param _strategyParams Deployment parameters for the strategy.
      * @param _vault The address of the vault contract.
      */
     function createCampaign(
         uint256 _campaignId,
         bytes calldata _metadataURI,
-        address _allocationStrategy,
+        bytes32 _strategyId,
+        AllocatorStrategyFactory.DeploymentParams calldata _strategyParams,
         bytes calldata _allocationStrategyAuxData,
         address _vault,
         IERC20 _token,
-        IPayoutActionEncoder _defaultPayoutActionEncoder,
+        bytes32 _defaultActionEncoderId,
         bytes calldata _actionEncoderInitializationAuxData
     ) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) returns (uint256 id) {
-        // TODO: Add appropriate access control
-        Campaign storage campaign = campaigns[_campaignId];
-        campaign.metadataURI = _metadataURI;
-        campaign.allocationStrategy = IAllocatorStrategy(_allocationStrategy);
-        campaign.vault = _vault;
-        campaign.token = _token;
-        campaign.defaultPayoutActionEncoder = _defaultPayoutActionEncoder;
-
-        IAllocatorStrategy(_allocationStrategy).setAllocationCampaign(_campaignId, _allocationStrategyAuxData);
-
-        if (address(_defaultPayoutActionEncoder) != address(0)) {
-            campaign.defaultPayoutActionEncoder.setupCampaign(_campaignId, _actionEncoderInitializationAuxData);
+        // Get or deploy the allocation strategy using the factory
+        address strategyAddress = allocatorStrategyFactory.getOrDeployStrategy(_strategyId, _strategyParams);
+        IPayoutActionEncoder actionEncoder = IPayoutActionEncoder(address(0));
+        if (_defaultActionEncoderId != bytes32(0)) {
+            actionEncoder = actionEncoderFactory.getOrDeployActionEncoder(
+                _defaultActionEncoderId,
+                dao(),
+                _actionEncoderInitializationAuxData
+            );
         }
 
-        emit CampaignCreated(
-            _campaignId,
-            _metadataURI,
-            _allocationStrategy,
-            _vault,
-            _token,
-            _defaultPayoutActionEncoder
-        );
+        Campaign storage campaign = campaigns[_campaignId];
+        campaign.metadataURI = _metadataURI;
+        campaign.allocationStrategy = IAllocatorStrategy(strategyAddress);
+        campaign.vault = _vault;
+        campaign.token = _token;
+        campaign.defaultPayoutActionEncoder = actionEncoder;
+
+        IAllocatorStrategy(strategyAddress).setAllocationCampaign(_campaignId, _allocationStrategyAuxData);
+
+        if (actionEncoder != IPayoutActionEncoder(address(0))) {
+            actionEncoder.setupCampaign(_campaignId, _actionEncoderInitializationAuxData);
+        }
+
+        emit CampaignCreated(_campaignId, _metadataURI, strategyAddress, _vault, _token, actionEncoder);
         return _campaignId;
     }
 
@@ -223,6 +244,56 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         return super.supportsInterface(_interfaceId);
     }
 
+    /**
+     * @notice Creates a campaign using an existing strategy address (legacy support).
+     * @dev This function allows using pre-deployed strategies without going through the factory.
+     * @param _campaignId The unique identifier for the campaign.
+     * @param _metadataURI The URI for the campaign's metadata.
+     * @param _allocationStrategy The address of the pre-deployed allocation strategy contract.
+     * @param _vault The address of the vault contract.
+     */
+    function createCampaignWithExistingStrategy(
+        uint256 _campaignId,
+        bytes calldata _metadataURI,
+        address _allocationStrategy,
+        bytes calldata _allocationStrategyAuxData,
+        address _vault,
+        IERC20 _token,
+        IPayoutActionEncoder _defaultPayoutActionEncoder,
+        bytes calldata _actionEncoderInitializationAuxData
+    ) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) returns (uint256 id) {
+        Campaign storage campaign = campaigns[_campaignId];
+        campaign.metadataURI = _metadataURI;
+        campaign.allocationStrategy = IAllocatorStrategy(_allocationStrategy);
+        campaign.vault = _vault;
+        campaign.token = _token;
+        campaign.defaultPayoutActionEncoder = _defaultPayoutActionEncoder;
+
+        IAllocatorStrategy(_allocationStrategy).setAllocationCampaign(_campaignId, _allocationStrategyAuxData);
+
+        if (address(_defaultPayoutActionEncoder) != address(0)) {
+            campaign.defaultPayoutActionEncoder.setupCampaign(_campaignId, _actionEncoderInitializationAuxData);
+        }
+
+        emit CampaignCreated(
+            _campaignId,
+            _metadataURI,
+            _allocationStrategy,
+            _vault,
+            _token,
+            _defaultPayoutActionEncoder
+        );
+        return _campaignId;
+    }
+
+    /**
+     * @notice Gets the allocator strategy factory address.
+     * @return factory The address of the AllocatorStrategyFactory.
+     */
+    function getAllocatorStrategyFactory() external view returns (AllocatorStrategyFactory factory) {
+        return allocatorStrategyFactory;
+    }
+
     /// @notice This empty reserved space is put in place to allow future versions to add new variables without shifting down storage in the inheritance chain (see [OpenZeppelin's guide about storage gaps](https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps)).
-    uint256[47] private __gap;
+    uint256[46] private __gap;
 }
