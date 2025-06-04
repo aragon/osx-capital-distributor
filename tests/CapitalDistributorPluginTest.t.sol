@@ -45,7 +45,6 @@ contract CapitalDistributorPluginTest is AragonTest {
             .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            0,
             metadata,
             toBytes32("mock-strategy"),
             allocatorDeploymentParams,
@@ -71,7 +70,6 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
-            0,
             metadata,
             toBytes32("mock-strategy"),
             allocatorDeploymentParams,
@@ -91,7 +89,6 @@ contract CapitalDistributorPluginTest is AragonTest {
             .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            0,
             metadata,
             toBytes32("mock-strategy"),
             allocatorDeploymentParams,
@@ -119,7 +116,6 @@ contract CapitalDistributorPluginTest is AragonTest {
         uint256 campaignId = 0;
 
         capitalDistributorPlugin.createCampaign(
-            campaignId,
             metadata,
             toBytes32("mock-strategy"),
             allocatorDeploymentParams,

@@ -52,6 +52,7 @@ contract SablierEncodedMerkleDistributorTest is Test {
     DAO public dao;
     IERC20 public usdc;
     MerkleDistributorStrategy strategy;
+    uint256 campaignId;
 
     // Test data
     uint256 constant TOTAL_DISTRIBUTION_AMOUNT = 10_000e6; // 10,000 USDC
@@ -200,8 +201,7 @@ contract SablierEncodedMerkleDistributorTest is Test {
             .DeploymentParams({dao: IDAO(address(dao)), epochDuration: 30 days, claimOpen: true, auxData: ""});
 
         // Create campaign with Sablier encoder
-        capitalDistributorPlugin.createCampaign(
-            1, // campaignId
+        campaignId = capitalDistributorPlugin.createCampaign(
             "ipfs://QmTestCampaignMetadata", // metadataURI
             toBytes32("merkle-strategy"), // strategyId
             deploymentParams,
@@ -239,7 +239,7 @@ contract SablierEncodedMerkleDistributorTest is Test {
         assertEq(usdc.balanceOf(address(dao)), TOTAL_DISTRIBUTION_AMOUNT, "DAO should have USDC");
 
         // Verify campaign exists
-        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(1);
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
         assertTrue(address(campaign.allocationStrategy) != address(0), "Campaign should have allocation strategy");
         assertEq(address(campaign.token), address(usdc), "Campaign should use USDC");
     }
@@ -247,19 +247,19 @@ contract SablierEncodedMerkleDistributorTest is Test {
     function test_CanCalculateCorrectPayouts() public {
         // Test Alice's payout calculation
         bytes memory claimData = abi.encode(recipientProofs[alice], recipientAmounts[alice]);
-        uint256 alicePayout = capitalDistributorPlugin.getCampaignPayout(1, alice, claimData);
+        uint256 alicePayout = capitalDistributorPlugin.getCampaignPayout(campaignId, alice, claimData);
         assertEq(alicePayout, recipientAmounts[alice], "Alice's payout should match expected amount");
 
         // Test Bob's payout calculation
         claimData = abi.encode(recipientProofs[bob], recipientAmounts[bob]);
-        uint256 bobPayout = capitalDistributorPlugin.getCampaignPayout(1, bob, claimData);
+        uint256 bobPayout = capitalDistributorPlugin.getCampaignPayout(campaignId, bob, claimData);
         assertEq(bobPayout, recipientAmounts[bob], "Bob's payout should match expected amount");
     }
 
     function test_RejectsInvalidProofs() public view {
         // Try to claim with Bob's proof for Alice
         bytes memory invalidClaimData = abi.encode(recipientProofs[bob], recipientAmounts[alice]);
-        uint256 payout = capitalDistributorPlugin.getCampaignPayout(1, alice, invalidClaimData);
+        uint256 payout = capitalDistributorPlugin.getCampaignPayout(campaignId, alice, invalidClaimData);
         assertEq(payout, 0, "Invalid proof should result in zero payout");
     }
 
@@ -277,7 +277,7 @@ contract SablierEncodedMerkleDistributorTest is Test {
         vm.startPrank(address(alice));
         ISablierLockup sablierLockup = ISablierLockup(SABLIER_V2_LOCKUP);
         uint256 streamId = sablierLockup.nextStreamId();
-        capitalDistributorPlugin.claimCampaignPayout(1, alice, claimData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimData);
 
         // Verify DAO balance decreased
         assertLt(usdc.balanceOf(address(dao)), initialDAOBalance, "DAO balance should decrease");
@@ -297,17 +297,17 @@ contract SablierEncodedMerkleDistributorTest is Test {
 
         // Alice claims
         bytes memory aliceClaimData = abi.encode(recipientProofs[alice], recipientAmounts[alice]);
-        capitalDistributorPlugin.claimCampaignPayout(1, alice, aliceClaimData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, aliceClaimData);
 
         // Bob claims
         bytes memory bobClaimData = abi.encode(recipientProofs[bob], recipientAmounts[bob]);
-        capitalDistributorPlugin.claimCampaignPayout(1, bob, bobClaimData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, bobClaimData);
 
         vm.stopPrank();
 
         // Verify both have claimed
-        assertGt(capitalDistributorPlugin.getClaimedAmount(1, alice), 0, "Alice should have claimed");
-        assertGt(capitalDistributorPlugin.getClaimedAmount(1, bob), 0, "Bob should have claimed");
+        assertGt(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 0, "Alice should have claimed");
+        assertGt(capitalDistributorPlugin.getClaimedAmount(campaignId, bob), 0, "Bob should have claimed");
     }
 
     function test_CannotClaimTwice() public {
@@ -315,11 +315,11 @@ contract SablierEncodedMerkleDistributorTest is Test {
 
         // Alice claims successfully
         bytes memory claimData = abi.encode(recipientProofs[alice], recipientAmounts[alice]);
-        capitalDistributorPlugin.claimCampaignPayout(1, alice, claimData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimData);
 
         // Alice tries to claim again
         vm.expectRevert(CapitalDistributorPlugin.NoPayoutToClaim.selector);
-        capitalDistributorPlugin.claimCampaignPayout(1, alice, claimData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimData);
 
         vm.stopPrank();
     }
@@ -330,7 +330,7 @@ contract SablierEncodedMerkleDistributorTest is Test {
         vm.startPrank(address(dao));
 
         uint256 gasBefore = gasleft();
-        capitalDistributorPlugin.claimCampaignPayout(1, alice, claimData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimData);
         uint256 gasUsed = gasBefore - gasleft();
 
         vm.stopPrank();

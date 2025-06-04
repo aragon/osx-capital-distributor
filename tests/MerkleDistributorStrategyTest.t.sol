@@ -65,7 +65,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Level 1: pair adjacent leaves with sorted hashing
         bytes32 level1_0 = _hashPair(leaves[0], leaves[1]);
         bytes32 level1_1 = _hashPair(leaves[2], leaves[3]);
-        
+
         // Level 2 (root): hash the two level 1 nodes
         merkleRoot = _hashPair(level1_0, level1_1);
     }
@@ -76,7 +76,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function getMerkleProof(uint256 index) internal view returns (bytes32[] memory proof) {
         proof = new bytes32[](2);
-        
+
         if (index == 0) {
             // Alice's proof
             proof[0] = leaves[1]; // Bob's leaf (sibling at level 0)
@@ -103,7 +103,6 @@ contract MerkleDistributorStrategyTest is AragonTest {
             .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            0,
             metadata,
             toBytes32("merkle-strategy"),
             allocatorDeploymentParams,
@@ -129,7 +128,6 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
-            0,
             metadata,
             toBytes32("merkle-strategy"),
             allocatorDeploymentParams,
@@ -149,7 +147,6 @@ contract MerkleDistributorStrategyTest is AragonTest {
             .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            0,
             metadata,
             toBytes32("merkle-strategy"),
             allocatorDeploymentParams,
@@ -183,7 +180,6 @@ contract MerkleDistributorStrategyTest is AragonTest {
             .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            0,
             metadata,
             toBytes32("merkle-strategy"),
             allocatorDeploymentParams,
@@ -220,7 +216,6 @@ contract MerkleDistributorStrategyTest is AragonTest {
             .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            0,
             metadata,
             toBytes32("merkle-strategy"),
             allocatorDeploymentParams,
@@ -249,7 +244,6 @@ contract MerkleDistributorStrategyTest is AragonTest {
             .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            0,
             metadata,
             toBytes32("merkle-strategy"),
             allocatorDeploymentParams,
@@ -280,7 +274,6 @@ contract MerkleDistributorStrategyTest is AragonTest {
             .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            0,
             metadata,
             toBytes32("merkle-strategy"),
             allocatorDeploymentParams,

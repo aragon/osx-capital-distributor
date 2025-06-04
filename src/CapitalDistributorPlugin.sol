@@ -34,6 +34,9 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     /// @notice The ActionEncoderFactory instance used to encode actions.
     ActionEncoderFactory public actionEncoderFactory;
 
+    /// @notice The number of campaigns created.
+    uint256 public numCampaigns = 0;
+
     /**
      * @notice Represents a distribution campaign.
      * @custom:storage-location erc7201:capital.distributor.campaigns.struct
@@ -112,14 +115,12 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     /**
      * @notice Creates the details for a specific campaign.
      * @dev This function allows an authorized address to configure a new campaign or modify an existing one.
-     * @param _campaignId The unique identifier for the campaign.
      * @param _metadataURI The URI for the campaign's metadata.
      * @param _strategyId The strategy type ID to deploy or use.
      * @param _strategyParams Deployment parameters for the strategy.
      * @param _vault The address of the vault contract.
      */
     function createCampaign(
-        uint256 _campaignId,
         bytes calldata _metadataURI,
         bytes32 _strategyId,
         AllocatorStrategyFactory.DeploymentParams calldata _strategyParams,
@@ -129,6 +130,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         bytes32 _defaultActionEncoderId,
         bytes calldata _actionEncoderInitializationAuxData
     ) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) returns (uint256 id) {
+        uint256 campaignId = numCampaigns++;
         // Get or deploy the allocation strategy using the factory
         address strategyAddress = allocatorStrategyFactory.getOrDeployStrategy(_strategyId, _strategyParams);
         IPayoutActionEncoder actionEncoder = IPayoutActionEncoder(address(0));
@@ -140,21 +142,21 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
             );
         }
 
-        Campaign storage campaign = campaigns[_campaignId];
+        Campaign storage campaign = campaigns[campaignId];
         campaign.metadataURI = _metadataURI;
         campaign.allocationStrategy = IAllocatorStrategy(strategyAddress);
         campaign.vault = _vault;
         campaign.token = _token;
         campaign.defaultPayoutActionEncoder = actionEncoder;
 
-        IAllocatorStrategy(strategyAddress).setAllocationCampaign(_campaignId, _allocationStrategyAuxData);
+        IAllocatorStrategy(strategyAddress).setAllocationCampaign(campaignId, _allocationStrategyAuxData);
 
         if (actionEncoder != IPayoutActionEncoder(address(0))) {
-            actionEncoder.setupCampaign(_campaignId, _actionEncoderInitializationAuxData);
+            actionEncoder.setupCampaign(campaignId, _actionEncoderInitializationAuxData);
         }
 
-        emit CampaignCreated(_campaignId, _metadataURI, strategyAddress, _vault, _token, actionEncoder);
-        return _campaignId;
+        emit CampaignCreated(campaignId, _metadataURI, strategyAddress, _vault, _token, actionEncoder);
+        return campaignId;
     }
 
     /**

@@ -42,7 +42,6 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
             .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            0,
             metadata,
             toBytes32("call-based-strategy"),
             allocatorDeploymentParams,
@@ -68,7 +67,6 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
 
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
-            0,
             metadata,
             toBytes32("call-based-strategy"),
             allocatorDeploymentParams,
@@ -89,7 +87,6 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
             .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            0,
             metadata,
             toBytes32("call-based-strategy"),
             allocatorDeploymentParams,
