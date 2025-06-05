@@ -263,13 +263,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         // Alice tries to claim again - should revert
         vm.expectRevert(
-            abi.encodeWithSelector(
-                CapitalDistributorPlugin.AlreadyClaimedMaxAmount.selector,
-                campaignId,
-                alice,
-                1 ether,
-                1 ether
-            )
+            abi.encodeWithSelector(CapitalDistributorPlugin.MultipleClaimsNotAllowed.selector, campaignId, alice)
         );
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, aliceClaimData);
     }
