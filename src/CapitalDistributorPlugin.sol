@@ -92,6 +92,13 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         bool multipleClaimsAllowed
     );
 
+    /// @notice Emitted when a payout is successfully claimed.
+    /// @param campaignId The ID of the campaign from which the payout was claimed.
+    /// @param recipient The address that received the payout.
+    /// @param amount The amount of tokens claimed.
+    /// @param totalClaimed The total amount claimed by this recipient for this campaign.
+    event PayoutClaimed(uint256 indexed campaignId, address indexed recipient, uint256 amount, uint256 totalClaimed);
+
     /// @notice Thrown when a zero address is provided where a valid address is required.
     /// @param parameter The name of the parameter that was zero.
     error ZeroAddress(string parameter);
@@ -108,7 +115,22 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     /// @notice Thrown when empty metadata URI is provided.
     error EmptyMetadataURI();
 
-    error NoPayoutToClaim();
+    /// @notice Thrown when a recipient has already claimed the maximum allowed amount.
+    /// @param campaignId The ID of the campaign.
+    /// @param recipient The address that tried to claim.
+    /// @param alreadyClaimed The amount already claimed.
+    /// @param maxClaimable The maximum amount claimable.
+    error AlreadyClaimedMaxAmount(uint256 campaignId, address recipient, uint256 alreadyClaimed, uint256 maxClaimable);
+
+    /// @notice Thrown when multiple claims are not allowed but recipient has already claimed.
+    /// @param campaignId The ID of the campaign.
+    /// @param recipient The address that tried to claim again.
+    error MultipleClaimsNotAllowed(uint256 campaignId, address recipient);
+
+    /// @notice Thrown when no claimable amount is available for the recipient.
+    /// @param campaignId The ID of the campaign.
+    /// @param recipient The address that tried to claim.
+    error NoClaimableAmount(uint256 campaignId, address recipient);
 
     /// @notice Initializes the component to be used by inheriting contracts.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
@@ -233,11 +255,22 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
 
         amountToSend = campaign.allocationStrategy.getClaimeableAmount(_campaignId, _receiver, _auxData);
 
+        // Check if there's anything to claim
+        if (amountToSend == 0) {
+            revert NoClaimableAmount(_campaignId, _receiver);
+        }
+
         // Cache claimed amount to avoid repeated storage reads
         uint256 alreadyClaimed = claimed[_campaignId][_receiver];
 
-        if (alreadyClaimed >= amountToSend || (!campaign.multipleClaimsAllowed && alreadyClaimed > 0)) {
-            revert NoPayoutToClaim();
+        // Check if already claimed maximum amount
+        if (alreadyClaimed >= amountToSend) {
+            revert AlreadyClaimedMaxAmount(_campaignId, _receiver, alreadyClaimed, amountToSend);
+        }
+
+        // Check if multiple claims are allowed
+        if (!campaign.multipleClaimsAllowed && alreadyClaimed > 0) {
+            revert MultipleClaimsNotAllowed(_campaignId, _receiver);
         }
 
         Action[] memory actions;
@@ -259,6 +292,8 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
 
         // TODO: Change the call Id for something dynamic
         IExecutor(address(dao())).execute(bytes32(uint256(1)), actions, 0);
+
+        emit PayoutClaimed(_campaignId, _receiver, amountToSend, claimed[_campaignId][_receiver]);
     }
 
     /// @notice Returns the amount of tokens claimed by an account for a specific campaign.

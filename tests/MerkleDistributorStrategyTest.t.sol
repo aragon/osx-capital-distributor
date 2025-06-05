@@ -231,7 +231,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes memory invalidClaimData = abi.encode(invalidProof, amounts[0]);
 
         vm.startPrank(address(capitalDistributorPlugin));
-        vm.expectRevert(CapitalDistributorPlugin.NoPayoutToClaim.selector);
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.NoClaimableAmount.selector, campaignId, alice));
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, invalidClaimData);
     }
 
@@ -262,7 +262,15 @@ contract MerkleDistributorStrategyTest is AragonTest {
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, aliceClaimData);
 
         // Alice tries to claim again - should revert
-        vm.expectRevert(CapitalDistributorPlugin.NoPayoutToClaim.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CapitalDistributorPlugin.AlreadyClaimedMaxAmount.selector,
+                campaignId,
+                alice,
+                1 ether,
+                1 ether
+            )
+        );
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, aliceClaimData);
     }
 

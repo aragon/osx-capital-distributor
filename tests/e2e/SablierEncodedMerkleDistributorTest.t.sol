@@ -242,7 +242,15 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimData);
 
         // Alice tries to claim again
-        vm.expectRevert(CapitalDistributorPlugin.NoPayoutToClaim.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CapitalDistributorPlugin.AlreadyClaimedMaxAmount.selector,
+                campaignId,
+                alice,
+                2500e6,
+                2500e6
+            )
+        );
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimData);
 
         vm.stopPrank();
