@@ -42,7 +42,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         bytes memory metadata = "";
 
         IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
-            .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
+            .DeploymentParams({epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
@@ -65,7 +65,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(alice));
         bytes memory metadata = "";
         IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
-            .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
+            .DeploymentParams({epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
@@ -85,7 +85,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
-            .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
+            .DeploymentParams({epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
@@ -110,7 +110,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
-            .DeploymentParams({dao: createdDAO, epochDuration: 1 days, claimOpen: true, auxData: ""});
+            .DeploymentParams({epochDuration: 1 days, claimOpen: true, auxData: ""});
 
         uint256 campaignId = 0;
 

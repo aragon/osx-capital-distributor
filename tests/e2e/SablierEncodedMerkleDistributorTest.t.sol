@@ -126,7 +126,7 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
 
         // Deployment parameters for merkle strategy
         IAllocatorStrategyFactory.DeploymentParams memory deploymentParams = IAllocatorStrategyFactory
-            .DeploymentParams({dao: IDAO(address(dao)), epochDuration: 30 days, claimOpen: true, auxData: ""});
+            .DeploymentParams({epochDuration: 30 days, claimOpen: true, auxData: ""});
 
         // Create campaign with Sablier encoder
         campaignId = capitalDistributorPlugin.createCampaign(

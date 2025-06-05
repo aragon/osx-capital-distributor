@@ -14,7 +14,6 @@ interface IAllocatorStrategyFactory {
 
     /// @notice Represents deployment parameters for a strategy instance.
     struct DeploymentParams {
-        IDAO dao;
         uint256 epochDuration;
         bool claimOpen;
         bytes auxData;

@@ -3,7 +3,6 @@ pragma solidity ^0.8.29;
 
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {DaoAuthorizable} from "@aragon/commons/permission/auth/DaoAuthorizable.sol";
 import {IAllocatorStrategy} from "./interfaces/IAllocatorStrategy.sol";
 import {IAllocatorStrategyFactory} from "./interfaces/IAllocatorStrategyFactory.sol";
 
@@ -22,8 +21,6 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
 
     /// @notice Maps strategy addresses to their type IDs.
     mapping(address strategy => bytes32 strategyTypeId) public strategyToType;
-
-    constructor() {}
 
     /**
      * @notice Registers a new strategy type in the factory.
@@ -58,17 +55,34 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
         IDAO _dao,
         DeploymentParams calldata _params
     ) public returns (address strategy) {
+        bytes32 paramsHash = _computeParamsHash(_strategyTypeId, _dao, _params);
+        return _deployStrategy(_strategyTypeId, _dao, _params, paramsHash);
+    }
+
+    /**
+     * @notice Internal function to deploy a strategy with pre-computed hash for gas optimization.
+     * @param _strategyTypeId The strategy type to deploy.
+     * @param _dao The DAO address for initialization.
+     * @param _params Deployment parameters for the strategy.
+     * @param _paramsHash Pre-computed hash of deployment parameters.
+     * @return strategy The address of the deployed strategy.
+     */
+    function _deployStrategy(
+        bytes32 _strategyTypeId,
+        IDAO _dao,
+        DeploymentParams calldata _params,
+        bytes32 _paramsHash
+    ) internal returns (address strategy) {
         StrategyType storage strategyType = strategyTypes[_strategyTypeId];
 
         if (strategyType.implementation == address(0)) {
             revert StrategyTypeNotFound(_strategyTypeId);
         }
 
-        bytes32 paramsHash = _computeParamsHash(_strategyTypeId, _dao, _params);
-
         // Check if strategy with these parameters already exists
-        if (deployedStrategies[paramsHash] != address(0)) {
-            revert StrategyAlreadyDeployed(paramsHash, deployedStrategies[paramsHash]);
+        address existingStrategy = deployedStrategies[_paramsHash];
+        if (existingStrategy != address(0)) {
+            revert StrategyAlreadyDeployed(_paramsHash, existingStrategy);
         }
 
         // Deploy strategy using Clones
@@ -88,10 +102,10 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
         }
 
         // Register the deployed strategy
-        deployedStrategies[paramsHash] = strategy;
+        deployedStrategies[_paramsHash] = strategy;
         strategyToType[strategy] = _strategyTypeId;
 
-        emit StrategyDeployed(_strategyTypeId, strategy, paramsHash, msg.sender);
+        emit StrategyDeployed(_strategyTypeId, strategy, _paramsHash, msg.sender);
 
         return strategy;
     }
@@ -114,7 +128,7 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
             return strategy;
         }
 
-        return deployStrategy(_strategyTypeId, _dao, _params);
+        return _deployStrategy(_strategyTypeId, _dao, _params, paramsHash);
     }
 
     /**
