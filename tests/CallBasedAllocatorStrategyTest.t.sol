@@ -46,17 +46,16 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
             toBytes32("call-based-strategy"),
             allocatorDeploymentParams,
             getAllocationCampaignAuxData(voter),
-            address(0),
             IERC20(token),
             bytes32(0),
-            metadata
+            metadata,
+            false
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
 
         assertEq(campaign.metadataURI, metadata, "Metadata not equal");
         assertTrue(address(campaign.allocationStrategy) != address(0), "Allocation strategy not set");
-        assertEq(address(campaign.vault), address(0), "Vault not equal");
     }
 
     function test_CannotCreateCampaignWithoutPermissions() public {
@@ -71,10 +70,10 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
             toBytes32("call-based-strategy"),
             allocatorDeploymentParams,
             getAllocationCampaignAuxData(voter),
-            address(0),
             IERC20(token),
             bytes32(0),
-            metadata
+            metadata,
+            false
         );
     }
 
@@ -91,10 +90,10 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
             toBytes32("call-based-strategy"),
             allocatorDeploymentParams,
             getAllocationCampaignAuxData(voter),
-            address(0),
             IERC20(token),
             bytes32(0),
-            metadata
+            metadata,
+            false
         );
         // We create the campaign in the allocation strategy as well
         vm.stopPrank();

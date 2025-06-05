@@ -55,6 +55,7 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
      */
     function deployStrategy(
         bytes32 _strategyTypeId,
+        IDAO _dao,
         DeploymentParams calldata _params
     ) public returns (address strategy) {
         StrategyType storage strategyType = strategyTypes[_strategyTypeId];
@@ -63,7 +64,7 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
             revert StrategyTypeNotFound(_strategyTypeId);
         }
 
-        bytes32 paramsHash = _computeParamsHash(_strategyTypeId, _params);
+        bytes32 paramsHash = _computeParamsHash(_strategyTypeId, _dao, _params);
 
         // Check if strategy with these parameters already exists
         if (deployedStrategies[paramsHash] != address(0)) {
@@ -76,7 +77,7 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
         // Initialize the strategy
         bytes memory initCalldata = abi.encodeWithSignature(
             "initialize(address,uint256,bool)",
-            _params.dao,
+            _dao,
             _params.epochDuration,
             _params.claimOpen
         );
@@ -103,16 +104,17 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
      */
     function getOrDeployStrategy(
         bytes32 _strategyTypeId,
+        IDAO _dao,
         DeploymentParams calldata _params
     ) external returns (address strategy) {
-        bytes32 paramsHash = _computeParamsHash(_strategyTypeId, _params);
+        bytes32 paramsHash = _computeParamsHash(_strategyTypeId, _dao, _params);
 
         strategy = deployedStrategies[paramsHash];
         if (strategy != address(0)) {
             return strategy;
         }
 
-        return deployStrategy(_strategyTypeId, _params);
+        return deployStrategy(_strategyTypeId, _dao, _params);
     }
 
     /**
@@ -124,9 +126,10 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
      */
     function strategyExists(
         bytes32 _strategyTypeId,
+        IDAO _dao,
         DeploymentParams calldata _params
     ) external view returns (bool exists, address strategy) {
-        bytes32 paramsHash = _computeParamsHash(_strategyTypeId, _params);
+        bytes32 paramsHash = _computeParamsHash(_strategyTypeId, _dao, _params);
         strategy = deployedStrategies[paramsHash];
         exists = strategy != address(0);
     }
@@ -148,8 +151,12 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
      */
     function _computeParamsHash(
         bytes32 _strategyTypeId,
+        IDAO _dao,
         DeploymentParams calldata _params
     ) internal pure returns (bytes32 paramsHash) {
-        return keccak256(abi.encodePacked(_strategyTypeId, _params.epochDuration, _params.claimOpen, _params.auxData));
+        return
+            keccak256(
+                abi.encodePacked(_strategyTypeId, _dao, _params.epochDuration, _params.claimOpen, _params.auxData)
+            );
     }
 }

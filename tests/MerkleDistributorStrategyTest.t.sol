@@ -107,17 +107,16 @@ contract MerkleDistributorStrategyTest is AragonTest {
             toBytes32("merkle-strategy"),
             allocatorDeploymentParams,
             abi.encode(merkleRoot),
-            address(0),
             IERC20(token),
             bytes32(0),
-            metadata
+            metadata,
+            false
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
 
         assertEq(campaign.metadataURI, metadata, "Metadata not equal");
         assertTrue(address(campaign.allocationStrategy) != address(0), "Allocation strategy not set");
-        assertEq(address(campaign.vault), address(0), "Vault not equal");
     }
 
     function test_CannotCreateCampaignWithoutPermissions() public {
@@ -132,10 +131,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
             toBytes32("merkle-strategy"),
             allocatorDeploymentParams,
             abi.encode(merkleRoot),
-            address(0),
             IERC20(token),
             bytes32(0),
-            metadata
+            metadata,
+            false
         );
     }
 
@@ -151,10 +150,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
             toBytes32("merkle-strategy"),
             allocatorDeploymentParams,
             abi.encode(merkleRoot),
-            address(0),
             IERC20(token),
             bytes32(0),
-            metadata
+            metadata,
+            false
         );
         vm.stopPrank();
 
@@ -184,10 +183,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
             toBytes32("merkle-strategy"),
             allocatorDeploymentParams,
             abi.encode(merkleRoot),
-            address(0),
             IERC20(token),
             bytes32(0),
-            metadata
+            metadata,
+            false
         );
         vm.stopPrank();
 
@@ -220,10 +219,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
             toBytes32("merkle-strategy"),
             allocatorDeploymentParams,
             abi.encode(merkleRoot),
-            address(0),
             IERC20(token),
             bytes32(0),
-            metadata
+            metadata,
+            false
         );
         vm.stopPrank();
 
@@ -248,10 +247,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
             toBytes32("merkle-strategy"),
             allocatorDeploymentParams,
             abi.encode(merkleRoot),
-            address(0),
             IERC20(token),
             bytes32(0),
-            metadata
+            metadata,
+            false
         );
         vm.stopPrank();
 
@@ -278,10 +277,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
             toBytes32("merkle-strategy"),
             allocatorDeploymentParams,
             abi.encode(merkleRoot),
-            address(0),
             IERC20(token),
             bytes32(0),
-            metadata
+            metadata,
+            false
         );
         vm.stopPrank();
 

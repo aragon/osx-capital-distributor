@@ -49,17 +49,16 @@ contract CapitalDistributorPluginTest is AragonTest {
             toBytes32("mock-strategy"),
             allocatorDeploymentParams,
             metadata, // Doesn't have to be metadata, just empty bytes
-            address(0),
             IERC20(token),
             bytes32(0),
-            metadata // Doesn't have to be metadata, just empty bytes
+            metadata, // Doesn't have to be metadata, just empty bytes
+            false
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
 
         assertEq(campaign.metadataURI, metadata, "Metadata not equal");
         assertTrue(address(campaign.allocationStrategy) != address(0), "Allocation strategy not set");
-        assertEq(address(campaign.vault), address(0), "Vault not equal");
     }
 
     function test_CannotCreateCampaignWithoutPermissions() public {
@@ -74,10 +73,10 @@ contract CapitalDistributorPluginTest is AragonTest {
             toBytes32("mock-strategy"),
             allocatorDeploymentParams,
             metadata, // Doesn't have to be metadata, just empty bytes
-            address(0),
             IERC20(token),
             bytes32(0),
-            metadata // Doesn't have to be metadata, just empty bytes
+            metadata, // Doesn't have to be metadata, just empty bytes
+            false
         );
     }
 
@@ -93,10 +92,10 @@ contract CapitalDistributorPluginTest is AragonTest {
             toBytes32("mock-strategy"),
             allocatorDeploymentParams,
             metadata, // Doesn't have to be metadata, just empty bytes
-            address(0),
             IERC20(token),
             bytes32(0),
-            metadata // Doesn't have to be metadata, just empty bytes
+            metadata, // Doesn't have to be metadata, just empty bytes
+            false
         );
 
         assertEq(token.balanceOf(address(createdDAO)), 1 ether, "DAO doesn't have funds");
@@ -120,10 +119,10 @@ contract CapitalDistributorPluginTest is AragonTest {
             toBytes32("mock-strategy"),
             allocatorDeploymentParams,
             metadata, // Doesn't have to be metadata, just empty bytes
-            address(0),
             IERC20(token),
             toBytes32("vault-deposit-encoder"),
-            abi.encode(address(vaultToSendTokens))
+            abi.encode(address(vaultToSendTokens)),
+            false
         );
 
         assertEq(token.balanceOf(address(createdDAO)), 1 ether, "DAO doesn't have funds");

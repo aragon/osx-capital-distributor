@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.29;
 
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -17,15 +17,15 @@ import {IPayoutActionEncoder} from "./interfaces/IPayoutActionEncoder.sol";
 import {AllocatorStrategyFactory} from "./AllocatorStrategyFactory.sol";
 import {ActionEncoderFactory} from "./ActionEncoderFactory.sol";
 
-/// @title OptimisticTokenVotingPlugin
-/// @author Aragon Association - 2023
-/// @notice The abstract implementation of optimistic majority plugins.
-///
-/// @dev This contract implements the `IOptimisticTokenVoting` interface.
+/// @title CapitalDistributorPlugin
+/// @author AragonX - 2025
+/// @notice A plugin for Aragon DAOs that enables the creation and management of token distribution campaigns.
+/// @dev This plugin allows DAOs to create campaigns with configurable allocation strategies and payout mechanisms.
+/// Recipients can claim their allocated tokens based on the campaign's strategy rules and configuration.
 contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUPSUpgradeable {
     using SafeCastUpgradeable for uint256;
 
-    /// @notice The ID of the permission required to create a proposal.
+    /// @notice The ID of the permission required to create a campaign.
     bytes32 public constant CAMPAIGN_CREATOR_PERMISSION_ID = keccak256("CAMPAIGN_CREATOR_PERMISSION");
 
     /// @notice The AllocatorStrategyFactory instance used to deploy strategies.
@@ -42,14 +42,13 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
      * @custom:storage-location erc7201:capital.distributor.campaigns.struct
      * @param metadataURI URI pointing to the campaign's metadata (e.g., IPFS hash).
      * @param allocationStrategy The contract address responsible for determining allocation logic.
-     * @param vault The contract address of the vault holding the assets for this campaign.
      * @param token The address of the token that will be used for the payouts
      * @param defaultPayoutActionEncoder The logic to execute when claiming the payout
+     * @param multipleClaimsAllowed Whether recipients can claim multiple times for this campaign
      */
     struct Campaign {
         bytes metadataURI;
         IAllocatorStrategy allocationStrategy;
-        address vault;
         IERC20 token;
         IPayoutActionEncoder defaultPayoutActionEncoder;
         bool multipleClaimsAllowed;
@@ -63,7 +62,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     /**
      * @notice Stores all campaign configurations, mapping a campaign ID to its Campaign struct.
      * The public visibility automatically creates a getter function:
-     * `function campaigns(uint256 _campaignId) external view returns (bytes memory metadataURI, address allocationStrategy, address vault)`
+     * `function campaigns(uint256 _campaignId) external view returns (bytes memory metadataURI, address allocationStrategy, address vault, address token, address defaultPayoutActionEncoder, bool multipleClaimsAllowed)`
      */
     mapping(uint256 campaignId => Campaign) public campaigns;
 
@@ -77,24 +76,38 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
 
     /**
      * @notice Emitted when a campaign's details are created.
-     * @param campaignId The unique identifier of the campaign that was updated.
-     * @param metadataURI The new metadata URI for the campaign.
-     * @param allocationStrategy The new allocation strategy address for the campaign.
-     * @param vault The new vault address for the campaign.
+     * @param campaignId The unique identifier of the campaign that was created.
+     * @param metadataURI The metadata URI for the campaign.
+     * @param allocationStrategy The allocation strategy address for the campaign.
+     * @param token The token address for the campaign.
+     * @param defaultPayoutActionEncoder The default payout action encoder for the campaign.
+     * @param multipleClaimsAllowed Whether multiple claims are allowed for this campaign.
      */
     event CampaignCreated(
         uint256 indexed campaignId,
         bytes metadataURI,
         address indexed allocationStrategy,
-        address indexed vault,
         IERC20 token,
-        IPayoutActionEncoder defaultPayoutActionEncoder
+        IPayoutActionEncoder defaultPayoutActionEncoder,
+        bool multipleClaimsAllowed
     );
 
-    /// @notice Thrown if a date is out of bounds.
-    /// @param limit The limit value.
-    /// @param actual The actual value.
-    error DateOutOfBounds(uint64 limit, uint64 actual);
+    /// @notice Thrown when a zero address is provided where a valid address is required.
+    /// @param parameter The name of the parameter that was zero.
+    error ZeroAddress(string parameter);
+
+    /// @notice Thrown when trying to access a campaign that doesn't exist.
+    /// @param campaignId The ID of the non-existent campaign.
+    error CampaignNotFound(uint256 campaignId);
+
+    /// @notice Thrown when the DAO in strategy params doesn't match the plugin's DAO.
+    /// @param expected The expected DAO address.
+    /// @param provided The provided DAO address.
+    error DAOMismatch(address expected, address provided);
+
+    /// @notice Thrown when empty metadata URI is provided.
+    error EmptyMetadataURI();
+
     error NoPayoutToClaim();
 
     /// @notice Initializes the component to be used by inheriting contracts.
@@ -114,25 +127,34 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
 
     /**
      * @notice Creates the details for a specific campaign.
-     * @dev This function allows an authorized address to configure a new campaign or modify an existing one.
+     * @dev This function allows an authorized address to configure a new campaign.
      * @param _metadataURI The URI for the campaign's metadata.
      * @param _strategyId The strategy type ID to deploy or use.
      * @param _strategyParams Deployment parameters for the strategy.
-     * @param _vault The address of the vault contract.
+     * @param _allocationStrategyAuxData Additional data needed to initialize the allocation strategy.
+     * @param _token The token address that will be used for payouts.
+     * @param _defaultActionEncoderId The action encoder type ID to deploy (use bytes32(0) for simple transfers).
+     * @param _actionEncoderInitializationAuxData Additional data needed to initialize the action encoder.
+     * @param _multipleClaimsAllowed Whether recipients can claim multiple times for this campaign.
      */
     function createCampaign(
         bytes calldata _metadataURI,
         bytes32 _strategyId,
         AllocatorStrategyFactory.DeploymentParams calldata _strategyParams,
         bytes calldata _allocationStrategyAuxData,
-        address _vault,
         IERC20 _token,
         bytes32 _defaultActionEncoderId,
-        bytes calldata _actionEncoderInitializationAuxData
+        bytes calldata _actionEncoderInitializationAuxData,
+        bool _multipleClaimsAllowed
     ) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) returns (uint256 id) {
+        // Input validation
+        if (address(_token) == address(0)) {
+            revert ZeroAddress("_token");
+        }
+
         uint256 campaignId = numCampaigns++;
         // Get or deploy the allocation strategy using the factory
-        address strategyAddress = allocatorStrategyFactory.getOrDeployStrategy(_strategyId, _strategyParams);
+        address strategyAddress = allocatorStrategyFactory.getOrDeployStrategy(_strategyId, dao(), _strategyParams);
         IPayoutActionEncoder actionEncoder = IPayoutActionEncoder(address(0));
         if (_defaultActionEncoderId != bytes32(0)) {
             actionEncoder = actionEncoderFactory.getOrDeployActionEncoder(
@@ -145,9 +167,9 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         Campaign storage campaign = campaigns[campaignId];
         campaign.metadataURI = _metadataURI;
         campaign.allocationStrategy = IAllocatorStrategy(strategyAddress);
-        campaign.vault = _vault;
         campaign.token = _token;
         campaign.defaultPayoutActionEncoder = actionEncoder;
+        campaign.multipleClaimsAllowed = _multipleClaimsAllowed;
 
         IAllocatorStrategy(strategyAddress).setAllocationCampaign(campaignId, _allocationStrategyAuxData);
 
@@ -155,7 +177,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
             actionEncoder.setupCampaign(campaignId, _actionEncoderInitializationAuxData);
         }
 
-        emit CampaignCreated(campaignId, _metadataURI, strategyAddress, _vault, _token, actionEncoder);
+        emit CampaignCreated(campaignId, _metadataURI, strategyAddress, _token, actionEncoder, _multipleClaimsAllowed);
         return campaignId;
     }
 
@@ -180,7 +202,12 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         address _recipient,
         bytes calldata _auxData
     ) public view returns (uint256 amountToSend) {
-        Campaign memory campaign = campaigns[_campaignId];
+        Campaign storage campaign = campaigns[_campaignId];
+
+        // Check if campaign exists
+        if (address(campaign.allocationStrategy) == address(0)) {
+            revert CampaignNotFound(_campaignId);
+        }
 
         amountToSend = campaign.allocationStrategy.getClaimeableAmount(_campaignId, _recipient, _auxData);
     }
@@ -197,14 +224,19 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         address _receiver,
         bytes calldata _auxData
     ) public returns (uint256 amountToSend) {
-        Campaign memory campaign = campaigns[_campaignId];
+        Campaign storage campaign = campaigns[_campaignId];
+
+        // Check if campaign exists
+        if (address(campaign.allocationStrategy) == address(0)) {
+            revert CampaignNotFound(_campaignId);
+        }
 
         amountToSend = campaign.allocationStrategy.getClaimeableAmount(_campaignId, _receiver, _auxData);
 
-        if (
-            claimed[_campaignId][_receiver] >= amountToSend ||
-            (campaign.multipleClaimsAllowed == false && claimed[_campaignId][_receiver] > 0)
-        ) {
+        // Cache claimed amount to avoid repeated storage reads
+        uint256 alreadyClaimed = claimed[_campaignId][_receiver];
+
+        if (alreadyClaimed >= amountToSend || (!campaign.multipleClaimsAllowed && alreadyClaimed > 0)) {
             revert NoPayoutToClaim();
         }
 
@@ -223,7 +255,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
             );
         }
 
-        claimed[_campaignId][_receiver] += amountToSend;
+        claimed[_campaignId][_receiver] = alreadyClaimed + amountToSend;
 
         // TODO: Change the call Id for something dynamic
         IExecutor(address(dao())).execute(bytes32(uint256(1)), actions, 0);
@@ -244,56 +276,6 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         bytes4 _interfaceId
     ) public view virtual override(ERC165Upgradeable, PluginUUPSUpgradeable) returns (bool) {
         return super.supportsInterface(_interfaceId);
-    }
-
-    /**
-     * @notice Creates a campaign using an existing strategy address (legacy support).
-     * @dev This function allows using pre-deployed strategies without going through the factory.
-     * @param _campaignId The unique identifier for the campaign.
-     * @param _metadataURI The URI for the campaign's metadata.
-     * @param _allocationStrategy The address of the pre-deployed allocation strategy contract.
-     * @param _vault The address of the vault contract.
-     */
-    function createCampaignWithExistingStrategy(
-        uint256 _campaignId,
-        bytes calldata _metadataURI,
-        address _allocationStrategy,
-        bytes calldata _allocationStrategyAuxData,
-        address _vault,
-        IERC20 _token,
-        IPayoutActionEncoder _defaultPayoutActionEncoder,
-        bytes calldata _actionEncoderInitializationAuxData
-    ) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) returns (uint256 id) {
-        Campaign storage campaign = campaigns[_campaignId];
-        campaign.metadataURI = _metadataURI;
-        campaign.allocationStrategy = IAllocatorStrategy(_allocationStrategy);
-        campaign.vault = _vault;
-        campaign.token = _token;
-        campaign.defaultPayoutActionEncoder = _defaultPayoutActionEncoder;
-
-        IAllocatorStrategy(_allocationStrategy).setAllocationCampaign(_campaignId, _allocationStrategyAuxData);
-
-        if (address(_defaultPayoutActionEncoder) != address(0)) {
-            campaign.defaultPayoutActionEncoder.setupCampaign(_campaignId, _actionEncoderInitializationAuxData);
-        }
-
-        emit CampaignCreated(
-            _campaignId,
-            _metadataURI,
-            _allocationStrategy,
-            _vault,
-            _token,
-            _defaultPayoutActionEncoder
-        );
-        return _campaignId;
-    }
-
-    /**
-     * @notice Gets the allocator strategy factory address.
-     * @return factory The address of the AllocatorStrategyFactory.
-     */
-    function getAllocatorStrategyFactory() external view returns (AllocatorStrategyFactory factory) {
-        return allocatorStrategyFactory;
     }
 
     /// @notice This empty reserved space is put in place to allow future versions to add new variables without shifting down storage in the inheritance chain (see [OpenZeppelin's guide about storage gaps](https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps)).

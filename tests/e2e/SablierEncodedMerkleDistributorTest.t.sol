@@ -134,7 +134,6 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
             toBytes32("merkle-strategy"), // strategyId
             deploymentParams,
             abi.encode(merkleRoot), // allocationStrategyAuxData
-            address(0), // vault (not used for this test)
             usdc, // token
             toBytes32("sablier-linear-encoder"), // defaultActionEncoderId
             abi.encode(
@@ -147,7 +146,8 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
                 false, // Transferable
                 address(0), // No broker
                 0
-            ) // actionEncoderInitializationAuxData
+            ), // actionEncoderInitializationAuxData
+            false
         );
 
         vm.stopPrank();

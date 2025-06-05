@@ -70,6 +70,7 @@ interface IAllocatorStrategyFactory {
      */
     function deployStrategy(
         bytes32 _strategyTypeId,
+        IDAO _dao,
         DeploymentParams calldata _params
     ) external returns (address strategy);
 
@@ -81,6 +82,7 @@ interface IAllocatorStrategyFactory {
      */
     function getOrDeployStrategy(
         bytes32 _strategyTypeId,
+        IDAO _dao,
         DeploymentParams calldata _params
     ) external returns (address strategy);
 
@@ -93,6 +95,7 @@ interface IAllocatorStrategyFactory {
      */
     function strategyExists(
         bytes32 _strategyTypeId,
+        IDAO _dao,
         DeploymentParams calldata _params
     ) external view returns (bool exists, address strategy);
 
