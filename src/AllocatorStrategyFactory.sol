@@ -56,21 +56,19 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
         DeploymentParams calldata _params
     ) public returns (address strategy) {
         bytes32 paramsHash = _computeParamsHash(_strategyTypeId, _dao, _params);
-        return _deployStrategy(_strategyTypeId, _dao, _params, paramsHash);
+        return _deployStrategy(_strategyTypeId, _dao, paramsHash);
     }
 
     /**
      * @notice Internal function to deploy a strategy with pre-computed hash for gas optimization.
      * @param _strategyTypeId The strategy type to deploy.
      * @param _dao The DAO address for initialization.
-     * @param _params Deployment parameters for the strategy.
      * @param _paramsHash Pre-computed hash of deployment parameters.
      * @return strategy The address of the deployed strategy.
      */
     function _deployStrategy(
         bytes32 _strategyTypeId,
         IDAO _dao,
-        DeploymentParams calldata _params,
         bytes32 _paramsHash
     ) internal returns (address strategy) {
         StrategyType storage strategyType = strategyTypes[_strategyTypeId];
@@ -89,12 +87,7 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
         strategy = strategyType.implementation.clone();
 
         // Initialize the strategy
-        bytes memory initCalldata = abi.encodeWithSignature(
-            "initialize(address,uint256,bool)",
-            _dao,
-            _params.epochDuration,
-            _params.claimOpen
-        );
+        bytes memory initCalldata = abi.encodeWithSignature("initialize(address)", _dao);
 
         (bool success, ) = strategy.call(initCalldata);
         if (!success) {
@@ -128,7 +121,7 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
             return strategy;
         }
 
-        return _deployStrategy(_strategyTypeId, _dao, _params, paramsHash);
+        return _deployStrategy(_strategyTypeId, _dao, paramsHash);
     }
 
     /**
@@ -168,9 +161,6 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
         IDAO _dao,
         DeploymentParams calldata _params
     ) internal pure returns (bytes32 paramsHash) {
-        return
-            keccak256(
-                abi.encodePacked(_strategyTypeId, _dao, _params.epochDuration, _params.claimOpen, _params.auxData)
-            );
+        return keccak256(abi.encodePacked(_strategyTypeId, _dao, _params.auxData));
     }
 }

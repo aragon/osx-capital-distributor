@@ -51,6 +51,8 @@ contract CallBasedAllocatorStrategy is AllocatorStrategyBase {
 
         campaign.isEligibleAction = _isEligibleAction;
         campaign.getPayoutAmountAction = _getPayoutAmountAction;
+
+        emit AllocationCampaignCreated(_plugin, _campaignId);
     }
 
     function canClaim(uint256 _campaignId, address _account, bytes calldata) public view returns (bool eligible) {
@@ -86,19 +88,5 @@ contract CallBasedAllocatorStrategy is AllocatorStrategyBase {
         (bool success, bytes memory result) = _allocationCampaign.getPayoutAmountAction.to.staticcall(callData);
         if (success == false) revert CallFailed(msg.sender, _campaignId, _account);
         return abi.decode(result, (uint256));
-    }
-
-    /// @notice Exposes the internal `_updateEpochDuration` function for testing.
-    /// @dev This function is protected by DaoAuthorizable.
-    function updateEpochDuration(uint256 _newEpochDuration) public {
-        if (msg.sender != address(dao())) revert OnlyDAOAllowed(msg.sender);
-        _updateEpochDuration(_newEpochDuration);
-    }
-
-    /// @notice Exposes the internal `_updateClaimPeriodStatus` function for testing.
-    /// @dev This function is protected by DaoAuthorizable.
-    function updateClaimPeriodStatus(bool _isOpen) public {
-        if (msg.sender != address(dao())) revert OnlyDAOAllowed(msg.sender);
-        _updateClaimPeriodStatus(_isOpen);
     }
 }

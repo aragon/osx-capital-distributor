@@ -92,6 +92,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
         // Initialize the campaign struct (merkleRoot is set, hasClaimed mapping is automatically empty)
         merkleCampaigns[plugin][_campaignId].merkleRoot = merkleRoot;
 
+        emit AllocationCampaignCreated(plugin, _campaignId);
         emit MerkleCampaignSet(plugin, _campaignId, merkleRoot);
     }
 
@@ -126,15 +127,6 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
         return claimAmount;
     }
 
-    /// @notice Checks if an account has already claimed for a specific campaign
-    /// @param _plugin The plugin address that created the campaign
-    /// @param _campaignId The campaign ID
-    /// @param _account The account to check
-    /// @return claimed True if the account has already claimed, false otherwise
-    function hasClaimed(address _plugin, uint256 _campaignId, address _account) external view returns (bool claimed) {
-        return merkleCampaigns[_plugin][_campaignId].claimed[_account] > 0;
-    }
-
     /// @notice Gets the merkle root for a specific campaign
     /// @param _plugin The plugin address that created the campaign
     /// @param _campaignId The campaign ID
@@ -147,6 +139,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     /// @param _campaignId The campaign ID to update
     /// @param _auxData The encoded data containing the new merkle root
     function updateCampaignMerkleRoot(uint256 _campaignId, bytes calldata _auxData) external {
+        // TODO: Only the DAO should be able to do this (or a permissioned role)
         address plugin = msg.sender;
 
         // Check if campaign exists
