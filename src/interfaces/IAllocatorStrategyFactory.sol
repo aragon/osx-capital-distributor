@@ -2,16 +2,11 @@
 pragma solidity ^0.8.29;
 
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
+import {FactoryBase} from "../FactoryBase.sol";
 
 /// @title IAllocatorStrategyFactory
 /// @notice Interface for the AllocatorStrategyFactory contract.
 interface IAllocatorStrategyFactory {
-    /// @notice Represents a registered strategy type.
-    struct StrategyType {
-        address implementation;
-        string metadata;
-    }
-
     /// @notice Represents deployment parameters for a strategy instance.
     struct DeploymentParams {
         bytes auxData;
@@ -44,9 +39,6 @@ interface IAllocatorStrategyFactory {
 
     /// @notice Thrown when strategy deployment fails.
     error StrategyDeploymentFailed(bytes32 strategyTypeId);
-
-    /// @notice Thrown when provided implementation address is invalid.
-    error InvalidImplementation(address implementation);
 
     /// @notice Thrown when provided strategy name is empty.
     error EmptyStrategyName();
@@ -101,7 +93,9 @@ interface IAllocatorStrategyFactory {
      * @param _strategyTypeId The strategy type ID.
      * @return strategyType The strategy type configuration.
      */
-    function getStrategyType(bytes32 _strategyTypeId) external view returns (StrategyType memory strategyType);
+    function getStrategyType(
+        bytes32 _strategyTypeId
+    ) external view returns (FactoryBase.RegisteredType memory strategyType);
 
     /**
      * @notice Maps deployment parameters hash to deployed strategy addresses.

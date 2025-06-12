@@ -4,53 +4,21 @@ pragma solidity ^0.8.29;
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {IPayoutActionEncoder} from "./interfaces/IPayoutActionEncoder.sol";
+import {IActionEncoderFactory} from "./interfaces/IActionEncoderFactory.sol";
+import {FactoryBase} from "./FactoryBase.sol";
 
 /// @title ActionEncoderFactory
 /// @author AragonX - 2025
 /// @notice A factory/registry hybrid for managing and deploying action encoders.
 /// @dev This contract allows registering and deploying action encoders instances on demand.
-contract ActionEncoderFactory {
+contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
     using Clones for address;
 
-    /// @notice Struct containing action encoder implementation and metadata
-    /// @param implementation The address of the action encoder implementation contract
-    /// @param metadata Human-readable metadata describing the action encoder
-    struct ActionEncoder {
-        address implementation;
-        string metadata;
-    }
-
     /// @notice Maps encoder IDs to their registered action encoder data
-    mapping(bytes32 encoderId => ActionEncoder) public registeredActionEncoders;
+    mapping(bytes32 encoderId => RegisteredType) public registeredActionEncoders;
 
     /// @notice Maps deployment IDs to deployed encoder addresses
     mapping(bytes32 deployedEncoderId => IPayoutActionEncoder encoder) public deployedEncoders;
-
-    /// @notice Emitted when a new action encoder is registered
-    /// @param encoderId The unique identifier for the action encoder
-    /// @param implementation The address of the implementation contract
-    /// @param metadata The metadata associated with the action encoder
-    event ActionEncoderRegistered(bytes32 encoderId, address implementation, string metadata);
-
-    /// @notice Emitted when an action encoder is deployed
-    /// @param encoderId The unique identifier for the action encoder
-    /// @param actionEncoder The address of the deployed action encoder instance
-    event ActionEncoderDeployed(bytes32 encoderId, IPayoutActionEncoder actionEncoder);
-
-    /// @notice Thrown when attempting to register an encoder ID that already exists
-    /// @param encoderId The encoder ID that is already registered
-    error AlreadyRegistered(bytes32 encoderId);
-
-    /// @notice Thrown when an invalid implementation address is provided
-    /// @param implementation The invalid implementation address
-    error InvalidImplementation(address implementation);
-
-    /// @notice Thrown when an empty encoder ID is provided
-    error EmptyEncoderId();
-
-    /// @notice Thrown when action encoder deployment fails
-    /// @param encoderId The encoder ID that failed to deploy
-    error ActionEncoderDeploymentFailed(bytes32 encoderId);
 
     /// @notice Registers a new action encoder implementation
     /// @param _encoderId The unique identifier for the action encoder
@@ -58,16 +26,11 @@ contract ActionEncoderFactory {
     /// @param _metadata Human-readable metadata describing the action encoder
     /// @dev The implementation address must not be zero and the encoder ID must not be empty
     function registerActionEncoder(bytes32 _encoderId, address _implementation, string calldata _metadata) external {
-        if (_implementation == address(0)) {
-            revert InvalidImplementation(_implementation);
-        }
-        if (_encoderId == bytes32(0)) {
-            revert EmptyEncoderId();
-        }
+        _validateRegistration(_encoderId, _implementation, registeredActionEncoders[_encoderId].implementation);
 
-        if (registeredActionEncoders[_encoderId].implementation != address(0)) revert AlreadyRegistered(_encoderId);
-        registeredActionEncoders[_encoderId] = ActionEncoder(_implementation, _metadata);
+        registeredActionEncoders[_encoderId] = RegisteredType(_implementation, _metadata);
 
+        emit TypeRegistered(_encoderId, _implementation, _metadata, msg.sender);
         emit ActionEncoderRegistered(_encoderId, _implementation, _metadata);
     }
 
@@ -84,22 +47,23 @@ contract ActionEncoderFactory {
         bytes calldata _params,
         bytes32 _deploymentId
     ) internal returns (IPayoutActionEncoder actionEncoder) {
-        ActionEncoder storage encoder = registeredActionEncoders[_encoderId];
+        RegisteredType storage encoder = registeredActionEncoders[_encoderId];
         address implementation = encoder.implementation;
         if (implementation == address(0)) {
-            revert InvalidImplementation(implementation);
+            revert TypeNotFound(_encoderId);
         }
 
-        actionEncoder = IPayoutActionEncoder(Clones.clone(implementation));
-
         bytes memory initCalldata = abi.encodeWithSignature("initialize(address,bytes)", address(_dao), _params);
-        (bool success, ) = address(actionEncoder).call(initCalldata);
-        if (!success) {
+
+        try this._deployAndInitializeActionEncoder(implementation, initCalldata) returns (address deployedAddress) {
+            actionEncoder = IPayoutActionEncoder(deployedAddress);
+        } catch {
             revert ActionEncoderDeploymentFailed(_encoderId);
         }
 
         deployedEncoders[_deploymentId] = actionEncoder;
 
+        emit InstanceDeployed(_encoderId, address(actionEncoder), _deploymentId, msg.sender);
         emit ActionEncoderDeployed(_encoderId, actionEncoder);
     }
 
@@ -140,7 +104,7 @@ contract ActionEncoderFactory {
     /// @notice Retrieves the registered action encoder data for a given encoder ID
     /// @param _encoderId The unique identifier for the action encoder
     /// @return actionEncoder The ActionEncoder struct containing implementation and metadata
-    function getEncoder(bytes32 _encoderId) external view returns (ActionEncoder memory actionEncoder) {
+    function getEncoder(bytes32 _encoderId) external view returns (RegisteredType memory actionEncoder) {
         return registeredActionEncoders[_encoderId];
     }
 
@@ -150,6 +114,32 @@ contract ActionEncoderFactory {
     /// @return paramsHash The computed hash used as deployment identifier
     /// @dev Uses keccak256 to create a deterministic hash from encoder ID and DAO address
     function _computeParamsHash(bytes32 _encoderId, IDAO _dao) internal pure returns (bytes32 paramsHash) {
-        return keccak256(abi.encodePacked(_encoderId, address(_dao)));
+        return _computeBasicParamsHash(_encoderId, _dao);
+    }
+
+    /// @notice External wrapper for deployment and initialization (needed for try/catch)
+    /// @param _implementation The implementation to deploy
+    /// @param _initCalldata The initialization calldata
+    /// @return deployedAddress The address of the deployed instance
+    function _deployAndInitializeActionEncoder(
+        address _implementation,
+        bytes memory _initCalldata
+    ) external returns (address deployedAddress) {
+        require(msg.sender == address(this), "Only self-call allowed");
+        return _deployAndInitialize(_implementation, _initCalldata);
+    }
+
+    /// @notice Gets the registered type information (required by FactoryBase)
+    /// @param _typeId The type identifier
+    /// @return registeredType The registered type data
+    function getRegisteredType(bytes32 _typeId) external view override returns (RegisteredType memory registeredType) {
+        return registeredActionEncoders[_typeId];
+    }
+
+    /// @notice Checks if a type is registered (required by FactoryBase)
+    /// @param _typeId The type identifier to check
+    /// @return isRegistered True if the type is registered, false otherwise
+    function isTypeRegistered(bytes32 _typeId) external view override returns (bool isRegistered) {
+        return registeredActionEncoders[_typeId].implementation != address(0);
     }
 }

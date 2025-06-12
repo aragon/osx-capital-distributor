@@ -5,16 +5,17 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {IAllocatorStrategy} from "./interfaces/IAllocatorStrategy.sol";
 import {IAllocatorStrategyFactory} from "./interfaces/IAllocatorStrategyFactory.sol";
+import {FactoryBase} from "./FactoryBase.sol";
 
 /// @title AllocatorStrategyFactory
 /// @author AragonX - 2025
 /// @notice A factory/registry hybrid for managing and deploying allocator strategies.
 /// @dev This contract allows registering strategy types and deploying instances on demand.
-contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
+contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     using Clones for address;
 
     /// @notice Maps strategy type IDs to their configuration.
-    mapping(bytes32 strategyTypeId => StrategyType) public strategyTypes;
+    mapping(bytes32 strategyTypeId => RegisteredType) public strategyTypes;
 
     /// @notice Maps deployment parameters hash to deployed strategy addresses.
     mapping(bytes32 paramsHash => address strategy) public deployedStrategies;
@@ -29,19 +30,11 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
      * @param _metadata Human-readable name for the strategy type.
      */
     function registerStrategyType(bytes32 _strategyId, address _implementation, string calldata _metadata) external {
-        if (strategyTypes[_strategyId].implementation != address(0)) {
-            revert StrategyTypeAlreadyExists(_strategyId);
-        }
-        if (_implementation == address(0)) {
-            revert InvalidImplementation(_implementation);
-        }
-        if (_strategyId.length == 0) {
-            revert EmptyStrategyName();
-        }
+        _validateRegistration(_strategyId, _implementation, strategyTypes[_strategyId].implementation);
 
-        strategyTypes[_strategyId] = StrategyType({implementation: _implementation, metadata: _metadata});
+        strategyTypes[_strategyId] = RegisteredType({implementation: _implementation, metadata: _metadata});
 
-        emit StrategyTypeRegistered(_strategyId, _implementation, _metadata, msg.sender);
+        emit TypeRegistered(_strategyId, _implementation, _metadata, msg.sender);
     }
 
     /**
@@ -71,10 +64,10 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
         IDAO _dao,
         bytes32 _paramsHash
     ) internal returns (address strategy) {
-        StrategyType storage strategyType = strategyTypes[_strategyTypeId];
+        RegisteredType storage strategyType = strategyTypes[_strategyTypeId];
 
         if (strategyType.implementation == address(0)) {
-            revert StrategyTypeNotFound(_strategyTypeId);
+            revert TypeNotFound(_strategyTypeId);
         }
 
         // Check if strategy with these parameters already exists
@@ -83,22 +76,17 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
             revert StrategyAlreadyDeployed(_paramsHash, existingStrategy);
         }
 
-        // Deploy strategy using Clones
-        strategy = strategyType.implementation.clone();
-
         // Initialize the strategy
         bytes memory initCalldata = abi.encodeWithSignature("initialize(address)", _dao);
 
-        (bool success, ) = strategy.call(initCalldata);
-        if (!success) {
-            revert StrategyDeploymentFailed(_strategyTypeId);
-        }
+        // Deploy and initialize using base class utility
+        strategy = _deployAndInitialize(strategyType.implementation, initCalldata);
 
         // Register the deployed strategy
         deployedStrategies[_paramsHash] = strategy;
         strategyToType[strategy] = _strategyTypeId;
 
-        emit StrategyDeployed(_strategyTypeId, strategy, _paramsHash, msg.sender);
+        emit InstanceDeployed(_strategyTypeId, strategy, _paramsHash, msg.sender);
 
         return strategy;
     }
@@ -146,8 +134,28 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
      * @param _strategyTypeId The strategy type ID.
      * @return strategyType The strategy type configuration.
      */
-    function getStrategyType(bytes32 _strategyTypeId) external view returns (StrategyType memory strategyType) {
+    function getStrategyType(
+        bytes32 _strategyTypeId
+    ) external view returns (FactoryBase.RegisteredType memory strategyType) {
         return strategyTypes[_strategyTypeId];
+    }
+
+    /**
+     * @notice Gets the registered type information (required by FactoryBase).
+     * @param _typeId The type identifier.
+     * @return registeredType The registered type data.
+     */
+    function getRegisteredType(bytes32 _typeId) external view override returns (RegisteredType memory registeredType) {
+        return strategyTypes[_typeId];
+    }
+
+    /**
+     * @notice Checks if a type is registered (required by FactoryBase).
+     * @param _typeId The type identifier to check.
+     * @return isRegistered True if the type is registered, false otherwise.
+     */
+    function isTypeRegistered(bytes32 _typeId) external view override returns (bool isRegistered) {
+        return strategyTypes[_typeId].implementation != address(0);
     }
 
     /**
@@ -161,6 +169,6 @@ contract AllocatorStrategyFactory is IAllocatorStrategyFactory {
         IDAO _dao,
         DeploymentParams calldata _params
     ) internal pure returns (bytes32 paramsHash) {
-        return keccak256(abi.encodePacked(_strategyTypeId, _dao, _params.auxData));
+        return _computeParamsHash(_strategyTypeId, _dao, _params.auxData);
     }
 }
