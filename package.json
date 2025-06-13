@@ -12,7 +12,7 @@
     "@aragon/osx": "aragon/osx",
     "@aragon/osx-commons-repo": "aragon/osx-commons",
     "@aragon/osx-plugin-template": "aragon/token-voting-plugin",
-    "@ensdomains/ens-contracts": "0.0.11",
+    "@ensdomains/ens-contracts": "0.0.22",
     "@openzeppelin/contracts": "4.9.6",
     "@openzeppelin/contracts-upgradeable": "4.9.6",
     "@prb/math": "^4.1.0",
