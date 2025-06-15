@@ -147,7 +147,9 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
                 address(0), // No broker
                 0
             ), // actionEncoderInitializationAuxData
-            false
+            false,
+            0,
+            0
         );
 
         vm.stopPrank();

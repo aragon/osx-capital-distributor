@@ -110,7 +110,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
             IERC20(token),
             bytes32(0),
             metadata,
-            false
+            false,
+            0,
+            0
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
@@ -134,7 +136,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
             IERC20(token),
             bytes32(0),
             metadata,
-            false
+            false,
+            0,
+            0
         );
     }
 
@@ -153,7 +157,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
             IERC20(token),
             bytes32(0),
             metadata,
-            false
+            false,
+            0,
+            0
         );
         vm.stopPrank();
 
@@ -186,7 +192,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
             IERC20(token),
             bytes32(0),
             metadata,
-            false
+            false,
+            0,
+            0
         );
         vm.stopPrank();
 
@@ -222,7 +230,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
             IERC20(token),
             bytes32(0),
             metadata,
-            false
+            false,
+            0,
+            0
         );
         vm.stopPrank();
 
@@ -250,7 +260,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
             IERC20(token),
             bytes32(0),
             metadata,
-            false
+            false,
+            0,
+            0
         );
         vm.stopPrank();
 
@@ -282,7 +294,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
             IERC20(token),
             bytes32(0),
             metadata,
-            false
+            false,
+            0,
+            0
         );
         vm.stopPrank();
 
