@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {IPayoutActionEncoder} from "../interfaces/IPayoutActionEncoder.sol";
+import {PayoutActionEncodersBase} from "./PayoutActionEncodersBase.sol";
 import {Action} from "@aragon/commons/executors/IExecutor.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {DaoAuthorizableUpgradeable} from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
 
 // Sablier imports
 import {ud60x18} from "@prb/math/src/UD60x18.sol";
@@ -66,10 +65,9 @@ struct CreateWithDurationsLL {
 /// @title SablierLinearPayoutActionEncoder
 /// @notice An IPayoutActionEncoder that creates Sablier linear streams for payouts
 /// @dev This contract creates actions to approve tokens and create linear streams on Sablier V2
-contract SablierLinearPayoutActionEncoder is IPayoutActionEncoder, DaoAuthorizableUpgradeable {
+contract SablierLinearPayoutActionEncoder is PayoutActionEncodersBase {
     address constant SABLIER_V2_LOCKUP = 0x7C01AA3783577E15fD7e272443D44B92d5b21056;
 
-    bytes32 public encoderId;
     /// @notice Struct containing stream configuration for a campaign
     struct StreamConfig {
         address sablierContract;
@@ -104,22 +102,7 @@ contract SablierLinearPayoutActionEncoder is IPayoutActionEncoder, DaoAuthorizab
     /// @notice Thrown if the stream duration is zero
     error InvalidStreamDuration();
 
-    /**
-     * @notice Constructor to disable initializers in implementation
-     */
-    constructor() {
-        _disableInitializers();
-    }
-
-    /// @notice Initializes the encoder with the given DAO
-    /// @param _dao The DAO that will control this encoder
-    function initialize(bytes32 _encoderId, IDAO _dao, bytes calldata) public virtual initializer {
-        __DaoAuthorizableUpgradeable_init(_dao);
-
-        encoderId = _encoderId;
-    }
-
-    /// @inheritdoc IPayoutActionEncoder
+    /// @inheritdoc PayoutActionEncodersBase
     function setupCampaign(uint256 _campaignId, bytes calldata _auxData) external override {
         StreamConfig memory config = abi.decode(_auxData, (StreamConfig));
 
@@ -141,7 +124,7 @@ contract SablierLinearPayoutActionEncoder is IPayoutActionEncoder, DaoAuthorizab
         );
     }
 
-    /// @inheritdoc IPayoutActionEncoder
+    /// @inheritdoc PayoutActionEncodersBase
     /// @dev Creates two actions:
     ///      1. Approve the Sablier contract to spend the tokens
     ///      2. Create a linear stream with the specified parameters
