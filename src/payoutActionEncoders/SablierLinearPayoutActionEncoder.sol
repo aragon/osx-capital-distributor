@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {PayoutActionEncodersBase} from "./PayoutActionEncodersBase.sol";
+import {PayoutActionEncoderBase} from "./PayoutActionEncoderBase.sol";
 import {Action} from "@aragon/commons/executors/IExecutor.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
@@ -65,7 +65,7 @@ struct CreateWithDurationsLL {
 /// @title SablierLinearPayoutActionEncoder
 /// @notice An IPayoutActionEncoder that creates Sablier linear streams for payouts
 /// @dev This contract creates actions to approve tokens and create linear streams on Sablier V2
-contract SablierLinearPayoutActionEncoder is PayoutActionEncodersBase {
+contract SablierLinearPayoutActionEncoder is PayoutActionEncoderBase {
     address constant SABLIER_V2_LOCKUP = 0x7C01AA3783577E15fD7e272443D44B92d5b21056;
 
     /// @notice Struct containing stream configuration for a campaign
@@ -102,7 +102,7 @@ contract SablierLinearPayoutActionEncoder is PayoutActionEncodersBase {
     /// @notice Thrown if the stream duration is zero
     error InvalidStreamDuration();
 
-    /// @inheritdoc PayoutActionEncodersBase
+    /// @inheritdoc PayoutActionEncoderBase
     function setupCampaign(uint256 _campaignId, bytes calldata _auxData) external override {
         StreamConfig memory config = abi.decode(_auxData, (StreamConfig));
 
@@ -124,7 +124,7 @@ contract SablierLinearPayoutActionEncoder is PayoutActionEncodersBase {
         );
     }
 
-    /// @inheritdoc PayoutActionEncodersBase
+    /// @inheritdoc PayoutActionEncoderBase
     /// @dev Creates two actions:
     ///      1. Approve the Sablier contract to spend the tokens
     ///      2. Create a linear stream with the specified parameters

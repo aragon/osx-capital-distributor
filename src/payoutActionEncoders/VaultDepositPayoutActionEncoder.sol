@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {IPayoutActionEncoder} from "../interfaces/IPayoutActionEncoder.sol";
 import {Action} from "@aragon/commons/executors/IExecutor.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {DaoAuthorizableUpgradeable} from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
+import {PayoutActionEncoderBase} from "./PayoutActionEncoderBase.sol";
 
 /// @title IVault
 /// @notice A generic interface for a vault that this encoder can interact with.
@@ -18,14 +18,12 @@ interface IVault {
 /// @notice An IPayoutActionEncoder that approves tokens for a campaign-specific vault and then calls its deposit function.
 /// @dev This contract is DaoAuthorizable. The DAO controlling this encoder instance
 ///      must grant permission for `setCampaignVault`.
-contract VaultDepositPayoutActionEncoder is IPayoutActionEncoder, DaoAuthorizableUpgradeable {
+contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
     /// @notice Permission ID required to call `setCampaignVault`.
     bytes32 public constant SET_VAULT_PERMISSION_ID = keccak256("SET_VAULT_PERMISSION");
 
     /// @notice Mapping from campaignId to the vault address for that campaign.
     mapping(uint256 => address) public campaignVaults;
-
-    bytes32 public encoderId;
 
     /// @notice Emitted when a vault address is set for a campaign.
     event CampaignVaultSet(uint256 indexed campaignId, address indexed vaultAddress, address indexed setter);
@@ -39,23 +37,8 @@ contract VaultDepositPayoutActionEncoder is IPayoutActionEncoder, DaoAuthorizabl
     /// @notice Thrown if the call is done by any address but the DAO
     error OnlyDAO();
 
-    /**
-     * @notice Constructor to initialize DaoAuthorizable with the DAO.
-     */
-    constructor() {
-        // Disable initializers to prevent implementation contract from being initialized
-        _disableInitializers();
-    }
 
-    /// @notice Initializes the strategy with the given parameters
-    /// @param _dao The DAO that will control this strategy
-    function initialize(bytes32 _encoderId, IDAO _dao, bytes calldata) public virtual initializer {
-        __DaoAuthorizableUpgradeable_init(_dao);
-
-        encoderId = _encoderId;
-    }
-
-    // @inheritdoc IPayoutActionEncoder
+    // @inheritdoc PayoutActionEncoderBase
     function setupCampaign(uint256 _campaignId, bytes calldata _auxData) external override {
         // TODO: Add the permission so only the plugin can call this
 
@@ -68,7 +51,7 @@ contract VaultDepositPayoutActionEncoder is IPayoutActionEncoder, DaoAuthorizabl
     }
 
     /**
-     * @inheritdoc IPayoutActionEncoder
+     // @inheritdoc PayoutActionEncoderBase
      * @dev This implementation creates two actions:
      *      1. Approve the campaign-specific `vaultAddress` to spend `_amount` of `_token`.
      *      2. Call `deposit(_recipient, _amount)` on that `vaultAddress`.

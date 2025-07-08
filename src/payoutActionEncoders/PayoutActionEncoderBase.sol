@@ -7,11 +7,11 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {Action} from "@aragon/commons/executors/IExecutor.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 
-/// @title PayoutActionEncodersBase
+/// @title PayoutActionEncoderBase
 /// @notice Base contract implementing the IPayoutActionEncoder interface.
 /// @dev Provides common functionality for action encoders. Implementing contracts should override
 /// abstract functions to define specific allocation logic.
-abstract contract PayoutActionEncodersBase is IPayoutActionEncoder, DaoAuthorizableUpgradeable {
+abstract contract PayoutActionEncoderBase is IPayoutActionEncoder, DaoAuthorizableUpgradeable {
     bytes32 public encoderId;
 
     // =========================================================================
