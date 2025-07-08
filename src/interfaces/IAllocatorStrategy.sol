@@ -25,6 +25,10 @@ interface IAllocatorStrategy {
     // View Functions
     // =========================================================================
 
+    /// @notice Retrieves the strategy ID associated with a campaign.
+    /// @return The strategy ID.
+    function strategyTypeId() external view returns (bytes32);
+
     /// @notice Called by the plugin only when creating a new campaign
     /// @param _campaignId The id of the campaign getting the payout from
     /// @param _auxData Strategy-specific auxiliary data. Pass `bytes("")` if not required by the strategy.

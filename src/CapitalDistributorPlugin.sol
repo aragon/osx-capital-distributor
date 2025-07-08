@@ -43,7 +43,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
      * @param metadataURI URI pointing to the campaign's metadata (e.g., IPFS hash).
      * @param allocationStrategy The contract address responsible for determining allocation logic.
      * @param token The address of the token that will be used for the payouts
-     * @param defaultPayoutActionEncoder The logic to execute when claiming the payout
+     * @param actionEncoder The logic to execute when claiming the payout
      * @param multipleClaimsAllowed Whether recipients can claim multiple times for this campaign
      * @param active Whether the campaign is active and accepting claims
      * @param startTime The timestamp when the campaign becomes active (0 means no start time restriction)
@@ -53,7 +53,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         bytes metadataURI;
         IAllocatorStrategy allocationStrategy;
         IERC20 token;
-        IPayoutActionEncoder defaultPayoutActionEncoder;
+        IPayoutActionEncoder actionEncoder;
         bool multipleClaimsAllowed;
         bool active;
         uint256 startTime; // 0 means no start time restriction
@@ -68,7 +68,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     /**
      * @notice Stores all campaign configurations, mapping a campaign ID to its Campaign struct.
      * The public visibility automatically creates a getter function:
-     * `function campaigns(uint256 _campaignId) external view returns (bytes memory metadataURI, address allocationStrategy, address token, address defaultPayoutActionEncoder, bool multipleClaimsAllowed, bool active)`
+     * `function campaigns(uint256 _campaignId) external view returns (bytes memory metadataURI, address allocationStrategy, address token, address actionEncoder, bool multipleClaimsAllowed, bool active)`
      */
     mapping(uint256 campaignId => Campaign) public campaigns;
 
@@ -86,7 +86,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
      * @param metadataURI The metadata URI for the campaign.
      * @param allocationStrategy The allocation strategy address for the campaign.
      * @param token The token address for the campaign.
-     * @param defaultPayoutActionEncoder The default payout action encoder for the campaign.
+     * @param actionEncoder The default payout action encoder for the campaign.
      * @param multipleClaimsAllowed Whether multiple claims are allowed for this campaign.
      */
     event CampaignCreated(
@@ -94,7 +94,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         bytes metadataURI,
         address indexed allocationStrategy,
         IERC20 token,
-        IPayoutActionEncoder defaultPayoutActionEncoder,
+        IPayoutActionEncoder actionEncoder,
         bool multipleClaimsAllowed,
         uint256 startTime,
         uint256 endTime
@@ -186,7 +186,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
      * @param _strategyParams Deployment parameters for the strategy.
      * @param _allocationStrategyAuxData Additional data needed to initialize the allocation strategy.
      * @param _token The token address that will be used for payouts.
-     * @param _defaultActionEncoderId The action encoder type ID to deploy (use bytes32(0) for simple transfers).
+     * @param _actionEncoder The action encoder type ID to deploy (use bytes32(0) for simple transfers).
      * @param _actionEncoderInitializationAuxData Additional data needed to initialize the action encoder.
      * @param _multipleClaimsAllowed Whether recipients can claim multiple times for this campaign.
      * @param _startTime The timestamp when the campaign becomes active (0 means no start time restriction).
@@ -198,7 +198,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         AllocatorStrategyFactory.DeploymentParams calldata _strategyParams,
         bytes calldata _allocationStrategyAuxData,
         IERC20 _token,
-        bytes32 _defaultActionEncoderId,
+        bytes32 _actionEncoder,
         bytes calldata _actionEncoderInitializationAuxData,
         bool _multipleClaimsAllowed,
         uint256 _startTime,
@@ -240,15 +240,15 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
 
         // Setup action encoder
         {
-            if (_defaultActionEncoderId != bytes32(0)) {
+            if (_actionEncoder != bytes32(0)) {
                 bytes memory actionEncoderInitializationAuxData = _actionEncoderInitializationAuxData;
 
                 IPayoutActionEncoder actionEncoder = actionEncoderFactory.getOrDeployActionEncoder(
-                    _defaultActionEncoderId,
+                    _actionEncoder,
                     dao(),
                     actionEncoderInitializationAuxData
                 );
-                campaigns[id].defaultPayoutActionEncoder = actionEncoder;
+                campaigns[id].actionEncoder = actionEncoder;
 
                 try actionEncoder.setupCampaign(id, actionEncoderInitializationAuxData) {
                     // Action encoder setup successful
@@ -276,7 +276,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
                 campaigns[id].metadataURI,
                 address(campaigns[id].allocationStrategy),
                 _token,
-                campaigns[id].defaultPayoutActionEncoder,
+                campaigns[id].actionEncoder,
                 _multipleClaimsAllowed,
                 _startTime,
                 _endTime
@@ -291,6 +291,24 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
      */
     function getCampaign(uint256 _campaignId) public view returns (Campaign memory) {
         return campaigns[_campaignId];
+    }
+
+    /**
+     * @notice Retrieves strategy id for a given campaign ID.
+     * @param _campaignId The unique identifier for the campaign.
+     * @return The campaign strategy id.
+     */
+    function getCampaignStrategyId(uint256 _campaignId) public view returns (bytes32) {
+        return campaigns[_campaignId].allocationStrategy.strategyTypeId();
+    }
+
+    /**
+     * @notice Retrieves encoder id for a given campaign ID.
+     * @param _campaignId The unique identifier for the campaign.
+     * @return The campaign encoder id.
+     */
+    function getCampaignEncoderId(uint256 _campaignId) public view returns (bytes32) {
+        return campaigns[_campaignId].actionEncoder.encoderId();
     }
 
     /**
@@ -368,12 +386,12 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         }
 
         Action[] memory actions;
-        if (address(campaign.defaultPayoutActionEncoder) == address(0)) {
+        if (address(campaign.actionEncoder) == address(0)) {
             actions = new Action[](1);
             actions[0].to = address(campaign.token);
             actions[0].data = abi.encodeCall(IERC20.transfer, (_recipient, amountToSend));
         } else {
-            actions = campaign.defaultPayoutActionEncoder.buildActions(
+            actions = campaign.actionEncoder.buildActions(
                 campaign.token,
                 _recipient,
                 amountToSend,

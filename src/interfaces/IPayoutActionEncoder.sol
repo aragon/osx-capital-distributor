@@ -7,6 +7,11 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 /// @title IPayoutActionEncoder
 /// @notice Interface for contracts that construct the DAO actions required to execute a payout.
 interface IPayoutActionEncoder {
+
+    /// @notice Retrieves the encoder ID associated with a campaign.
+    /// @return The encoder ID.
+    function encoderId() external view returns (bytes32);
+
     /**
      * @notice Call to setup the ActionEncoder for the campaign
      * @param _campaignId The ID of the campaign for which this payout is being made.

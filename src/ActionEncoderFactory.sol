@@ -53,7 +53,12 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
             revert TypeNotFound(_encoderId);
         }
 
-        bytes memory initCalldata = abi.encodeWithSignature("initialize(address,bytes)", address(_dao), _params);
+        bytes memory initCalldata = abi.encodeWithSignature(
+            "initialize(bytes32,address,bytes)",
+            _encoderId,
+            address(_dao),
+            _params
+        );
 
         try this._deployAndInitializeActionEncoder(implementation, initCalldata) returns (address deployedAddress) {
             actionEncoder = IPayoutActionEncoder(deployedAddress);

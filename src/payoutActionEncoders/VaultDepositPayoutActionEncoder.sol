@@ -25,6 +25,8 @@ contract VaultDepositPayoutActionEncoder is IPayoutActionEncoder, DaoAuthorizabl
     /// @notice Mapping from campaignId to the vault address for that campaign.
     mapping(uint256 => address) public campaignVaults;
 
+    bytes32 public encoderId;
+
     /// @notice Emitted when a vault address is set for a campaign.
     event CampaignVaultSet(uint256 indexed campaignId, address indexed vaultAddress, address indexed setter);
 
@@ -47,8 +49,10 @@ contract VaultDepositPayoutActionEncoder is IPayoutActionEncoder, DaoAuthorizabl
 
     /// @notice Initializes the strategy with the given parameters
     /// @param _dao The DAO that will control this strategy
-    function initialize(IDAO _dao, bytes calldata) public virtual initializer {
+    function initialize(bytes32 _encoderId, IDAO _dao, bytes calldata) public virtual initializer {
         __DaoAuthorizableUpgradeable_init(_dao);
+
+        encoderId = _encoderId;
     }
 
     // @inheritdoc IPayoutActionEncoder

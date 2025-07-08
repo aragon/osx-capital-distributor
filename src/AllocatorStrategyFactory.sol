@@ -77,7 +77,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         }
 
         // Initialize the strategy
-        bytes memory initCalldata = abi.encodeWithSignature("initialize(address)", _dao);
+        bytes memory initCalldata = abi.encodeWithSignature("initialize(bytes32,address)", _strategyTypeId, _dao);
 
         // Deploy and initialize using base class utility
         strategy = _deployAndInitialize(strategyType.implementation, initCalldata);

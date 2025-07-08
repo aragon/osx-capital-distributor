@@ -68,6 +68,8 @@ struct CreateWithDurationsLL {
 /// @dev This contract creates actions to approve tokens and create linear streams on Sablier V2
 contract SablierLinearPayoutActionEncoder is IPayoutActionEncoder, DaoAuthorizableUpgradeable {
     address constant SABLIER_V2_LOCKUP = 0x7C01AA3783577E15fD7e272443D44B92d5b21056;
+
+    bytes32 public encoderId;
     /// @notice Struct containing stream configuration for a campaign
     struct StreamConfig {
         address sablierContract;
@@ -111,8 +113,10 @@ contract SablierLinearPayoutActionEncoder is IPayoutActionEncoder, DaoAuthorizab
 
     /// @notice Initializes the encoder with the given DAO
     /// @param _dao The DAO that will control this encoder
-    function initialize(IDAO _dao, bytes calldata) public virtual initializer {
+    function initialize(bytes32 _encoderId, IDAO _dao, bytes calldata) public virtual initializer {
         __DaoAuthorizableUpgradeable_init(_dao);
+
+        encoderId = _encoderId;
     }
 
     /// @inheritdoc IPayoutActionEncoder
