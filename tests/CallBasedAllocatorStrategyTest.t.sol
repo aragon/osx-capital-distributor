@@ -109,7 +109,7 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
         assertEq(token.balanceOf(alice), 0 ether, "Alice has funds");
         assertEq(voter.balanceOf(alice), 1 ether, "Alice hasn't voter funds");
 
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, metadata);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, metadata, "");
 
         assertEq(token.balanceOf(address(createdDAO)), 0 ether, "DAO has funds");
         assertEq(token.balanceOf(alice), 1 ether, "Alice has funds");

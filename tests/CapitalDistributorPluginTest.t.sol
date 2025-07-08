@@ -106,7 +106,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         assertEq(token.balanceOf(address(createdDAO)), 1 ether, "DAO doesn't have funds");
         assertEq(token.balanceOf(alice), 0 ether, "Alice has funds");
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, metadata);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, metadata, "");
         assertEq(token.balanceOf(address(createdDAO)), 0 ether, "DAO has funds");
         assertEq(token.balanceOf(alice), 1 ether, "Alice has funds");
     }
@@ -135,7 +135,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         assertEq(token.balanceOf(address(createdDAO)), 1 ether, "DAO doesn't have funds");
         assertEq(token.balanceOf(alice), 0 ether, "Alice has funds");
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, metadata);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, metadata, "");
         assertEq(token.balanceOf(address(createdDAO)), 0 ether, "DAO has funds");
         assertEq(token.balanceOf(address(vaultToSendTokens)), 1 ether, "Vault has funds");
     }

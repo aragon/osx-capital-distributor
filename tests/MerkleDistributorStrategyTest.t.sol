@@ -171,7 +171,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         assertEq(token.balanceOf(alice), 0 ether, "Alice has funds before claim");
 
         vm.startPrank(address(createdDAO));
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimAuxData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimAuxData, "");
 
         assertEq(token.balanceOf(address(createdDAO)), 9 ether, "DAO should have 9 ether left");
         assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether");
@@ -203,12 +203,12 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Alice claims
         bytes32[] memory aliceProof = getMerkleProof(0);
         bytes memory aliceClaimData = abi.encode(aliceProof, amounts[0]);
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, aliceClaimData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, aliceClaimData, "");
 
         // Bob claims
         bytes32[] memory bobProof = getMerkleProof(1);
         bytes memory bobClaimData = abi.encode(bobProof, amounts[1]);
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, bobClaimData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, bobClaimData, "");
 
         assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether");
         assertEq(token.balanceOf(bob), 2 ether, "Bob should have 2 ether");
@@ -242,7 +242,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         vm.startPrank(address(capitalDistributorPlugin));
         vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.NoClaimableAmount.selector, campaignId, alice));
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, invalidClaimData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, invalidClaimData, "");
     }
 
     function test_CannotClaimTwice() public {
@@ -271,13 +271,13 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Alice claims successfully
         bytes32[] memory aliceProof = getMerkleProof(0);
         bytes memory aliceClaimData = abi.encode(aliceProof, amounts[0]);
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, aliceClaimData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, aliceClaimData, "");
 
         // Alice tries to claim again - should revert
         vm.expectRevert(
             abi.encodeWithSelector(CapitalDistributorPlugin.MultipleClaimsNotAllowed.selector, campaignId, alice)
         );
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, aliceClaimData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, aliceClaimData, "");
     }
 
     function test_GetCampaignPayout() public {

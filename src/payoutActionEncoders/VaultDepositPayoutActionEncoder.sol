@@ -76,7 +76,8 @@ contract VaultDepositPayoutActionEncoder is IPayoutActionEncoder, DaoAuthorizabl
         address _recipient,
         uint256 _amount,
         address, // _caller - not used in this specific encoder logic
-        uint256 _campaignId
+        uint256 _campaignId,
+        bytes memory
     ) external view override returns (Action[] memory actions) {
         if (_amount == 0) {
             revert AmountCannotBeZero();

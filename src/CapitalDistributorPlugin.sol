@@ -319,14 +319,17 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
      * @notice Sends the amount of tokens to the recipient of a campaign
      * @param _campaignId The unique identifier for the campaign.
      * @param _recipient The address to get the payout
-     * @param _auxData The data needed by the strategy to calculate the payout
+     * @param _strategyAuxData The data needed by the strategy to calculate the payout
+     * @param _encoderAuxData The data needed by the encoder to send the payout
      * @return amountToSend The amount of tokens the recipient should get
      */
     function claimCampaignPayout(
         uint256 _campaignId,
         address _recipient,
-        bytes calldata _auxData
+        bytes calldata _strategyAuxData,
+        bytes calldata _encoderAuxData
     ) public returns (uint256 amountToSend) {
+        // TODO: There should be two different auxData, one for the strategy and one for the action encoder
         Campaign storage campaign = campaigns[_campaignId];
 
         // Check if campaign exists
@@ -352,7 +355,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
             revert MultipleClaimsNotAllowed(_campaignId, _recipient);
         }
 
-        amountToSend = campaign.allocationStrategy.getClaimeableAmount(_campaignId, _recipient, _auxData);
+        amountToSend = campaign.allocationStrategy.getClaimeableAmount(_campaignId, _recipient, _strategyAuxData);
 
         // Check if there's anything to claim
         if (amountToSend == 0) {
@@ -375,7 +378,8 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
                 _recipient,
                 amountToSend,
                 msg.sender,
-                _campaignId
+                _campaignId,
+                _encoderAuxData
             );
         }
 
@@ -435,22 +439,29 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     /// @notice Claims payouts from multiple campaigns in a single transaction.
     /// @param _campaignIds Array of campaign IDs to claim from.
     /// @param _recipients Array of recipient addresses (must match campaignIds length).
-    /// @param _auxData Array of auxiliary data for each claim (must match campaignIds length).
+    /// @param _strategiesAuxData Array of auxiliary data for each claim (must match campaignIds length).
+    /// @param _encodersAuxData Array of auxiliary data for each claim (must match campaignIds length).
     /// @return amounts Array of amounts claimed for each campaign.
     function batchClaimCampaignPayout(
         uint256[] calldata _campaignIds,
         address[] calldata _recipients,
-        bytes[] calldata _auxData
+        bytes[] calldata _strategiesAuxData,
+        bytes[] calldata _encodersAuxData
     ) external returns (uint256[] memory amounts) {
         uint256 length = _campaignIds.length;
-        if (length != _recipients.length || length != _auxData.length) {
+        if (length != _recipients.length || length != _strategiesAuxData.length || length != _encodersAuxData.length) {
             revert ArrayLengthMismatch();
         }
 
         amounts = new uint256[](length);
 
         for (uint256 i = 0; i < length; i++) {
-            amounts[i] = claimCampaignPayout(_campaignIds[i], _recipients[i], _auxData[i]);
+            amounts[i] = claimCampaignPayout(
+                _campaignIds[i],
+                _recipients[i],
+                _strategiesAuxData[i],
+                _encodersAuxData[i]
+            );
         }
 
         return amounts;

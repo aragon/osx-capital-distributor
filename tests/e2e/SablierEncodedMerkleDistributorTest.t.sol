@@ -203,7 +203,7 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
         vm.startPrank(address(alice));
         ISablierLockup sablierLockup = ISablierLockup(SABLIER_V2_LOCKUP);
         uint256 streamId = sablierLockup.nextStreamId();
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimData, "");
 
         // Verify DAO balance decreased
         assertLt(usdc.balanceOf(address(dao)), initialDAOBalance, "DAO balance should decrease");
@@ -223,11 +223,11 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
 
         // Alice claims
         bytes memory aliceClaimData = abi.encode(recipientProofs[alice], recipientAmounts[alice]);
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, aliceClaimData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, aliceClaimData, "");
 
         // Bob claims
         bytes memory bobClaimData = abi.encode(recipientProofs[bob], recipientAmounts[bob]);
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, bobClaimData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, bobClaimData, "");
 
         vm.stopPrank();
 
@@ -241,13 +241,13 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
 
         // Alice claims successfully
         bytes memory claimData = abi.encode(recipientProofs[alice], recipientAmounts[alice]);
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimData, "");
 
         // Alice tries to claim again
         vm.expectRevert(
             abi.encodeWithSelector(CapitalDistributorPlugin.MultipleClaimsNotAllowed.selector, campaignId, alice)
         );
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimData, "");
 
         vm.stopPrank();
     }
@@ -258,7 +258,7 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
         vm.startPrank(address(dao));
 
         uint256 gasBefore = gasleft();
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimData);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimData, "");
         uint256 gasUsed = gasBefore - gasleft();
 
         vm.stopPrank();

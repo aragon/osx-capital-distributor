@@ -21,6 +21,7 @@ interface IPayoutActionEncoder {
      * @param _amount The amount of tokens to be paid out.
      * @param _caller The address of the CapitalDistributorPlugin calling this builder.
      * @param _campaignId The ID of the campaign for which this payout is being made.
+     * @param _encoderAuxData The data needed by the encoder to send the payout
      * @return actions An array of `Action` structs to be executed by the DAO.
      */
     function buildActions(
@@ -28,6 +29,7 @@ interface IPayoutActionEncoder {
         address _recipient,
         uint256 _amount,
         address _caller, // Added for context, might be useful for builders
-        uint256 _campaignId // Added for context
+        uint256 _campaignId, // Added for context
+        bytes calldata _encoderAuxData
     ) external view returns (Action[] memory actions);
 }

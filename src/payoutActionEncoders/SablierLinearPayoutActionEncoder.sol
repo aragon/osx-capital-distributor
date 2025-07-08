@@ -146,7 +146,8 @@ contract SablierLinearPayoutActionEncoder is IPayoutActionEncoder, DaoAuthorizab
         address _recipient,
         uint256 _amount,
         address, // _caller - not used in this implementation
-        uint256 _campaignId
+        uint256 _campaignId,
+        bytes memory
     ) external view override returns (Action[] memory actions) {
         if (_amount == 0) {
             revert AmountCannotBeZero();
