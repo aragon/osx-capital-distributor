@@ -99,8 +99,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     function test_CreateCampaign() public {
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
-        IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
-            .DeploymentParams({auxData: ""});
+        bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
@@ -124,8 +123,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     function test_CannotCreateCampaignWithoutPermissions() public {
         vm.startPrank(address(alice));
         bytes memory metadata = "";
-        IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
-            .DeploymentParams({auxData: ""});
+        bytes memory allocatorDeploymentParams = "";
 
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
@@ -146,8 +144,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         token.mint(address(createdDAO), 10 ether);
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
-        IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
-            .DeploymentParams({auxData: ""});
+        bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
@@ -181,8 +178,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         token.mint(address(createdDAO), 10 ether);
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
-        IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
-            .DeploymentParams({auxData: ""});
+        bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
@@ -219,8 +215,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         token.mint(address(createdDAO), 10 ether);
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
-        IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
-            .DeploymentParams({auxData: ""});
+        bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
@@ -249,8 +244,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         token.mint(address(createdDAO), 10 ether);
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
-        IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
-            .DeploymentParams({auxData: ""});
+        bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
@@ -283,8 +277,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     function test_GetCampaignPayout() public {
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
-        IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
-            .DeploymentParams({auxData: ""});
+        bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,

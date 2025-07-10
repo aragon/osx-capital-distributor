@@ -19,6 +19,9 @@ abstract contract FactoryBase {
         string metadata;
     }
 
+    /// @notice Maps type IDs to their registered type data
+    mapping(bytes32 typeId => RegisteredType) public registeredTypes;
+
     /// @notice Emitted when a new type is registered
     /// @param typeId The unique identifier for the type
     /// @param implementation The address of the implementation contract
@@ -62,22 +65,22 @@ abstract contract FactoryBase {
     /// @param typeId The type ID that was not found
     error TypeNotFound(bytes32 typeId);
 
-    /// @notice Validates that a type ID is not empty
-    /// @param _typeId The type ID to validate
-    modifier validTypeId(bytes32 _typeId) {
-        if (_typeId == bytes32(0)) {
-            revert EmptyTypeId();
-        }
-        _;
-    }
+    /// @notice Thrown when an instance with the same parameters already exists
+    /// @param deploymentId The deployment ID that already exists
+    /// @param existingInstance The address of the existing instance
+    error InstanceAlreadyDeployed(bytes32 deploymentId, address existingInstance);
 
-    /// @notice Validates that an implementation address is not zero
-    /// @param _implementation The implementation address to validate
-    modifier validImplementation(address _implementation) {
-        if (_implementation == address(0)) {
-            revert InvalidImplementation(_implementation);
-        }
-        _;
+    /// @notice Internal function to register a type
+    /// @param _typeId The type ID to register
+    /// @param _implementation The implementation address
+    /// @param _metadata The metadata for the type
+    /// @dev This function handles the common registration logic
+    function _registerType(bytes32 _typeId, address _implementation, string calldata _metadata) internal {
+        _validateRegistration(_typeId, _implementation, registeredTypes[_typeId].implementation);
+
+        registeredTypes[_typeId] = RegisteredType({implementation: _implementation, metadata: _metadata});
+
+        emit TypeRegistered(_typeId, _implementation, _metadata, msg.sender);
     }
 
     /// @notice Internal function to validate registration parameters
@@ -112,8 +115,6 @@ abstract contract FactoryBase {
 
         (bool success, ) = instance.call(_initCalldata);
         if (!success) {
-            // Note: We can't determine the specific typeId here, so we use bytes32(0)
-            // Inheriting contracts should override this behavior if they need specific error handling
             revert DeploymentFailed(bytes32(0));
         }
     }
@@ -142,12 +143,14 @@ abstract contract FactoryBase {
     /// @notice Gets the registered type information
     /// @param _typeId The type identifier
     /// @return registeredType The registered type data
-    /// @dev Must be implemented by inheriting contracts
-    function getRegisteredType(bytes32 _typeId) external view virtual returns (RegisteredType memory registeredType);
+    function getRegisteredType(bytes32 _typeId) external view returns (RegisteredType memory registeredType) {
+        return registeredTypes[_typeId];
+    }
 
     /// @notice Checks if a type is registered
     /// @param _typeId The type identifier to check
     /// @return isRegistered True if the type is registered, false otherwise
-    /// @dev Must be implemented by inheriting contracts
-    function isTypeRegistered(bytes32 _typeId) external view virtual returns (bool isRegistered);
+    function isTypeRegistered(bytes32 _typeId) external view returns (bool isRegistered) {
+        return registeredTypes[_typeId].implementation != address(0);
+    }
 }

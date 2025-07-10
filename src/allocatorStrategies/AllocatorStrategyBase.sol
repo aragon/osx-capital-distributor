@@ -27,7 +27,7 @@ abstract contract AllocatorStrategyBase is IAllocatorStrategy, DaoAuthorizableUp
     /// @notice Initializes the strategy with the given parameters
     /// @param _strategyTypeId The type ID of the strategy
     /// @param _dao The DAO that will control this strategy
-    function initialize(bytes32 _strategyTypeId, IDAO _dao) public virtual initializer {
+    function initialize(bytes32 _strategyTypeId, IDAO _dao, bytes calldata) public virtual initializer {
         __DaoAuthorizableUpgradeable_init(_dao);
 
         strategyTypeId = _strategyTypeId;

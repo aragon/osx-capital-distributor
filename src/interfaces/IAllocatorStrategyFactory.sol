@@ -7,11 +7,6 @@ import {FactoryBase} from "../FactoryBase.sol";
 /// @title IAllocatorStrategyFactory
 /// @notice Interface for the AllocatorStrategyFactory contract.
 interface IAllocatorStrategyFactory {
-    /// @notice Represents deployment parameters for a strategy instance.
-    struct DeploymentParams {
-        bytes auxData;
-    }
-
     /// @notice Emitted when a new strategy type is registered.
     event StrategyTypeRegistered(
         bytes32 indexed strategyId,
@@ -44,14 +39,6 @@ interface IAllocatorStrategyFactory {
     error EmptyStrategyName();
 
     /**
-     * @notice Registers a new strategy type in the factory.
-     * @param _strategyId Unique identifier for the strategy type.
-     * @param _implementation Address of the strategy implementation contract.
-     * @param _metadata The hash of the metadata for the strategy type.
-     */
-    function registerStrategyType(bytes32 _strategyId, address _implementation, string calldata _metadata) external;
-
-    /**
      * @notice Deploys a new instance of a registered strategy type.
      * @param _strategyTypeId The strategy type to deploy.
      * @param _params Deployment parameters for the strategy.
@@ -60,7 +47,7 @@ interface IAllocatorStrategyFactory {
     function deployStrategy(
         bytes32 _strategyTypeId,
         IDAO _dao,
-        DeploymentParams calldata _params
+        bytes calldata _params
     ) external returns (address strategy);
 
     /**
@@ -72,42 +59,6 @@ interface IAllocatorStrategyFactory {
     function getOrDeployStrategy(
         bytes32 _strategyTypeId,
         IDAO _dao,
-        DeploymentParams calldata _params
+        bytes calldata _params
     ) external returns (address strategy);
-
-    /**
-     * @notice Checks if a strategy with given parameters already exists.
-     * @param _strategyTypeId The strategy type ID.
-     * @param _params Deployment parameters.
-     * @return exists True if the strategy exists, false otherwise.
-     * @return strategy The address of the existing strategy (zero if doesn't exist).
-     */
-    function strategyExists(
-        bytes32 _strategyTypeId,
-        IDAO _dao,
-        DeploymentParams calldata _params
-    ) external view returns (bool exists, address strategy);
-
-    /**
-     * @notice Gets the strategy type information.
-     * @param _strategyTypeId The strategy type ID.
-     * @return strategyType The strategy type configuration.
-     */
-    function getStrategyType(
-        bytes32 _strategyTypeId
-    ) external view returns (FactoryBase.RegisteredType memory strategyType);
-
-    /**
-     * @notice Maps deployment parameters hash to deployed strategy addresses.
-     * @param paramsHash The parameters hash.
-     * @return strategy The deployed strategy address.
-     */
-    function deployedStrategies(bytes32 paramsHash) external view returns (address strategy);
-
-    /**
-     * @notice Maps strategy addresses to their type IDs.
-     * @param strategy The strategy address.
-     * @return strategyTypeId The strategy type ID.
-     */
-    function strategyToType(address strategy) external view returns (bytes32 strategyTypeId);
 }

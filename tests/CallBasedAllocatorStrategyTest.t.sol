@@ -38,8 +38,7 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
     function test_CreateCampaign() public {
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
-        IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
-            .DeploymentParams({auxData: ""});
+        bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
@@ -63,8 +62,7 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
     function test_CannotCreateCampaignWithoutPermissions() public {
         vm.startPrank(address(alice));
         bytes memory metadata = "";
-        IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
-            .DeploymentParams({auxData: ""});
+        bytes memory allocatorDeploymentParams = "";
 
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
@@ -86,8 +84,7 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
         voter.mint(alice, 1 ether);
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
-        IAllocatorStrategyFactory.DeploymentParams memory allocatorDeploymentParams = IAllocatorStrategyFactory
-            .DeploymentParams({auxData: ""});
+        bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,

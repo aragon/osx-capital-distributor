@@ -195,7 +195,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     function createCampaign(
         bytes calldata _metadataURI,
         bytes32 _strategyId,
-        AllocatorStrategyFactory.DeploymentParams calldata _strategyParams,
+        bytes calldata _strategyParams,
         bytes calldata _allocationStrategyAuxData,
         IERC20 _token,
         bytes32 _actionEncoder,
@@ -221,7 +221,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
 
         // Deploy and setup allocation strategy
         {
-            AllocatorStrategyFactory.DeploymentParams memory strategyParams = _strategyParams;
+            bytes memory strategyParams = _strategyParams;
             bytes memory allocationStrategyAuxData = _allocationStrategyAuxData;
 
             address strategyAddress = allocatorStrategyFactory.getOrDeployStrategy(_strategyId, dao(), strategyParams);
