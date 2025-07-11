@@ -29,6 +29,14 @@ interface IAllocatorStrategy {
     /// @return The strategy ID.
     function strategyTypeId() external view returns (bytes32);
 
+    /// @notice Returns the Solidity types expected for campaign creation auxiliary data.
+    /// @return types Comma-separated string of Solidity type strings expected for setAllocationCampaign _auxData parameter.
+    function getCreationEncodingTypes() external view returns (string memory types);
+
+    /// @notice Returns the Solidity types expected for claim auxiliary data.
+    /// @return types Comma-separated string of Solidity type strings expected for getClaimeableAmount _auxData parameter.
+    function getClaimEncodingTypes() external view returns (string memory types);
+
     /// @notice Called by the plugin only when creating a new campaign
     /// @param _campaignId The id of the campaign getting the payout from
     /// @param _auxData Strategy-specific auxiliary data. Pass `bytes("")` if not required by the strategy.

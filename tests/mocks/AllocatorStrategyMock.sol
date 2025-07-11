@@ -21,4 +21,14 @@ contract AllocatorStrategyMock is AllocatorStrategyBase {
     function getClaimeableAmount(uint256, address, bytes calldata) public pure override returns (uint256 amount) {
         return 1 ether; // Mock logic: fixed payout of 1 ether
     }
+
+    /// @inheritdoc IAllocatorStrategy
+    function getCreationEncodingTypes() external pure override returns (string memory types) {
+        return "";
+    }
+
+    /// @inheritdoc IAllocatorStrategy
+    function getClaimEncodingTypes() external pure override returns (string memory types) {
+        return ""; // This strategy doesn't use auxData for claiming
+    }
 }

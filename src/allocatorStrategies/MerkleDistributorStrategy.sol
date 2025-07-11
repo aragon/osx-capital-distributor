@@ -75,6 +75,16 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     }
 
     /// @inheritdoc IAllocatorStrategy
+    function getCreationEncodingTypes() external pure override returns (string memory types) {
+        return "bytes32"; // merkleRoot
+    }
+
+    /// @inheritdoc IAllocatorStrategy
+    function getClaimEncodingTypes() external pure override returns (string memory types) {
+        return "bytes32[],uint256"; // merkleProof, amount
+    }
+
+    /// @inheritdoc IAllocatorStrategy
     function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) public override {
         address plugin = msg.sender;
 

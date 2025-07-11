@@ -37,7 +37,6 @@ contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
     /// @notice Thrown if the call is done by any address but the DAO
     error OnlyDAO();
 
-
     // @inheritdoc PayoutActionEncoderBase
     function setupCampaign(uint256 _campaignId, bytes calldata _auxData) external override {
         // TODO: Add the permission so only the plugin can call this
@@ -88,5 +87,15 @@ contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
         actions[1] = Action({to: vaultAddress, value: 0, data: abi.encodeCall(IVault.deposit, (_amount, _recipient))});
 
         return actions;
+    }
+
+    /// @inheritdoc PayoutActionEncoderBase
+    function getCreationEncodingTypes() external pure override returns (string memory types) {
+        return "address"; // vaultAddress
+    }
+
+    /// @inheritdoc PayoutActionEncoderBase
+    function getClaimEncodingTypes() external pure override returns (string memory types) {
+        return ""; // This encoder doesn't use encoderAuxData in buildActions
     }
 }

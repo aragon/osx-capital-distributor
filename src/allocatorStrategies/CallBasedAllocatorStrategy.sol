@@ -34,6 +34,16 @@ contract CallBasedAllocatorStrategy is AllocatorStrategyBase {
         return abi.decode(_auxData, (ActionCall, ActionCall));
     }
 
+    /// @inheritdoc IAllocatorStrategy
+    function getCreationEncodingTypes() external pure override returns (string memory types) {
+        return "address,bytes4,address,bytes4"; // isEligibleAction.to, isEligibleAction.functionSelector, getPayoutAmountAction.to, getPayoutAmountAction.functionSelector
+    }
+
+    /// @inheritdoc IAllocatorStrategy
+    function getClaimEncodingTypes() external pure override returns (string memory types) {
+        return ""; // This strategy doesn't use auxData for claiming
+    }
+
     function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) public override {
         // TODO: Ensure this call is being done by the plugin with a permission
 

@@ -38,6 +38,12 @@ abstract contract AllocatorStrategyBase is IAllocatorStrategy, DaoAuthorizableUp
     // =========================================================================
 
     /// @inheritdoc IAllocatorStrategy
+    function getCreationEncodingTypes() external view virtual override returns (string memory types);
+
+    /// @inheritdoc IAllocatorStrategy
+    function getClaimEncodingTypes() external view virtual override returns (string memory types);
+
+    /// @inheritdoc IAllocatorStrategy
     function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) public virtual override;
 
     /// @inheritdoc IAllocatorStrategy
