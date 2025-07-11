@@ -14,7 +14,14 @@ import {hashHelpers, PluginSetupRef} from "@aragon/osx/framework/plugin/setup/Pl
 import {CapitalDistributorPluginSetup} from "../src/CapitalDistributorPluginSetup.sol";
 import {AllocatorStrategyFactory} from "../src/AllocatorStrategyFactory.sol";
 import {ActionEncoderFactory} from "../src/ActionEncoderFactory.sol";
+
+// Allocator Strategies
+import {CallBasedAllocatorStrategy} from "../src/allocatorStrategies/CallBasedAllocatorStrategy.sol";
+import {MerkleDistributorStrategy} from "../src/allocatorStrategies/MerkleDistributorStrategy.sol";
+
+// Action Encoders
 import {VaultDepositPayoutActionEncoder} from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
+import {SablierLinearPayoutActionEncoder} from "../src/payoutActionEncoders/SablierLinearPayoutActionEncoder.sol";
 
 import {BaseScript} from "./Base.s.sol";
 
@@ -34,29 +41,42 @@ contract Deploy is BaseScript {
         pluginRepoFactory = PluginRepoFactory(vm.envAddress("PLUGIN_REPO_FACTORY"));
         daoFactory = DAOFactory(vm.envAddress("DAO_FACTORY"));
         nameWithEntropy = vm.envOr(
-            "osx-capital-distributor",
+            "PLUGIN_NAME",
             string.concat("osx-capital-distributor-", vm.toString(block.timestamp))
         );
-        daoName = vm.envOr(
-            "osx-capital-distributor",
-            string.concat("osx-capital-distributor-", vm.toString(block.timestamp))
-        );
+        daoName = vm.envOr("DAO_NAME", string.concat("osx-capital-distributor-", vm.toString(block.timestamp)));
     }
 
     function run() public broadcast {
-        // 0. Setting up foundry
-        vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
-
         // 1. Deploy the Factories
         allocatorStrategyFactory = new AllocatorStrategyFactory();
         actionEncoderFactory = new ActionEncoderFactory();
         // 2. Add the AllocationStrategies to the Factory registry
+        CallBasedAllocatorStrategy callBasedAllocatorStrategy = new CallBasedAllocatorStrategy();
+        allocatorStrategyFactory.registerStrategyType(
+            toBytes32("call-based-strategy"),
+            address(callBasedAllocatorStrategy),
+            "0x00"
+        );
+        MerkleDistributorStrategy merkleDistributorStrategy = new MerkleDistributorStrategy();
+        allocatorStrategyFactory.registerStrategyType(
+            toBytes32("merkle-distributor-strategy"),
+            address(merkleDistributorStrategy),
+            "0x00"
+        );
+
         // 3. Add the ActionEncoders to the Factory registry
         VaultDepositPayoutActionEncoder vaultDepositPayoutActionEncoder = new VaultDepositPayoutActionEncoder();
         actionEncoderFactory.registerActionEncoder(
             toBytes32("vault-deposit-encoder"),
             address(vaultDepositPayoutActionEncoder),
-            ""
+            "0x00"
+        );
+        SablierLinearPayoutActionEncoder sablierLinearPayoutActionEncoder = new SablierLinearPayoutActionEncoder();
+        actionEncoderFactory.registerActionEncoder(
+            toBytes32("sablier-linear-encoder"),
+            address(sablierLinearPayoutActionEncoder),
+            "0x00"
         );
 
         // 4. Deploying the Plugin Setup
@@ -80,6 +100,11 @@ contract Deploy is BaseScript {
                 pluginAddress.push(address(uint160(uint256(logEntries[i].topics[2]))));
             }
         }
+
+        console2.log("ACTION_ENCODER_FACTORY=", address(actionEncoderFactory));
+        console2.log("ALLOCATOR_STRATEGY_FACTORY=", address(allocatorStrategyFactory));
+        console2.log("DAO=", address(createdDAO));
+        console2.log("PLUGIN=", address(pluginAddress[0]));
     }
 
     function deployPluginSetup() internal returns (CapitalDistributorPluginSetup) {
@@ -92,8 +117,8 @@ contract Deploy is BaseScript {
             nameWithEntropy,
             pluginSetup,
             msg.sender,
-            "",
-            ""
+            "0x00",
+            "0x00"
         );
     }
 
