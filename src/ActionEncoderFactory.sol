@@ -110,9 +110,10 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
         }
 
         bytes memory initCalldata = abi.encodeWithSignature(
-            "initialize(bytes32,address,bytes)",
+            "initialize(bytes32,address,address,bytes)",
             _encoderId,
             address(_dao),
+            msg.sender,
             _auxData
         );
 

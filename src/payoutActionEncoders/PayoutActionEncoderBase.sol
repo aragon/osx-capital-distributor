@@ -3,6 +3,7 @@ pragma solidity ^0.8.29;
 
 import {IPayoutActionEncoder} from "../interfaces/IPayoutActionEncoder.sol";
 import {DaoAuthorizableUpgradeable} from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {Action} from "@aragon/commons/executors/IExecutor.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
@@ -11,7 +12,7 @@ import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 /// @notice Base contract implementing the IPayoutActionEncoder interface.
 /// @dev Provides common functionality for action encoders. Implementing contracts should override
 /// abstract functions to define specific allocation logic.
-abstract contract PayoutActionEncoderBase is IPayoutActionEncoder, DaoAuthorizableUpgradeable {
+abstract contract PayoutActionEncoderBase is IPayoutActionEncoder, DaoAuthorizableUpgradeable, OwnableUpgradeable {
     bytes32 public encoderId;
 
     // =========================================================================
@@ -29,8 +30,11 @@ abstract contract PayoutActionEncoderBase is IPayoutActionEncoder, DaoAuthorizab
     /// @notice Initializes the action encoder with the given parameters
     /// @param _encoderId The type ID of the strategy
     /// @param _dao The DAO that will control this strategy
-    function initialize(bytes32 _encoderId, IDAO _dao, bytes calldata) public virtual initializer {
+    function initialize(bytes32 _encoderId, IDAO _dao, address _owner, bytes calldata) public virtual initializer {
         __DaoAuthorizableUpgradeable_init(_dao);
+        // Owner will be set directly to the plugin who's calling the initialize
+        __Ownable_init();
+        _transferOwnership(_owner);
 
         encoderId = _encoderId;
     }

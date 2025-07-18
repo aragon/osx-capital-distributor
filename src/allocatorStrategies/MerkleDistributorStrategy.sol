@@ -3,6 +3,7 @@ pragma solidity ^0.8.29;
 
 import {console2} from "forge-std/console2.sol";
 
+import {DaoAuthorizableUpgradeable} from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import {IAllocatorStrategy} from "../interfaces/IAllocatorStrategy.sol";
 import {AllocatorStrategyBase} from "./AllocatorStrategyBase.sol";
@@ -86,6 +87,10 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
 
     /// @inheritdoc IAllocatorStrategy
     function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) public override {
+        if (msg.sender != owner() && msg.sender != address(dao())) {
+            revert OnlyDAOAllowed(msg.sender);
+        }
+
         address plugin = msg.sender;
 
         // Check if campaign already exists
@@ -149,8 +154,10 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     /// @param _campaignId The campaign ID to update
     /// @param _auxData The encoded data containing the new merkle root
     function updateCampaignMerkleRoot(uint256 _campaignId, bytes calldata _auxData) external {
-        // TODO: Only the DAO should be able to do this (or a permissioned role)
         address plugin = msg.sender;
+        if (address(DaoAuthorizableUpgradeable(plugin).dao()) != address(dao())) {
+            revert OnlyDAOAllowed(msg.sender);
+        }
 
         // Check if campaign exists
         bytes32 oldMerkleRoot = merkleCampaigns[plugin][_campaignId].merkleRoot;

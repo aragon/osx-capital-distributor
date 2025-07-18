@@ -35,12 +35,13 @@ contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
     /// @notice Thrown if the vault address to be set is the zero address.
     error ZeroAddressNotAllowed();
     /// @notice Thrown if the call is done by any address but the DAO
-    error OnlyDAO();
+    error OnlyDAO(address caller);
 
     // @inheritdoc PayoutActionEncoderBase
     function setupCampaign(uint256 _campaignId, bytes calldata _auxData) external override {
-        // TODO: Add the permission so only the plugin can call this
-
+        if (msg.sender != address(dao()) && msg.sender != owner()) {
+            revert OnlyDAO(msg.sender);
+        }
         address vaultAddress = abi.decode(_auxData, (address));
         if (vaultAddress == address(0)) {
             revert ZeroAddressNotAllowed();

@@ -347,7 +347,6 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         bytes calldata _strategyAuxData,
         bytes calldata _encoderAuxData
     ) public returns (uint256 amountToSend) {
-        // TODO: There should be two different auxData, one for the strategy and one for the action encoder
         Campaign storage campaign = campaigns[_campaignId];
 
         // Check if campaign exists

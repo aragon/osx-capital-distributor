@@ -5,6 +5,7 @@ import {IAllocatorStrategy} from "../interfaces/IAllocatorStrategy.sol";
 import {AllocatorStrategyBase} from "./AllocatorStrategyBase.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {Action} from "@aragon/commons/executors/IExecutor.sol";
+import {DaoAuthorizableUpgradeable} from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
 
 /// @title AllocatorStrategyMock
 /// @notice A mock implementation of AllocatorStrategyBase for testing purposes.
@@ -45,7 +46,9 @@ contract CallBasedAllocatorStrategy is AllocatorStrategyBase {
     }
 
     function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) public override {
-        // TODO: Ensure this call is being done by the plugin with a permission
+        if (msg.sender != owner() && msg.sender != address(dao())) {
+            revert OnlyDAOAllowed(msg.sender);
+        }
 
         address _plugin = msg.sender;
         if (allocationCampaigns[_plugin][_campaignId].isEligibleAction.to != address(0)) {

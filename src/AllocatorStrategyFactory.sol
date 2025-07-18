@@ -127,9 +127,10 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
 
         // Initialize the strategy
         bytes memory initCalldata = abi.encodeWithSignature(
-            "initialize(bytes32,address,bytes)",
+            "initialize(bytes32,address,address,bytes)",
             _strategyTypeId,
             address(_dao),
+            msg.sender,
             _auxData
         );
 

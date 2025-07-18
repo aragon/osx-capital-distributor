@@ -101,9 +101,14 @@ contract SablierLinearPayoutActionEncoder is PayoutActionEncoderBase {
     error ZeroAddressNotAllowed();
     /// @notice Thrown if the stream duration is zero
     error InvalidStreamDuration();
+    /// @notice Thrown if the call is done by any address but the DAO
+    error OnlyDAO(address caller);
 
     /// @inheritdoc PayoutActionEncoderBase
     function setupCampaign(uint256 _campaignId, bytes calldata _auxData) external override {
+        if (msg.sender != address(dao()) && msg.sender != owner()) {
+            revert OnlyDAO(msg.sender);
+        }
         StreamConfig memory config = abi.decode(_auxData, (StreamConfig));
 
         if (config.sablierContract == address(0)) {
