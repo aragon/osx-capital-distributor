@@ -53,11 +53,11 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             AllocatorStrategyFactory allocatorStrategyFactory,
             ActionEncoderFactory encodersFactory
         ) = decodeInstallationParams(_installParameters);
-        if (address(allocatorStrategyFactory) == address(0)) revert ZeroAddress();
+        if (address(allocatorStrategyFactory) == address(0) || address(encodersFactory) == address(0))
+            revert ZeroAddress();
 
         // Prepare helpers.
-        address[] memory helpers = new address[](1);
-        helpers[0] = address(allocatorStrategyFactory);
+        address[] memory helpers = new address[](0);
 
         // Prepare and deploy plugin proxy.
         plugin = IMPLEMENTATION.deployUUPSProxy(
@@ -104,7 +104,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
     function prepareUninstallation(
         address _dao,
         SetupPayload calldata _payload
-    ) external view returns (PermissionLib.MultiTargetPermission[] memory permissions) {
+    ) external pure returns (PermissionLib.MultiTargetPermission[] memory permissions) {
         // Prepare permissions.
         uint256 helperLength = _payload.currentHelpers.length;
         if (helperLength != 1) {
@@ -147,11 +147,6 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
         SetupPayload calldata _payload
     ) external override returns (bytes memory initData, PreparedSetupData memory preparedSetupData) {
         // No update here
-    }
-
-    /// @notice Encodes the given installation parameters into a byte array
-    function encodeInstallationParams() external pure returns (bytes memory) {
-        // return abi.encode(_votingSettings, _tokenSettings, _mintSettings, _proposers);
     }
 
     /// @notice Decodes the given byte array into the original installation parameters
