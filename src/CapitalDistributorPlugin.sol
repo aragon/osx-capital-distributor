@@ -216,7 +216,8 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
 
         // Campaign ID assignment
         {
-            id = numCampaigns++;
+            id = numCampaigns;
+            ++numCampaigns;
         }
 
         // Deploy and setup allocation strategy
@@ -260,8 +261,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
 
         // Set campaign fields
         {
-            bytes memory metadataURI = _metadataURI;
-            campaigns[id].metadataURI = metadataURI;
+            campaigns[id].metadataURI = _metadataURI;
             campaigns[id].token = _token;
             campaigns[id].multipleClaimsAllowed = _multipleClaimsAllowed;
             campaigns[id].active = true;
@@ -269,14 +269,15 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
             campaigns[id].endTime = _endTime;
         }
 
-        // Emit event
+        // Emit event (cache storage reads)
         {
+            Campaign storage newCampaign = campaigns[id];
             emit CampaignCreated(
                 id,
-                campaigns[id].metadataURI,
-                address(campaigns[id].allocationStrategy),
+                newCampaign.metadataURI,
+                address(newCampaign.allocationStrategy),
                 _token,
-                campaigns[id].actionEncoder,
+                newCampaign.actionEncoder,
                 _multipleClaimsAllowed,
                 _startTime,
                 _endTime
@@ -323,12 +324,8 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         address _recipient,
         bytes calldata _auxData
     ) public view returns (uint256 amountToSend) {
+        _requireCampaignExists(_campaignId);
         Campaign storage campaign = campaigns[_campaignId];
-
-        // Check if campaign exists
-        if (address(campaign.allocationStrategy) == address(0)) {
-            revert CampaignNotFound(_campaignId);
-        }
 
         amountToSend = campaign.allocationStrategy.getClaimeableAmount(_campaignId, _recipient, _auxData);
     }
@@ -347,12 +344,8 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         bytes calldata _strategyAuxData,
         bytes calldata _encoderAuxData
     ) public returns (uint256 amountToSend) {
+        _requireCampaignExists(_campaignId);
         Campaign storage campaign = campaigns[_campaignId];
-
-        // Check if campaign exists
-        if (address(campaign.allocationStrategy) == address(0)) {
-            revert CampaignNotFound(_campaignId);
-        }
 
         // Check if campaign is active
         if (!campaign.active) {
@@ -384,6 +377,10 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
             revert AlreadyClaimedMaxAmount(_campaignId, _recipient, alreadyClaimed, amountToSend);
         }
 
+        // Update state before external calls (checks-effects-interactions pattern)
+        uint256 newTotalClaimed = alreadyClaimed + amountToSend;
+        claimed[_campaignId][_recipient] = newTotalClaimed;
+
         Action[] memory actions;
         if (address(campaign.actionEncoder) == address(0)) {
             actions = new Action[](1);
@@ -400,15 +397,11 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
             );
         }
 
-        claimed[_campaignId][_recipient] = alreadyClaimed + amountToSend;
-
-        // Generate dynamic execution ID for uniqueness and context
-        bytes32 executionId = keccak256(abi.encodePacked(address(this), _campaignId));
+        // Generate dynamic execution ID with more entropy for uniqueness
+        bytes32 executionId = keccak256(abi.encodePacked(address(this), _campaignId, _recipient, block.timestamp));
         IExecutor(address(dao())).execute(executionId, actions, 0);
 
-        emit PayoutClaimed(_campaignId, _recipient, amountToSend, claimed[_campaignId][_recipient]);
-
-        return amountToSend;
+        emit PayoutClaimed(_campaignId, _recipient, amountToSend, newTotalClaimed);
     }
 
     /// @notice Returns the amount of tokens claimed by an account for a specific campaign.
@@ -437,12 +430,8 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     /// @notice Deactivates a campaign, preventing further claims.
     /// @param _campaignId The ID of the campaign to deactivate.
     function deactivateCampaign(uint256 _campaignId) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) {
+        _requireCampaignExists(_campaignId);
         Campaign storage campaign = campaigns[_campaignId];
-
-        // Check if campaign exists
-        if (address(campaign.allocationStrategy) == address(0)) {
-            revert CampaignNotFound(_campaignId);
-        }
 
         // Check if campaign is already inactive
         if (!campaign.active) {
@@ -472,7 +461,7 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
 
         amounts = new uint256[](length);
 
-        for (uint256 i = 0; i < length; i++) {
+        for (uint256 i = 0; i < length; ++i) {
             amounts[i] = claimCampaignPayout(
                 _campaignIds[i],
                 _recipients[i],
@@ -507,44 +496,32 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     /// @param _campaignId The campaign ID
     /// @return types Comma-separated string of Solidity type strings expected for strategy creation
     function getStrategyCreationEncodingTypes(uint256 _campaignId) external view returns (string memory types) {
-        Campaign storage campaign = campaigns[_campaignId];
-        if (address(campaign.allocationStrategy) == address(0)) {
-            revert CampaignNotFound(_campaignId);
-        }
-        return campaign.allocationStrategy.getCreationEncodingTypes();
+        _requireCampaignExists(_campaignId);
+        return campaigns[_campaignId].allocationStrategy.getCreationEncodingTypes();
     }
 
     /// @notice Gets the strategy claim encoding types for a campaign
     /// @param _campaignId The campaign ID
     /// @return types Comma-separated string of Solidity type strings expected for strategy claiming
     function getStrategyClaimEncodingTypes(uint256 _campaignId) external view returns (string memory types) {
-        Campaign storage campaign = campaigns[_campaignId];
-        if (address(campaign.allocationStrategy) == address(0)) {
-            revert CampaignNotFound(_campaignId);
-        }
-        return campaign.allocationStrategy.getClaimEncodingTypes();
+        _requireCampaignExists(_campaignId);
+        return campaigns[_campaignId].allocationStrategy.getClaimEncodingTypes();
     }
 
     /// @notice Gets the encoder creation encoding types for a campaign
     /// @param _campaignId The campaign ID
     /// @return types Comma-separated string of Solidity type strings expected for encoder creation
     function getEncoderCreationEncodingTypes(uint256 _campaignId) external view returns (string memory types) {
-        Campaign storage campaign = campaigns[_campaignId];
-        if (address(campaign.allocationStrategy) == address(0)) {
-            revert CampaignNotFound(_campaignId);
-        }
-        return campaign.actionEncoder.getCreationEncodingTypes();
+        _requireCampaignExists(_campaignId);
+        return campaigns[_campaignId].actionEncoder.getCreationEncodingTypes();
     }
 
     /// @notice Gets the encoder claim encoding types for a campaign
     /// @param _campaignId The campaign ID
     /// @return types Comma-separated string of Solidity type strings expected for encoder claiming
     function getEncoderClaimEncodingTypes(uint256 _campaignId) external view returns (string memory types) {
-        Campaign storage campaign = campaigns[_campaignId];
-        if (address(campaign.allocationStrategy) == address(0)) {
-            revert CampaignNotFound(_campaignId);
-        }
-        return campaign.actionEncoder.getClaimEncodingTypes();
+        _requireCampaignExists(_campaignId);
+        return campaigns[_campaignId].actionEncoder.getClaimEncodingTypes();
     }
 
     /// @notice Checks if this or the parent contract supports an interface by its ID.
@@ -554,6 +531,14 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         bytes4 _interfaceId
     ) public view virtual override(ERC165Upgradeable, PluginUUPSUpgradeable) returns (bool) {
         return super.supportsInterface(_interfaceId);
+    }
+
+    /// @notice Internal helper to check if a campaign exists
+    /// @param _campaignId The campaign ID to check
+    function _requireCampaignExists(uint256 _campaignId) internal view {
+        if (address(campaigns[_campaignId].allocationStrategy) == address(0)) {
+            revert CampaignNotFound(_campaignId);
+        }
     }
 
     /// @notice This empty reserved space is put in place to allow future versions to add new variables without shifting down storage in the inheritance chain (see [OpenZeppelin's guide about storage gaps](https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps)).
