@@ -92,19 +92,13 @@ contract Deploy is BaseScript {
         DAOFactory.PluginSettings[] memory pluginSettings = getPluginSettings(pluginRepo);
 
         // 8. Deploying the DAO
-        (createdDAO, ) = daoFactory.createDao(daoSettings, pluginSettings);
-
-        Vm.Log[] memory logEntries = vm.getRecordedLogs();
-        for (uint256 i = 0; i < logEntries.length; i++) {
-            if (logEntries[i].topics[0] == keccak256("InstallationApplied(address,address,bytes32,bytes32)")) {
-                pluginAddress.push(address(uint160(uint256(logEntries[i].topics[2]))));
-            }
-        }
+        DAOFactory.InstalledPlugin[] memory installedPlugins = new DAOFactory.InstalledPlugin[](1);
+        (createdDAO, installedPlugins) = daoFactory.createDao(daoSettings, pluginSettings);
 
         console2.log("ACTION_ENCODER_FACTORY=", address(actionEncoderFactory));
         console2.log("ALLOCATOR_STRATEGY_FACTORY=", address(allocatorStrategyFactory));
         console2.log("DAO=", address(createdDAO));
-        console2.log("PLUGIN=", address(pluginAddress[0]));
+        console2.log("PLUGIN=", installedPlugins[0].plugin);
     }
 
     function deployPluginSetup() internal returns (CapitalDistributorPluginSetup) {
