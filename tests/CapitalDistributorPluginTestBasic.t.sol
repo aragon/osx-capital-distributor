@@ -11,28 +11,30 @@ import {CapitalDistributorPlugin} from "../src/CapitalDistributorPlugin.sol";
 import {AragonTest} from "./helpers/AragonTest.sol";
 import {IAllocatorStrategy} from "../src/interfaces/IAllocatorStrategy.sol";
 import {AllocatorStrategyMock} from "./mocks/AllocatorStrategyMock.sol";
+import {VaultDepositPayoutActionEncoder} from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
 import {IAllocatorStrategyFactory} from "../src/interfaces/IAllocatorStrategyFactory.sol";
-import {CallBasedAllocatorStrategy} from "../src/allocatorStrategies/CallBasedAllocatorStrategy.sol";
 
 import {MintableERC20} from "./mocks/MintableERC20.sol";
-import {MockVoter} from "./mocks/MockVoter.sol";
+import {ERC4626Mock} from "./mocks/ERC4626Mock.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
-contract CallBasedAllocatorStrategyTest is AragonTest {
+contract CapitalDistributorPluginTest is AragonTest {
     CapitalDistributorPlugin capitalDistributorPlugin;
-    CallBasedAllocatorStrategy strategy;
+    AllocatorStrategyMock strategy;
     MintableERC20 token;
-    MockVoter voter;
+    ERC4626Mock vaultToSendTokens;
+    VaultDepositPayoutActionEncoder vaultDepositActionEncoder;
 
     /// @dev A function invoked before each test case is run.
     function setUp() public virtual {
         // Instantiate the contract-under-test.
         capitalDistributorPlugin = CapitalDistributorPlugin(pluginAddress[0]);
         token = new MintableERC20();
-        strategy = new CallBasedAllocatorStrategy();
-        voter = new MockVoter();
-        vm.startPrank(address(createdDAO));
-        allocatorStrategyFactory.registerStrategyType(toBytes32("call-based-strategy"), address(strategy), "");
+        strategy = new AllocatorStrategyMock();
+        // Add the strategy to the StrategyFactory
+        allocatorStrategyFactory.registerStrategyType(toBytes32("mock-strategy"), address(strategy), "");
+
+        vaultToSendTokens = new ERC4626Mock(address(token));
     }
 
     function test_CreateCampaign() public {
@@ -42,12 +44,12 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("call-based-strategy"),
+            toBytes32("mock-strategy"),
             allocatorDeploymentParams,
-            getAllocationCampaignAuxData(voter),
+            metadata, // Doesn't have to be metadata, just empty bytes
             IERC20(token),
             bytes32(0),
-            metadata,
+            metadata, // Doesn't have to be metadata, just empty bytes
             false,
             0,
             0
@@ -67,12 +69,12 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("call-based-strategy"),
+            toBytes32("mock-strategy"),
             allocatorDeploymentParams,
-            getAllocationCampaignAuxData(voter),
+            metadata, // Doesn't have to be metadata, just empty bytes
             IERC20(token),
             bytes32(0),
-            metadata,
+            metadata, // Doesn't have to be metadata, just empty bytes
             false,
             0,
             0
@@ -81,74 +83,55 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
 
     function test_PayoutIsSent() public {
         token.mint(address(createdDAO), 1 ether);
-        voter.mint(alice, 1 ether);
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("call-based-strategy"),
+            toBytes32("mock-strategy"),
             allocatorDeploymentParams,
-            getAllocationCampaignAuxData(voter),
+            metadata, // Doesn't have to be metadata, just empty bytes
             IERC20(token),
             bytes32(0),
-            metadata,
+            metadata, // Doesn't have to be metadata, just empty bytes
             false,
             0,
             0
         );
-        // We create the campaign in the allocation strategy as well
-        vm.stopPrank();
-        vm.startPrank(address(capitalDistributorPlugin));
 
         assertEq(token.balanceOf(address(createdDAO)), 1 ether, "DAO doesn't have funds");
         assertEq(token.balanceOf(alice), 0 ether, "Alice has funds");
-        assertEq(voter.balanceOf(alice), 1 ether, "Alice hasn't voter funds");
-
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, metadata, "");
-
         assertEq(token.balanceOf(address(createdDAO)), 0 ether, "DAO has funds");
         assertEq(token.balanceOf(alice), 1 ether, "Alice has funds");
     }
 
-    function test_CanSetAllocationCampaignThroughThePermissionManager() public {
+    function test_PayoutIsSentToVault() public {
         token.mint(address(createdDAO), 1 ether);
-        voter.mint(alice, 1 ether);
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
-        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+        uint256 campaignId = 0;
+
+        capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("call-based-strategy"),
+            toBytes32("mock-strategy"),
             allocatorDeploymentParams,
-            getAllocationCampaignAuxData(voter),
+            metadata, // Doesn't have to be metadata, just empty bytes
             IERC20(token),
-            bytes32(0),
-            metadata,
+            toBytes32("vault-deposit-encoder"),
+            abi.encode(address(vaultToSendTokens)),
             false,
             0,
             0
         );
 
-        // We need to get the allocation campaign address
-        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        assertTrue(address(campaign.allocationStrategy) != address(0), "Allocation campaign address is not set");
-
-        campaign.allocationStrategy.setAllocationCampaign(campaignId, getAllocationCampaignAuxData(voter));
-    }
-
-    function getAllocationCampaignAuxData(MockVoter _voter) public pure returns (bytes memory auxData) {
-        CallBasedAllocatorStrategy.ActionCall memory isEligibleCall = CallBasedAllocatorStrategy.ActionCall(
-            address(_voter),
-            _voter.isVoting.selector
-        );
-
-        CallBasedAllocatorStrategy.ActionCall memory getPayoutAmountCall = CallBasedAllocatorStrategy.ActionCall(
-            address(_voter),
-            _voter.balanceOf.selector
-        );
-        auxData = abi.encode(isEligibleCall, getPayoutAmountCall);
+        assertEq(token.balanceOf(address(createdDAO)), 1 ether, "DAO doesn't have funds");
+        assertEq(token.balanceOf(alice), 0 ether, "Alice has funds");
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, metadata, "");
+        assertEq(token.balanceOf(address(createdDAO)), 0 ether, "DAO has funds");
+        assertEq(token.balanceOf(address(vaultToSendTokens)), 1 ether, "Vault has funds");
     }
 }

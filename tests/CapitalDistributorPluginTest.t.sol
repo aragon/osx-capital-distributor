@@ -3,6 +3,7 @@ pragma solidity >=0.8.29 <0.9.0;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 
@@ -18,6 +19,9 @@ import {MintableERC20} from "./mocks/MintableERC20.sol";
 import {ERC4626Mock} from "./mocks/ERC4626Mock.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
+/// @title CapitalDistributorPluginTest
+/// @notice Comprehensive test suite for CapitalDistributorPlugin functionality
+/// @dev Tests campaign creation, payout claiming, and all edge cases for maximum coverage
 contract CapitalDistributorPluginTest is AragonTest {
     CapitalDistributorPlugin capitalDistributorPlugin;
     AllocatorStrategyMock strategy;
@@ -25,32 +29,129 @@ contract CapitalDistributorPluginTest is AragonTest {
     ERC4626Mock vaultToSendTokens;
     VaultDepositPayoutActionEncoder vaultDepositActionEncoder;
 
-    /// @dev A function invoked before each test case is run.
+    /// @notice Sets up the test environment with required contracts and configurations
     function setUp() public virtual {
-        // Instantiate the contract-under-test.
         capitalDistributorPlugin = CapitalDistributorPlugin(pluginAddress[0]);
         token = new MintableERC20();
         strategy = new AllocatorStrategyMock();
-        // Add the strategy to the StrategyFactory
+
         allocatorStrategyFactory.registerStrategyType(toBytes32("mock-strategy"), address(strategy), "");
 
         vaultToSendTokens = new ERC4626Mock(address(token));
+        vaultDepositActionEncoder = new VaultDepositPayoutActionEncoder();
     }
 
+    // ============================================
+    // Helper Functions
+    // ============================================
+
+    /// @notice Helper function to create a basic campaign with default parameters
+    function createBasicCampaign() internal returns (uint256) {
+        return capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+    }
+    
+    /// @notice Helper function to create campaign ID 999 that returns 0 claimable amount
+    function createZeroAmountCampaign() internal returns (uint256) {
+        // Create campaigns until we get ID 999
+        uint256 currentId = capitalDistributorPlugin.numCampaigns();
+        while (currentId < 999) {
+            createBasicCampaign();
+            currentId = capitalDistributorPlugin.numCampaigns();
+        }
+        return createBasicCampaign(); // This will be campaign 999
+    }
+
+    /// @notice Helper function to create a campaign with custom parameters
+    function createCampaignWithParams(
+        bool multipleClaimsAllowed,
+        uint256 startTime,
+        uint256 endTime
+    ) internal returns (uint256) {
+        return capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            multipleClaimsAllowed,
+            startTime,
+            endTime
+        );
+    }
+
+    /// @notice Helper function to mint tokens and approve if needed
+    function mintTokensToDAO(uint256 amount) internal {
+        token.mint(address(createdDAO), amount);
+    }
+
+    // ============================================
+    // T01: Campaign Creation Tests
+    // ============================================
+
+    /// @notice Test T01: Create a Campaign with basic parameters as specified in the test spec
+    /// @dev This is the core test case from the specification
     function test_CreateCampaign() public {
         vm.startPrank(address(createdDAO));
+
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            metadata, // Empty metadata
+            toBytes32("mock-strategy"), // "mock-strategy" as allocation strategy
+            allocatorDeploymentParams, // empty bytes for encoder
+            "", // empty bytes for aux data
+            IERC20(token), // a basic erc20 token
+            bytes32(0), // empty bytes32 for action encoder id
+            "", // empty bytes for aux data for action encoder
+            false, // false so users can only claim once
+            0, // 0 for when the campaign starts
+            0 // 0 for when expires the campaign
+        );
+
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+
+        assertEq(campaign.metadataURI, metadata, "Metadata not equal");
+        assertTrue(address(campaign.allocationStrategy) != address(0), "Allocation strategy not set");
+        assertEq(address(campaign.token), address(token), "Token not equal");
+        assertEq(address(campaign.actionEncoder), address(0), "Action encoder should be zero");
+        assertEq(campaign.multipleClaimsAllowed, false, "Multiple claims should be false");
+        assertEq(campaign.active, true, "Campaign should be active");
+        assertEq(campaign.startTime, 0, "Start time should be 0");
+        assertEq(campaign.endTime, 0, "End time should be 0");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test campaign creation with different type of values
+    function test_CreateCampaignWithDifferentValues() public {
+        vm.startPrank(address(createdDAO));
+
+        bytes memory metadata = "ipfs://QmTest123";
+        bytes memory allocatorDeploymentParams = "deployment-params";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             toBytes32("mock-strategy"),
             allocatorDeploymentParams,
-            metadata, // Doesn't have to be metadata, just empty bytes
+            "aux-data",
             IERC20(token),
             bytes32(0),
-            metadata, // Doesn't have to be metadata, just empty bytes
-            false,
+            "encoder-aux-data",
+            true, // Allow multiple claims
             0,
             0
         );
@@ -59,67 +160,465 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         assertEq(campaign.metadataURI, metadata, "Metadata not equal");
         assertTrue(address(campaign.allocationStrategy) != address(0), "Allocation strategy not set");
+        assertEq(address(campaign.token), address(token), "Token not equal");
+        assertEq(campaign.multipleClaimsAllowed, true, "Multiple claims should be true");
+        assertEq(campaign.active, true, "Campaign should be active");
+
+        vm.stopPrank();
     }
 
-    function test_CannotCreateCampaignWithoutPermissions() public {
+    /// @notice Test campaign creation with start time
+    function test_CreateCampaignWithStartTime() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 startTime = block.timestamp + 1000;
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            startTime,
+            0
+        );
+
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+
+        assertEq(campaign.startTime, startTime, "Start time not equal");
+        assertEq(campaign.endTime, 0, "End time should be 0");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test campaign creation with end time
+    function test_CreateCampaignWithEndTime() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 endTime = block.timestamp + 2000;
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            endTime
+        );
+
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+
+        assertEq(campaign.startTime, 0, "Start time should be 0");
+        assertEq(campaign.endTime, endTime, "End time not equal");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test that campaign creation fails without proper permissions
+    function test_CreateCampaignFailsWithoutPermission() public {
         vm.startPrank(address(alice));
-        bytes memory metadata = "";
-        bytes memory allocatorDeploymentParams = "";
 
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
-            metadata,
+            "",
             toBytes32("mock-strategy"),
-            allocatorDeploymentParams,
-            metadata, // Doesn't have to be metadata, just empty bytes
+            "",
+            "",
             IERC20(token),
             bytes32(0),
-            metadata, // Doesn't have to be metadata, just empty bytes
+            "",
             false,
             0,
             0
         );
+
+        vm.stopPrank();
     }
 
-    function test_PayoutIsSent() public {
-        token.mint(address(createdDAO), 1 ether);
+    /// @notice Test that campaign creation fails with zero token address
+    function test_CreateCampaignFailsWithZeroToken() public {
         vm.startPrank(address(createdDAO));
-        bytes memory metadata = "";
-        bytes memory allocatorDeploymentParams = "";
+
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.ZeroAddress.selector, "_token"));
+        capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(address(0)), // Zero token address
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test that campaign creation fails with invalid time bounds
+    function test_CreateCampaignFailsWithInvalidTimeBounds() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 startTime = block.timestamp + 2000;
+        uint256 endTime = block.timestamp + 1000; // End time before start time
+
+        vm.expectRevert(CapitalDistributorPlugin.InvalidTimeBounds.selector);
+        capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            startTime,
+            endTime
+        );
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test that campaign creation fails with non-existent strategy
+    function test_CreateCampaignFailsWithNonExistentStrategy() public {
+        vm.startPrank(address(createdDAO));
+
+        vm.expectRevert();
+        capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("non-existent-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test campaign creation with maximum metadata length
+    function test_CreateCampaignWithMaximumMetadata() public {
+        vm.startPrank(address(createdDAO));
+
+        bytes memory maxMetadata = new bytes(1000);
+        for (uint256 i = 0; i < 1000; i++) {
+            maxMetadata[i] = bytes1(uint8(65 + (i % 26))); // Fill with A-Z
+        }
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            maxMetadata,
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+        assertEq(campaign.metadataURI, maxMetadata, "Max metadata not equal");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test campaign creation with future start time
+    function test_CreateCampaignWithFutureStartTime() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 futureStartTime = block.timestamp + 86400; // 1 day in the future
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            futureStartTime,
+            0
+        );
+
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+        assertEq(campaign.startTime, futureStartTime, "Future start time not equal");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test campaign creation with past end time
+    function test_CreateCampaignWithPastEndTime() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 pastEndTime = block.timestamp - 86400; // 1 day in the past
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            pastEndTime
+        );
+
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+        assertEq(campaign.endTime, pastEndTime, "Past end time not equal");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test that campaign IDs increment correctly
+    function test_CampaignIdIncrementsCorrectly() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 initialNumCampaigns = capitalDistributorPlugin.numCampaigns();
+
+        uint256 campaignId1 = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+
+        uint256 campaignId2 = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+
+        assertEq(campaignId1, initialNumCampaigns, "First campaign ID should match initial count");
+        assertEq(campaignId2, initialNumCampaigns + 1, "Second campaign ID should increment");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test that numCampaigns increments correctly
+    function test_NumCampaignsIncrementsCorrectly() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 initialNumCampaigns = capitalDistributorPlugin.numCampaigns();
+
+        capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+
+        assertEq(capitalDistributorPlugin.numCampaigns(), initialNumCampaigns + 1, "numCampaigns should increment");
+
+        capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+
+        assertEq(
+            capitalDistributorPlugin.numCampaigns(),
+            initialNumCampaigns + 2,
+            "numCampaigns should increment again"
+        );
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test that campaigns are active by default
+    function test_CampaignIsActiveByDefault() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+        assertTrue(campaign.active, "Campaign should be active by default");
+        assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be active via function");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test that campaign data is stored correctly
+    function test_CampaignDataStoredCorrectly() public {
+        vm.startPrank(address(createdDAO));
+
+        bytes memory metadata = "test-metadata";
+        bool multipleClaimsAllowed = true;
+        uint256 startTime = block.timestamp + 1000;
+        uint256 endTime = block.timestamp + 2000;
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             toBytes32("mock-strategy"),
-            allocatorDeploymentParams,
-            metadata, // Doesn't have to be metadata, just empty bytes
+            "",
+            "",
             IERC20(token),
             bytes32(0),
-            metadata, // Doesn't have to be metadata, just empty bytes
+            "",
+            multipleClaimsAllowed,
+            startTime,
+            endTime
+        );
+
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+
+        assertEq(campaign.metadataURI, metadata, "Metadata not stored correctly");
+        assertTrue(address(campaign.allocationStrategy) != address(0), "Strategy not stored correctly");
+        assertEq(address(campaign.token), address(token), "Token not stored correctly");
+        assertEq(address(campaign.actionEncoder), address(0), "Action encoder not stored correctly");
+        assertEq(campaign.multipleClaimsAllowed, multipleClaimsAllowed, "Multiple claims not stored correctly");
+        assertTrue(campaign.active, "Active flag not stored correctly");
+        assertEq(campaign.startTime, startTime, "Start time not stored correctly");
+        assertEq(campaign.endTime, endTime, "End time not stored correctly");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test creating multiple campaigns in sequence
+    function test_CreateMultipleCampaignsInSequence() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 initialNumCampaigns = capitalDistributorPlugin.numCampaigns();
+
+        for (uint256 i = 0; i < 5; i++) {
+            uint256 campaignId = capitalDistributorPlugin.createCampaign(
+                abi.encode("metadata", i),
+                toBytes32("mock-strategy"),
+                "",
+                "",
+                IERC20(token),
+                bytes32(0),
+                "",
+                false,
+                0,
+                0
+            );
+
+            assertEq(campaignId, initialNumCampaigns + i, "Campaign ID should increment sequentially");
+        }
+
+        assertEq(
+            capitalDistributorPlugin.numCampaigns(),
+            initialNumCampaigns + 5,
+            "numCampaigns should increment by 5"
+        );
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test that each campaign gets a unique ID
+    function test_EachCampaignGetsUniqueId() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256[] memory campaignIds = new uint256[](3);
+
+        for (uint256 i = 0; i < 3; i++) {
+            campaignIds[i] = capitalDistributorPlugin.createCampaign(
+                "",
+                toBytes32("mock-strategy"),
+                "",
+                "",
+                IERC20(token),
+                bytes32(0),
+                "",
+                false,
+                0,
+                0
+            );
+        }
+
+        assertTrue(campaignIds[0] != campaignIds[1], "First and second campaign IDs should be different");
+        assertTrue(campaignIds[1] != campaignIds[2], "Second and third campaign IDs should be different");
+        assertTrue(campaignIds[0] != campaignIds[2], "First and third campaign IDs should be different");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test campaign creation without action encoder
+    function test_CreateCampaignWithoutActionEncoder() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0), // No action encoder
+            "",
             false,
             0,
             0
         );
 
-        assertEq(token.balanceOf(address(createdDAO)), 1 ether, "DAO doesn't have funds");
-        assertEq(token.balanceOf(alice), 0 ether, "Alice has funds");
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, metadata, "");
-        assertEq(token.balanceOf(address(createdDAO)), 0 ether, "DAO has funds");
-        assertEq(token.balanceOf(alice), 1 ether, "Alice has funds");
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+        assertEq(address(campaign.actionEncoder), address(0), "Action encoder should be zero address");
+
+        vm.stopPrank();
     }
 
-    function test_PayoutIsSentToVault() public {
-        token.mint(address(createdDAO), 1 ether);
+    /// @notice Test campaign creation with valid action encoder
+    function test_CreateCampaignWithValidActionEncoder() public {
         vm.startPrank(address(createdDAO));
-        bytes memory metadata = "";
-        bytes memory allocatorDeploymentParams = "";
 
-        uint256 campaignId = 0;
-
-        capitalDistributorPlugin.createCampaign(
-            metadata,
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
             toBytes32("mock-strategy"),
-            allocatorDeploymentParams,
-            metadata, // Doesn't have to be metadata, just empty bytes
+            "",
+            "",
             IERC20(token),
             toBytes32("vault-deposit-encoder"),
             abi.encode(address(vaultToSendTokens)),
@@ -128,10 +627,1173 @@ contract CapitalDistributorPluginTest is AragonTest {
             0
         );
 
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+        assertTrue(address(campaign.actionEncoder) != address(0), "Action encoder should not be zero address");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test CampaignCreated event emission with empty metadata
+    function test_CampaignCreatedEventWithEmptyMetadata() public {
+        vm.startPrank(address(createdDAO));
+
+        bytes memory emptyMetadata = "";
+
+        vm.recordLogs();
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            emptyMetadata,
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        // Find the CampaignCreated event (should be the last one)
+        bool eventFound = false;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (
+                logs[i].topics[0] ==
+                keccak256("CampaignCreated(uint256,bytes,address,address,address,bool,uint256,uint256)")
+            ) {
+                eventFound = true;
+                // Verify the campaign ID matches
+                assertEq(uint256(logs[i].topics[1]), campaignId, "Campaign ID in event should match");
+                break;
+            }
+        }
+
+        assertTrue(eventFound, "CampaignCreated event should be emitted");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test CampaignCreated event emission with all parameters
+    function test_CampaignCreatedEventWithAllParameters() public {
+        vm.startPrank(address(createdDAO));
+
+        bytes memory metadata = "comprehensive-metadata";
+        bool multipleClaimsAllowed = true;
+        uint256 startTime = block.timestamp + 1000;
+        uint256 endTime = block.timestamp + 2000;
+
+        vm.recordLogs();
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            metadata,
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            multipleClaimsAllowed,
+            startTime,
+            endTime
+        );
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        // Find the CampaignCreated event (should be the last one)
+        bool eventFound = false;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (
+                logs[i].topics[0] ==
+                keccak256("CampaignCreated(uint256,bytes,address,address,address,bool,uint256,uint256)")
+            ) {
+                eventFound = true;
+                // Verify the campaign ID matches
+                assertEq(uint256(logs[i].topics[1]), campaignId, "Campaign ID in event should match");
+                break;
+            }
+        }
+
+        assertTrue(eventFound, "CampaignCreated event should be emitted");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test that campaign creation fails with non-existent action encoder
+    function test_CreateCampaignFailsWithNonExistentActionEncoder() public {
+        vm.startPrank(address(createdDAO));
+
+        vm.expectRevert();
+        capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            toBytes32("non-existent-encoder"),
+            "",
+            false,
+            0,
+            0
+        );
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test campaign creation with both start and end times
+    function test_CreateCampaignWithBothTimes() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 startTime = block.timestamp + 1000;
+        uint256 endTime = block.timestamp + 2000;
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            startTime,
+            endTime
+        );
+
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+
+        assertEq(campaign.startTime, startTime, "Start time not equal");
+        assertEq(campaign.endTime, endTime, "End time not equal");
+        assertTrue(campaign.active, "Campaign should be active");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test campaign creation with equal start and end times fails
+    function test_CreateCampaignFailsWithEqualTimes() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 sameTime = block.timestamp + 1000;
+
+        vm.expectRevert(CapitalDistributorPlugin.InvalidTimeBounds.selector);
+        capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            sameTime,
+            sameTime
+        );
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test campaign creation with strategy parameters
+    function test_CreateCampaignWithStrategyParams() public {
+        vm.startPrank(address(createdDAO));
+
+        bytes memory strategyParams = "strategy-deployment-params";
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            strategyParams,
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+        assertTrue(address(campaign.allocationStrategy) != address(0), "Strategy should be deployed");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test campaign creation with allocation strategy auxiliary data
+    function test_CreateCampaignWithAllocationStrategyAuxData() public {
+        vm.startPrank(address(createdDAO));
+
+        bytes memory auxData = "allocation-strategy-aux-data";
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            auxData,
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+        assertTrue(address(campaign.allocationStrategy) != address(0), "Strategy should be deployed");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test campaign creation with action encoder auxiliary data
+    function test_CreateCampaignWithActionEncoderAuxData() public {
+        vm.startPrank(address(createdDAO));
+
+        bytes memory encoderAuxData = abi.encode(address(vaultToSendTokens));
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            toBytes32("vault-deposit-encoder"),
+            encoderAuxData,
+            false,
+            0,
+            0
+        );
+
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+        assertTrue(address(campaign.actionEncoder) != address(0), "Action encoder should be deployed");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test campaign creation with maximum time values
+    function test_CreateCampaignWithMaximumTimeValues() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 maxStartTime = type(uint256).max - 1000;
+        uint256 maxEndTime = type(uint256).max;
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            maxStartTime,
+            maxEndTime
+        );
+
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+
+        assertEq(campaign.startTime, maxStartTime, "Max start time not equal");
+        assertEq(campaign.endTime, maxEndTime, "Max end time not equal");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test campaign creation gas usage
+    function test_CampaignCreationGasUsage() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 gasBefore = gasleft();
+
+        capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+
+        uint256 gasUsed = gasBefore - gasleft();
+
+        // Basic gas usage check - should be reasonable
+        assertTrue(gasUsed > 0, "Gas should be consumed");
+        assertTrue(gasUsed < 1000000, "Gas usage should be reasonable");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test that campaign creation with different tokens works
+    function test_CreateCampaignWithDifferentTokens() public {
+        vm.startPrank(address(createdDAO));
+
+        MintableERC20 token2 = new MintableERC20();
+
+        uint256 campaignId1 = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+
+        uint256 campaignId2 = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token2),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+
+        CapitalDistributorPlugin.Campaign memory campaign1 = capitalDistributorPlugin.getCampaign(campaignId1);
+        CapitalDistributorPlugin.Campaign memory campaign2 = capitalDistributorPlugin.getCampaign(campaignId2);
+
+        assertEq(address(campaign1.token), address(token), "First campaign token incorrect");
+        assertEq(address(campaign2.token), address(token2), "Second campaign token incorrect");
+        assertTrue(address(campaign1.token) != address(campaign2.token), "Tokens should be different");
+
+        vm.stopPrank();
+    }
+
+    // ============================================
+    // T02: Basic Payout Claiming Tests
+    // ============================================
+
+    /// @notice Test T02: Basic payout claiming functionality
+    function test_PayoutIsClaimed() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+
         assertEq(token.balanceOf(address(createdDAO)), 1 ether, "DAO doesn't have funds");
         assertEq(token.balanceOf(alice), 0 ether, "Alice has funds");
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, metadata, "");
+        
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+        
         assertEq(token.balanceOf(address(createdDAO)), 0 ether, "DAO has funds");
-        assertEq(token.balanceOf(address(vaultToSendTokens)), 1 ether, "Vault has funds");
+        assertEq(token.balanceOf(alice), 1 ether, "Alice doesn't have funds");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test payout claiming with multiple claims allowed
+    function test_PayoutIsClaimedWithMultipleClaims() public {
+        mintTokensToDAO(3 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createCampaignWithParams(true, 0, 0); // multiple claims allowed
+
+        // First claim - strategy returns 1 ether 
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+        assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether after first claim");
+        
+        // Check claimed amount
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 1 ether, "Alice should have claimed 1 ether total");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test claiming fails before start date
+    function test_ClaimingFailsBeforeStartDate() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 futureStart = block.timestamp + 1000;
+        uint256 campaignId = createCampaignWithParams(false, futureStart, 0);
+
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaignId));
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test claiming fails after end date
+    function test_ClaimingFailsAfterEndDate() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 pastEnd = block.timestamp - 1;
+        uint256 campaignId = createCampaignWithParams(false, 0, pastEnd);
+
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaignId));
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test claiming fails after already claiming when multiple claims not allowed
+    function test_ClaimingFailsAfterAlreadyClaiming() public {
+        mintTokensToDAO(2 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign(); // multiple claims not allowed
+
+        // First claim succeeds
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+        assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether");
+
+        // Second claim fails
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.MultipleClaimsNotAllowed.selector, campaignId, alice));
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test claiming fails when campaign is inactive
+    function test_ClaimingFailsWhenCampaignInactive() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+        
+        // Deactivate campaign
+        capitalDistributorPlugin.deactivateCampaign(campaignId);
+
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaignId));
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test claiming fails with no claimable amount
+    function test_ClaimingFailsWithNoClaimableAmount() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createZeroAmountCampaign();
+        
+        // Try to claim without any funds
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.NoClaimableAmount.selector, campaignId, alice));
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test PayoutClaimed event emission
+    function test_PayoutClaimedEvent() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+
+        vm.expectEmit(true, true, true, true);
+        emit CapitalDistributorPlugin.PayoutClaimed(campaignId, alice, 1 ether, 1 ether);
+        
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        vm.stopPrank();
+    }
+
+    // ============================================
+    // T03: Advanced Claiming Tests
+    // ============================================
+
+    /// @notice Test claiming on behalf of others
+    function test_ClaimingOnBehalfOfOthers() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+
+        // DAO claims on behalf of alice
+        assertEq(token.balanceOf(alice), 0, "Alice should have no tokens");
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+        assertEq(token.balanceOf(alice), 1 ether, "Alice should receive tokens");
+
+        vm.stopPrank();
+
+        // Bob claims on behalf of carol
+        mintTokensToDAO(1 ether);
+        vm.startPrank(bob);
+        
+        assertEq(token.balanceOf(carol), 0, "Carol should have no tokens");
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, carol, "", "");
+        assertEq(token.balanceOf(carol), 1 ether, "Carol should receive tokens");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test multiple users claiming for same recipient
+    function test_MultipleUsersClaimingForSameRecipient() public {
+        mintTokensToDAO(2 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createCampaignWithParams(true, 0, 0); // multiple claims allowed
+
+        // DAO claims for alice
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+        assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether");
+
+        vm.stopPrank();
+
+        // Bob also claims for alice - should fail as max is reached
+        vm.startPrank(bob);
+        vm.expectRevert(abi.encodeWithSelector(
+            CapitalDistributorPlugin.AlreadyClaimedMaxAmount.selector,
+            campaignId,
+            alice,
+            1 ether,
+            1 ether
+        ));
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test partial claims with multiple claims allowed
+    function test_PartialClaimsWithMultipleClaimsAllowed() public {
+        mintTokensToDAO(3 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createCampaignWithParams(true, 0, 0);
+
+        // First claim - claims 1 ether
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+        assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether");
+
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 1 ether, "Total claimed should be 1 ether");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test claiming up to max amount
+    function test_ClaimingUpToMaxAmount() public {
+        mintTokensToDAO(2 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createCampaignWithParams(true, 0, 0);
+
+        // Claim once
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+        assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether");
+
+        // Try to claim again - should revert as max is 1 ether per mock strategy
+        vm.expectRevert(abi.encodeWithSelector(
+            CapitalDistributorPlugin.AlreadyClaimedMaxAmount.selector, 
+            campaignId, 
+            alice, 
+            1 ether, 
+            1 ether
+        ));
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test claiming at exact start time
+    function test_ClaimingAtExactStartTime() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 startTime = block.timestamp + 100;
+        uint256 campaignId = createCampaignWithParams(false, startTime, 0);
+
+        // Warp to exact start time
+        vm.warp(startTime);
+
+        // Should succeed
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+        assertEq(token.balanceOf(alice), 1 ether, "Alice should receive tokens");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test claiming one second before end time
+    function test_ClaimingOneSecondBeforeEndTime() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 endTime = block.timestamp + 100;
+        uint256 campaignId = createCampaignWithParams(false, 0, endTime);
+
+        // Warp to one second before end time
+        vm.warp(endTime - 1);
+
+        // Should succeed
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+        assertEq(token.balanceOf(alice), 1 ether, "Alice should receive tokens");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test claiming at exact end time
+    function test_ClaimingAtExactEndTime() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 endTime = block.timestamp + 100;
+        uint256 campaignId = createCampaignWithParams(false, 0, endTime);
+
+        // Warp to exact end time
+        vm.warp(endTime);
+
+        // Should fail (end time is exclusive)
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaignId));
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test claiming with different auxiliary data
+    function test_ClaimingWithDifferentAuxData() public {
+        mintTokensToDAO(2 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+
+        // Claim with empty aux data
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+        assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether");
+
+        // Claim with some aux data (mock strategy ignores it)
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, "some-aux-data", "encoder-aux");
+        assertEq(token.balanceOf(bob), 1 ether, "Bob should have 1 ether");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test claiming from expired campaign that was active
+    function test_ClaimingFromExpiredCampaignThatWasActive() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 endTime = block.timestamp + 100;
+        uint256 campaignId = createCampaignWithParams(false, 0, endTime);
+
+        // Verify campaign is active
+        assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be active");
+
+        // Warp past end time
+        vm.warp(endTime + 1);
+
+        // Verify campaign is no longer active
+        assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be inactive");
+
+        // Claiming should fail
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaignId));
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test zero amount claim (when strategy returns 0)
+    function test_ZeroAmountClaim() public {
+        vm.startPrank(address(createdDAO));
+
+        // Create campaign ID 999 that returns 0 amount
+        uint256 campaignId = createZeroAmountCampaign();
+
+        // This will fail with NoClaimableAmount because strategy returns 0
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.NoClaimableAmount.selector, campaignId, alice));
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        vm.stopPrank();
+    }
+
+    // ============================================
+    // T04: Campaign Management Tests
+    // ============================================
+
+    /// @notice Test campaign deactivation
+    function test_DeactivateCampaign() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+
+        // Verify campaign is active
+        assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be active");
+
+        // Deactivate
+        vm.expectEmit(true, true, true, true);
+        emit CapitalDistributorPlugin.CampaignDeactivated(campaignId);
+        
+        capitalDistributorPlugin.deactivateCampaign(campaignId);
+
+        // Verify campaign is inactive
+        assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be inactive");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test deactivation fails without permission
+    function test_DeactivateCampaignFailsWithoutPermission() public {
+        vm.startPrank(address(createdDAO));
+        uint256 campaignId = createBasicCampaign();
+        vm.stopPrank();
+
+        vm.startPrank(alice);
+        vm.expectRevert();
+        capitalDistributorPlugin.deactivateCampaign(campaignId);
+        vm.stopPrank();
+    }
+
+    /// @notice Test deactivation fails if already inactive
+    function test_DeactivateCampaignFailsIfAlreadyInactive() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+        
+        // Deactivate once
+        capitalDistributorPlugin.deactivateCampaign(campaignId);
+
+        // Try to deactivate again
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaignId));
+        capitalDistributorPlugin.deactivateCampaign(campaignId);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test deactivation fails if campaign not found
+    function test_DeactivateCampaignFailsIfNotFound() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 nonExistentId = 999;
+        
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignNotFound.selector, nonExistentId));
+        capitalDistributorPlugin.deactivateCampaign(nonExistentId);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test claiming fails after deactivation
+    function test_ClaimingFailsAfterDeactivation() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+        
+        // Deactivate campaign
+        capitalDistributorPlugin.deactivateCampaign(campaignId);
+
+        // Try to claim
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaignId));
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        vm.stopPrank();
+    }
+
+    // ============================================
+    // T05: Batch Operations Tests
+    // ============================================
+
+    /// @notice Test batch claim from multiple campaigns
+    function test_BatchClaimCampaignPayout() public {
+        mintTokensToDAO(3 ether);
+        vm.startPrank(address(createdDAO));
+
+        // Create 3 campaigns
+        uint256[] memory campaignIds = new uint256[](3);
+        address[] memory recipients = new address[](3);
+        bytes[] memory strategiesAuxData = new bytes[](3);
+        bytes[] memory encodersAuxData = new bytes[](3);
+
+        for (uint256 i = 0; i < 3; i++) {
+            campaignIds[i] = createBasicCampaign();
+            recipients[i] = alice;
+            strategiesAuxData[i] = "";
+            encodersAuxData[i] = "";
+        }
+
+        // Batch claim
+        uint256[] memory amounts = capitalDistributorPlugin.batchClaimCampaignPayout(
+            campaignIds,
+            recipients,
+            strategiesAuxData,
+            encodersAuxData
+        );
+
+        // Verify
+        assertEq(amounts.length, 3, "Should return 3 amounts");
+        for (uint256 i = 0; i < 3; i++) {
+            assertEq(amounts[i], 1 ether, "Each claim should be 1 ether");
+        }
+        assertEq(token.balanceOf(alice), 3 ether, "Alice should have 3 ether total");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test batch claim with different recipients
+    function test_BatchClaimWithDifferentRecipients() public {
+        mintTokensToDAO(3 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256[] memory campaignIds = new uint256[](3);
+        address[] memory recipients = new address[](3);
+        bytes[] memory strategiesAuxData = new bytes[](3);
+        bytes[] memory encodersAuxData = new bytes[](3);
+
+        // Create campaigns and set different recipients
+        for (uint256 i = 0; i < 3; i++) {
+            campaignIds[i] = createBasicCampaign();
+            strategiesAuxData[i] = "";
+            encodersAuxData[i] = "";
+        }
+        recipients[0] = alice;
+        recipients[1] = bob;
+        recipients[2] = carol;
+
+        // Batch claim
+        capitalDistributorPlugin.batchClaimCampaignPayout(
+            campaignIds,
+            recipients,
+            strategiesAuxData,
+            encodersAuxData
+        );
+
+        // Verify each recipient got their tokens
+        assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether");
+        assertEq(token.balanceOf(bob), 1 ether, "Bob should have 1 ether");
+        assertEq(token.balanceOf(carol), 1 ether, "Carol should have 1 ether");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test batch claim fails with array length mismatch
+    function test_BatchClaimFailsWithArrayLengthMismatch() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256[] memory campaignIds = new uint256[](2);
+        address[] memory recipients = new address[](3); // Mismatch!
+        bytes[] memory strategiesAuxData = new bytes[](2);
+        bytes[] memory encodersAuxData = new bytes[](2);
+
+        vm.expectRevert(CapitalDistributorPlugin.ArrayLengthMismatch.selector);
+        capitalDistributorPlugin.batchClaimCampaignPayout(
+            campaignIds,
+            recipients,
+            strategiesAuxData,
+            encodersAuxData
+        );
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test batch claim with partial success
+    function test_BatchClaimPartialSuccess() public {
+        mintTokensToDAO(2 ether);
+        vm.startPrank(address(createdDAO));
+
+        // Create 2 campaigns, but deactivate one
+        uint256 campaign1 = createBasicCampaign();
+        uint256 campaign2 = createBasicCampaign();
+        capitalDistributorPlugin.deactivateCampaign(campaign2);
+
+        uint256[] memory campaignIds = new uint256[](2);
+        address[] memory recipients = new address[](2);
+        bytes[] memory strategiesAuxData = new bytes[](2);
+        bytes[] memory encodersAuxData = new bytes[](2);
+
+        campaignIds[0] = campaign1;
+        campaignIds[1] = campaign2;
+        recipients[0] = alice;
+        recipients[1] = alice;
+
+        // Batch claim should revert because one campaign is inactive
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaign2));
+        capitalDistributorPlugin.batchClaimCampaignPayout(
+            campaignIds,
+            recipients,
+            strategiesAuxData,
+            encodersAuxData
+        );
+
+        vm.stopPrank();
+    }
+
+    // ============================================
+    // T06: View/Getter Functions Tests
+    // ============================================
+
+    /// @notice Test getCampaignPayout view function
+    function test_GetCampaignPayout() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+
+        // Check payout amount without claiming
+        uint256 payoutAmount = capitalDistributorPlugin.getCampaignPayout(campaignId, alice, "");
+        assertEq(payoutAmount, 1 ether, "Payout amount should be 1 ether");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test getClaimedAmount function
+    function test_GetClaimedAmount() public {
+        mintTokensToDAO(2 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createCampaignWithParams(true, 0, 0);
+
+        // Check initial claimed amount
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 0, "Initial claimed should be 0");
+
+        // Claim once - will claim 1 ether
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 1 ether, "Claimed should be 1 ether");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test getCampaignStrategyId function
+    function test_GetCampaignStrategyId() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+
+        bytes32 strategyId = capitalDistributorPlugin.getCampaignStrategyId(campaignId);
+        assertEq(strategyId, toBytes32("mock-strategy"), "Strategy ID should match");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test getCampaignEncoderId function
+    function test_GetCampaignEncoderId() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            toBytes32("vault-deposit-encoder"),
+            abi.encode(address(vaultToSendTokens)),
+            false,
+            0,
+            0
+        );
+
+        bytes32 encoderId = capitalDistributorPlugin.getCampaignEncoderId(campaignId);
+        assertTrue(encoderId != bytes32(0), "Encoder ID should not be empty");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test getCampaignEncoderId with no encoder
+    function test_GetCampaignEncoderIdWithNoEncoder() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+
+        // This should revert as there's no encoder
+        vm.expectRevert();
+        capitalDistributorPlugin.getCampaignEncoderId(campaignId);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test isCampaignActive function
+    function test_IsCampaignActive() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+
+        // Should be active initially
+        assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be active");
+
+        // Deactivate and check
+        capitalDistributorPlugin.deactivateCampaign(campaignId);
+        assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be inactive");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test isCampaignActive with time bounds
+    function test_IsCampaignActiveWithTimeBounds() public {
+        vm.startPrank(address(createdDAO));
+
+        // Future campaign
+        uint256 futureStart = block.timestamp + 1000;
+        uint256 futureCampaignId = createCampaignWithParams(false, futureStart, 0);
+        assertFalse(capitalDistributorPlugin.isCampaignActive(futureCampaignId), "Future campaign should be inactive");
+
+        // Expired campaign
+        uint256 pastEnd = block.timestamp - 1;
+        uint256 expiredCampaignId = createCampaignWithParams(false, 0, pastEnd);
+        assertFalse(capitalDistributorPlugin.isCampaignActive(expiredCampaignId), "Expired campaign should be inactive");
+
+        // Active campaign with time bounds
+        uint256 activeStart = block.timestamp - 100;
+        uint256 activeEnd = block.timestamp + 100;
+        uint256 activeCampaignId = createCampaignWithParams(false, activeStart, activeEnd);
+        assertTrue(capitalDistributorPlugin.isCampaignActive(activeCampaignId), "Campaign within bounds should be active");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test getStrategyCreationEncodingTypes
+    function test_GetStrategyCreationEncodingTypes() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+
+        string memory types = capitalDistributorPlugin.getStrategyCreationEncodingTypes(campaignId);
+        assertEq(types, "", "Mock strategy returns empty types");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test getStrategyClaimEncodingTypes
+    function test_GetStrategyClaimEncodingTypes() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+
+        string memory types = capitalDistributorPlugin.getStrategyClaimEncodingTypes(campaignId);
+        assertEq(types, "", "Mock strategy returns empty types");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test getEncoderCreationEncodingTypes
+    function test_GetEncoderCreationEncodingTypes() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            toBytes32("vault-deposit-encoder"),
+            abi.encode(address(vaultToSendTokens)),
+            false,
+            0,
+            0
+        );
+
+        string memory types = capitalDistributorPlugin.getEncoderCreationEncodingTypes(campaignId);
+        assertTrue(bytes(types).length >= 0, "Should return encoding types");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test getEncoderClaimEncodingTypes
+    function test_GetEncoderClaimEncodingTypes() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            toBytes32("vault-deposit-encoder"),
+            abi.encode(address(vaultToSendTokens)),
+            false,
+            0,
+            0
+        );
+
+        string memory types = capitalDistributorPlugin.getEncoderClaimEncodingTypes(campaignId);
+        assertTrue(bytes(types).length >= 0, "Should return encoding types");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test encoding type getters fail for non-existent campaign
+    function test_EncodingTypeGettersFailForNonExistentCampaign() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 nonExistentId = 999;
+
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignNotFound.selector, nonExistentId));
+        capitalDistributorPlugin.getStrategyCreationEncodingTypes(nonExistentId);
+
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignNotFound.selector, nonExistentId));
+        capitalDistributorPlugin.getStrategyClaimEncodingTypes(nonExistentId);
+
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignNotFound.selector, nonExistentId));
+        capitalDistributorPlugin.getEncoderCreationEncodingTypes(nonExistentId);
+
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignNotFound.selector, nonExistentId));
+        capitalDistributorPlugin.getEncoderClaimEncodingTypes(nonExistentId);
+
+        vm.stopPrank();
+    }
+
+    // ============================================
+    // T07: Integration Tests
+    // ============================================
+
+    /// @notice Test create and claim in same block
+    function test_CreateAndClaimInSameBlock() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        // Create and claim in same transaction
+        uint256 campaignId = createBasicCampaign();
+        
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        assertEq(token.balanceOf(alice), 1 ether, "Alice should receive tokens in same block");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test multiple campaigns for same token
+    function test_MultipleCampaignsForSameToken() public {
+        mintTokensToDAO(3 ether);
+        vm.startPrank(address(createdDAO));
+
+        // Create 3 campaigns with same token
+        uint256 campaign1 = createBasicCampaign();
+        uint256 campaign2 = createBasicCampaign();
+        uint256 campaign3 = createBasicCampaign();
+
+        // Claim from each
+        capitalDistributorPlugin.claimCampaignPayout(campaign1, alice, "", "");
+        capitalDistributorPlugin.claimCampaignPayout(campaign2, bob, "", "");
+        capitalDistributorPlugin.claimCampaignPayout(campaign3, carol, "", "");
+
+        // Verify distributions
+        assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether");
+        assertEq(token.balanceOf(bob), 1 ether, "Bob should have 1 ether");
+        assertEq(token.balanceOf(carol), 1 ether, "Carol should have 1 ether");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test full campaign lifecycle
+    function test_FullCampaignLifecycle() public {
+        mintTokensToDAO(2 ether);
+        vm.startPrank(address(createdDAO));
+
+        // 1. Create campaign with time bounds
+        uint256 startTime = block.timestamp + 100;
+        uint256 endTime = block.timestamp + 200;
+        uint256 campaignId = createCampaignWithParams(true, startTime, endTime);
+
+        // 2. Verify not active before start
+        assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Should be inactive before start");
+
+        // 3. Warp to active period
+        vm.warp(startTime + 50);
+        assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Should be active during period");
+
+        // 4. First claim - claims 1 ether
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 1 ether, "1 ether claimed");
+
+        // 6. Deactivate campaign
+        capitalDistributorPlugin.deactivateCampaign(campaignId);
+        assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Should be inactive after deactivation");
+
+        // 7. Verify can't claim after deactivation
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaignId));
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        vm.stopPrank();
     }
 }

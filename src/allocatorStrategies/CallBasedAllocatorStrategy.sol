@@ -51,6 +51,7 @@ contract CallBasedAllocatorStrategy is AllocatorStrategyBase {
         }
 
         address _plugin = msg.sender;
+
         if (allocationCampaigns[_plugin][_campaignId].isEligibleAction.to != address(0)) {
             revert AllocationCampaignAlreadyExists(_plugin, _campaignId);
         }
