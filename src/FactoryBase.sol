@@ -143,7 +143,7 @@ abstract contract FactoryBase is ReentrancyGuard {
         IDAO _dao,
         bytes memory _auxData
     ) internal pure returns (bytes32 paramsHash) {
-        return keccak256(abi.encodePacked(_typeId, address(_dao), _auxData));
+        return keccak256(abi.encode(_typeId, address(_dao), _auxData));
     }
 
     /// @notice Gets the registered type information

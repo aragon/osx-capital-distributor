@@ -165,7 +165,7 @@ contract FactoryBaseTest is Test {
         assertTrue(hash1 != hash3);
         assertTrue(hash2 != hash3);
 
-        bytes32 expectedHash = keccak256(abi.encodePacked(TYPE_ID_1, address(dao), auxData1));
+        bytes32 expectedHash = keccak256(abi.encode(TYPE_ID_1, address(dao), auxData1));
         assertEq(hash1, expectedHash);
     }
 
@@ -237,7 +237,7 @@ contract FactoryBaseTest is Test {
         bytes32 extendedHash = factory.exposedComputeParamsHash(typeId, daoInterface, auxData);
 
         if (auxData.length == 0) {
-            assertEq(extendedHash, keccak256(abi.encodePacked(typeId, daoAddr, auxData)));
+            assertEq(extendedHash, keccak256(abi.encode(typeId, daoAddr, auxData)));
         }
     }
 

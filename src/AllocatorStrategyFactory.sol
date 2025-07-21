@@ -2,6 +2,7 @@
 pragma solidity ^0.8.29;
 
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {IAllocatorStrategy} from "./interfaces/IAllocatorStrategy.sol";
 import {IAllocatorStrategyFactory} from "./interfaces/IAllocatorStrategyFactory.sol";
@@ -31,14 +32,46 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     /// @param strategy The address of the deployed strategy
     event StrategyDeployed(bytes32 indexed strategyId, address indexed strategy);
 
+    /// @notice Emitted when an existing strategy instance is retrieved
+    /// @param strategyId The unique identifier for the strategy type
+    /// @param strategy The address of the retrieved strategy
+    /// @param deploymentId The deployment identifier
+    event StrategyRetrieved(bytes32 indexed strategyId, address indexed strategy, bytes32 indexed deploymentId);
+
     /**
      * @notice Registers a new strategy type in the factory.
      * @param _strategyId Unique identifier for the strategy type.
      * @param _implementation Address of the strategy implementation contract.
      * @param _metadata Human-readable name for the strategy type.
+     * @dev Validates that the implementation supports the IAllocatorStrategy interface.
      */
     function registerStrategyType(bytes32 _strategyId, address _implementation, string calldata _metadata) external {
-        _registerType(_strategyId, _implementation, _metadata);
+        // Validate basic requirements first
+        if (_strategyId == bytes32(0)) {
+            revert EmptyTypeId();
+        }
+        if (_implementation == address(0)) {
+            revert InvalidImplementation(_implementation, "Implementation address cannot be zero");
+        }
+        if (registeredTypes[_strategyId].implementation != address(0)) {
+            revert AlreadyRegistered(_strategyId);
+        }
+        if (_implementation.code.length == 0) {
+            revert InvalidImplementation(_implementation, "Implementation must be a deployed contract");
+        }
+        
+        // Validate that the implementation supports the IAllocatorStrategy interface
+        try IERC165(_implementation).supportsInterface(type(IAllocatorStrategy).interfaceId) returns (bool supported) {
+            if (!supported) {
+                revert InvalidImplementation(_implementation, "Implementation must support IAllocatorStrategy interface");
+            }
+        } catch {
+            revert InvalidImplementation(_implementation, "Implementation must support IAllocatorStrategy interface");
+        }
+        
+        // Register the type
+        registeredTypes[_strategyId] = RegisteredType({implementation: _implementation, metadata: _metadata});
+        emit TypeRegistered(_strategyId, _implementation, _metadata, msg.sender);
         emit StrategyTypeRegistered(_strategyId, _implementation, _metadata);
     }
 
@@ -81,6 +114,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
 
         strategy = deployedInstances[deploymentId];
         if (strategy != address(0)) {
+            emit StrategyRetrieved(_strategyTypeId, strategy, deploymentId);
             return strategy;
         }
 
@@ -102,7 +136,10 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     ) external view returns (bool exists, address strategy) {
         bytes32 deploymentId = _computeParamsHash(_strategyTypeId, _dao, _auxData);
         strategy = deployedInstances[deploymentId];
-        exists = strategy != address(0);
+        // Avoid redundant comparison by using inline assembly for gas optimization
+        assembly {
+            exists := iszero(iszero(strategy))
+        }
     }
 
     /**
@@ -120,8 +157,9 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         bytes32 _deploymentId
     ) internal returns (address strategy) {
         RegisteredType storage strategyType = registeredTypes[_strategyTypeId];
+        address implementation = strategyType.implementation; // Cache storage read
 
-        if (strategyType.implementation == address(0)) {
+        if (implementation == address(0)) {
             revert TypeNotFound(_strategyTypeId);
         }
 
@@ -135,7 +173,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         );
 
         // Deploy and initialize using base class utility
-        strategy = _deployAndInitialize(_strategyTypeId, strategyType.implementation, initCalldata);
+        strategy = _deployAndInitialize(_strategyTypeId, implementation, initCalldata);
 
         // Register the deployed strategy
         deployedInstances[_deploymentId] = strategy;

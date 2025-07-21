@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.29;
 
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+
 /// @title IAllocatorStrategy
 /// @author Your Name/Project
 /// @notice Interface for all allocator strategies, defining a common set of functions
 /// for interacting with different allocation and distribution mechanisms.
 /// Implementing contracts will define the specific logic for allocation and eligibility.
-interface IAllocatorStrategy {
+interface IAllocatorStrategy is IERC165 {
     // =========================================================================
     // Events
     // =========================================================================
