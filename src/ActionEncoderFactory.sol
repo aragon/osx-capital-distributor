@@ -2,6 +2,7 @@
 pragma solidity ^0.8.29;
 
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {IPayoutActionEncoder} from "./interfaces/IPayoutActionEncoder.sol";
 import {IActionEncoderFactory} from "./interfaces/IActionEncoderFactory.sol";
@@ -30,7 +31,32 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
     /// @param _implementation The address of the implementation contract
     /// @param _metadata Human-readable metadata describing the action encoder
     function registerActionEncoder(bytes32 _encoderId, address _implementation, string calldata _metadata) external {
-        _registerType(_encoderId, _implementation, _metadata);
+        // Validate basic requirements first
+        if (_encoderId == bytes32(0)) {
+            revert EmptyTypeId();
+        }
+        if (_implementation == address(0)) {
+            revert InvalidImplementation(_implementation, "Implementation address cannot be zero");
+        }
+        if (registeredTypes[_encoderId].implementation != address(0)) {
+            revert AlreadyRegistered(_encoderId);
+        }
+        if (_implementation.code.length == 0) {
+            revert InvalidImplementation(_implementation, "Implementation must be a deployed contract");
+        }
+        
+        // Validate that the implementation supports the IPayoutActionEncoder interface
+        try IERC165(_implementation).supportsInterface(type(IPayoutActionEncoder).interfaceId) returns (bool supported) {
+            if (!supported) {
+                revert InvalidImplementation(_implementation, "Implementation must support IPayoutActionEncoder interface");
+            }
+        } catch {
+            revert InvalidImplementation(_implementation, "Implementation must support IPayoutActionEncoder interface");
+        }
+        
+        // Register the type
+        registeredTypes[_encoderId] = RegisteredType({implementation: _implementation, metadata: _metadata});
+        emit TypeRegistered(_encoderId, _implementation, _metadata, msg.sender);
         emit ActionEncoderTypeRegistered(_encoderId, _implementation, _metadata);
     }
 
