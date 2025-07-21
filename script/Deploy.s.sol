@@ -11,6 +11,11 @@ import {PluginRepo} from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
 import {DAOFactory} from "@aragon/osx/framework/dao/DAOFactory.sol";
 import {hashHelpers, PluginSetupRef} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
 
+import {IPlugin} from "@aragon/commons/plugin/IPlugin.sol";
+
+import {Admin} from "@aragon/admin-plugin/Admin.sol";
+import {AdminSetup} from "@aragon/admin-plugin/AdminSetup.sol";
+
 import {CapitalDistributorPluginSetup} from "../src/CapitalDistributorPluginSetup.sol";
 import {AllocatorStrategyFactory} from "../src/AllocatorStrategyFactory.sol";
 import {ActionEncoderFactory} from "../src/ActionEncoderFactory.sol";
@@ -28,9 +33,11 @@ import {BaseScript} from "./Base.s.sol";
 contract Deploy is BaseScript {
     PluginRepoFactory pluginRepoFactory;
     DAOFactory daoFactory;
+    PluginRepo adminRepo;
     string nameWithEntropy;
     string daoName;
     address[] pluginAddress;
+    address adminOwner;
 
     AllocatorStrategyFactory public allocatorStrategyFactory;
     ActionEncoderFactory public actionEncoderFactory;
@@ -40,6 +47,8 @@ contract Deploy is BaseScript {
     function setUp() public {
         pluginRepoFactory = PluginRepoFactory(vm.envAddress("PLUGIN_REPO_FACTORY"));
         daoFactory = DAOFactory(vm.envAddress("DAO_FACTORY"));
+        adminRepo = PluginRepo(vm.envAddress("ADMIN_REPO"));
+        adminOwner = vm.envAddress("ADMIN_OWNER");
         nameWithEntropy = vm.envOr(
             "PLUGIN_NAME",
             string.concat("osx-capital-distributor-", vm.toString(block.timestamp))
@@ -92,7 +101,8 @@ contract Deploy is BaseScript {
         DAOFactory.PluginSettings[] memory pluginSettings = getPluginSettings(pluginRepo);
 
         // 8. Deploying the DAO
-        DAOFactory.InstalledPlugin[] memory installedPlugins = new DAOFactory.InstalledPlugin[](1);
+        // Two plugins, one is the capital distributor and the other one is the Admin Plugin
+        DAOFactory.InstalledPlugin[] memory installedPlugins = new DAOFactory.InstalledPlugin[](2);
         (createdDAO, installedPlugins) = daoFactory.createDao(daoSettings, pluginSettings);
 
         console2.log("ACTION_ENCODER_FACTORY=", address(actionEncoderFactory));
@@ -125,8 +135,14 @@ contract Deploy is BaseScript {
     ) public view returns (DAOFactory.PluginSettings[] memory pluginSettings) {
         bytes memory pluginSettingsData = abi.encode(address(allocatorStrategyFactory), address(actionEncoderFactory));
         PluginRepo.Tag memory tag = PluginRepo.Tag(1, 1);
-        pluginSettings = new DAOFactory.PluginSettings[](1);
+        pluginSettings = new DAOFactory.PluginSettings[](2);
         pluginSettings[0] = DAOFactory.PluginSettings(PluginSetupRef(tag, pluginRepo), pluginSettingsData);
+
+        // Settings for the admin
+        IPlugin.TargetConfig memory targetConfig = IPlugin.TargetConfig(address(0), IPlugin.Operation.Call);
+        bytes memory adminSettingsData = abi.encode(adminOwner, targetConfig);
+        PluginRepo.Tag memory adminTag = PluginRepo.Tag(1, 2);
+        pluginSettings[1] = DAOFactory.PluginSettings(PluginSetupRef(adminTag, adminRepo), adminSettingsData);
     }
 
     function toBytes32(string memory source) public pure returns (bytes32 result) {
