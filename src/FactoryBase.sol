@@ -3,12 +3,13 @@ pragma solidity ^0.8.29;
 
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @title FactoryBase
 /// @author AragonX - 2025
 /// @notice Abstract base contract for factory/registry hybrid contracts
 /// @dev Provides common functionality for registering types and deploying instances
-abstract contract FactoryBase {
+abstract contract FactoryBase is ReentrancyGuard {
     using Clones for address;
 
     /// @notice Struct containing implementation contract and metadata
@@ -52,14 +53,17 @@ abstract contract FactoryBase {
 
     /// @notice Thrown when an invalid implementation address is provided
     /// @param implementation The invalid implementation address
-    error InvalidImplementation(address implementation);
+    /// @param reason The reason why the implementation is invalid
+    error InvalidImplementation(address implementation, string reason);
 
     /// @notice Thrown when an empty type ID is provided
     error EmptyTypeId();
 
     /// @notice Thrown when instance deployment fails
     /// @param typeId The type ID that failed to deploy
-    error DeploymentFailed(bytes32 typeId);
+    /// @param implementation The implementation address that failed
+    /// @param reason Additional context about the failure
+    error DeploymentFailed(bytes32 typeId, address implementation, string reason);
 
     /// @notice Thrown when attempting to access a type that doesn't exist
     /// @param typeId The type ID that was not found
@@ -77,6 +81,11 @@ abstract contract FactoryBase {
     /// @dev This function handles the common registration logic
     function _registerType(bytes32 _typeId, address _implementation, string calldata _metadata) internal {
         _validateRegistration(_typeId, _implementation, registeredTypes[_typeId].implementation);
+
+        // Validate that the implementation is a contract
+        if (_implementation.code.length == 0) {
+            revert InvalidImplementation(_implementation, "Implementation must be a deployed contract");
+        }
 
         registeredTypes[_typeId] = RegisteredType({implementation: _implementation, metadata: _metadata});
 
@@ -96,7 +105,7 @@ abstract contract FactoryBase {
             revert EmptyTypeId();
         }
         if (_implementation == address(0)) {
-            revert InvalidImplementation(_implementation);
+            revert InvalidImplementation(_implementation, "Implementation address cannot be zero");
         }
         if (_existingImplementation != address(0)) {
             revert AlreadyRegistered(_typeId);
@@ -104,27 +113,24 @@ abstract contract FactoryBase {
     }
 
     /// @notice Internal function to deploy a clone and initialize it
+    /// @param _typeId The type ID being deployed
     /// @param _implementation The implementation address to clone
     /// @param _initCalldata The initialization calldata
     /// @return instance The address of the deployed instance
     function _deployAndInitialize(
+        bytes32 _typeId,
         address _implementation,
         bytes memory _initCalldata
-    ) internal returns (address instance) {
+    ) internal nonReentrant returns (address instance) {
         instance = _implementation.clone();
 
-        (bool success, ) = instance.call(_initCalldata);
+        (bool success, bytes memory returnData) = instance.call(_initCalldata);
         if (!success) {
-            revert DeploymentFailed(bytes32(0));
+            string memory reason = returnData.length > 0 
+                ? string(returnData) 
+                : "Initialization failed";
+            revert DeploymentFailed(_typeId, _implementation, reason);
         }
-    }
-
-    /// @notice Computes a basic hash for deployment parameters
-    /// @param _typeId The type identifier
-    /// @param _dao The DAO address
-    /// @return paramsHash The computed hash
-    function _computeBasicParamsHash(bytes32 _typeId, IDAO _dao) internal pure returns (bytes32 paramsHash) {
-        return keccak256(abi.encodePacked(_typeId, address(_dao)));
     }
 
     /// @notice Computes a hash for deployment parameters with additional data

@@ -117,7 +117,7 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
             _auxData
         );
 
-        address instance = _deployAndInitialize(encoderType.implementation, initCalldata);
+        address instance = _deployAndInitialize(_encoderId, encoderType.implementation, initCalldata);
         encoder = IPayoutActionEncoder(instance);
 
         deployedInstances[_deploymentId] = encoder;

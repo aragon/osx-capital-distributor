@@ -135,7 +135,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         );
 
         // Deploy and initialize using base class utility
-        strategy = _deployAndInitialize(strategyType.implementation, initCalldata);
+        strategy = _deployAndInitialize(_strategyTypeId, strategyType.implementation, initCalldata);
 
         // Register the deployed strategy
         deployedInstances[_deploymentId] = strategy;
