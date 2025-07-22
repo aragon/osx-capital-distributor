@@ -11,6 +11,7 @@ import {Action, IExecutor} from "@aragon/commons/executors/IExecutor.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 import {PluginUUPSUpgradeable} from "@aragon/commons/plugin/PluginUUPSUpgradeable.sol";
+import {MetadataExtensionUpgradeable} from "@aragon/commons/utils/metadata/MetadataExtensionUpgradeable.sol";
 
 import {IAllocatorStrategy} from "./interfaces/IAllocatorStrategy.sol";
 import {IPayoutActionEncoder} from "./interfaces/IPayoutActionEncoder.sol";
@@ -22,7 +23,12 @@ import {ActionEncoderFactory} from "./ActionEncoderFactory.sol";
 /// @notice A plugin for Aragon DAOs that enables the creation and management of token distribution campaigns.
 /// @dev This plugin allows DAOs to create campaigns with configurable allocation strategies and payout mechanisms.
 /// Recipients can claim their allocated tokens based on the campaign's strategy rules and configuration.
-contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUPSUpgradeable {
+contract CapitalDistributorPlugin is
+    Initializable,
+    ERC165Upgradeable,
+    PluginUUPSUpgradeable,
+    MetadataExtensionUpgradeable
+{
     using SafeCastUpgradeable for uint256;
 
     /// @notice The ID of the permission required to create a campaign.
@@ -529,7 +535,13 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     /// @return Returns `true` if the interface is supported.
     function supportsInterface(
         bytes4 _interfaceId
-    ) public view virtual override(ERC165Upgradeable, PluginUUPSUpgradeable) returns (bool) {
+    )
+        public
+        view
+        virtual
+        override(ERC165Upgradeable, PluginUUPSUpgradeable, MetadataExtensionUpgradeable)
+        returns (bool)
+    {
         return super.supportsInterface(_interfaceId);
     }
 
