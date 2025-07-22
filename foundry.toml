@@ -14,6 +14,7 @@ script = "script"
 solc = "0.8.29"
 src = "src"
 test = "tests"
+fs_permissions = [{ access = "read-write", path = "./" }]
 libs = ["node_modules", "lib"]
 ignored_error_files = ["lib/**", "node_modules/**"]
 ignored_warnings_from = ["node_modules/**", "lib/**"]

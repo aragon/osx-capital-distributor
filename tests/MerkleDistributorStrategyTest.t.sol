@@ -3,6 +3,7 @@ pragma solidity >=0.8.29 <0.9.0;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
+import {stdJson} from "forge-std/StdJson.sol";
 
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 
@@ -15,17 +16,31 @@ import {MerkleDistributorStrategy} from "../src/allocatorStrategies/MerkleDistri
 
 import {MintableERC20} from "./mocks/MintableERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {CreateExampleRecipients} from "../scripts/merkleDistributor/CreateExampleRecipients.s.sol";
+import {GenerateMerkleTree} from "../scripts/merkleDistributor/GenerateMerkleTree.s.sol";
+import {GenerateProof} from "../scripts/merkleDistributor/GenerateProof.s.sol";
 
 contract MerkleDistributorStrategyTest is AragonTest {
+    using stdJson for string;
+    
     CapitalDistributorPlugin capitalDistributorPlugin;
     MerkleDistributorStrategy strategy;
     MintableERC20 token;
 
-    // Merkle tree test data
+    // Merkle tree scripts
+    CreateExampleRecipients createExampleScript;
+    GenerateMerkleTree generateTreeScript;
+    GenerateProof generateProofScript;
+
+    // Merkle tree test data (legacy)
     address[] recipients;
     uint256[] amounts;
     bytes32[] leaves;
     bytes32 merkleRoot;
+    
+    // Script-generated test data  
+    string constant TEST_RECIPIENTS_FILE = "./test/scripts/data/test-recipients-merkle.json";
+    string constant TEST_TREE_FILE = "./test/scripts/data/merkle-tree.json";
 
     /// @dev A function invoked before each test case is run.
     function setUp() public virtual {
@@ -34,11 +49,19 @@ contract MerkleDistributorStrategyTest is AragonTest {
         token = new MintableERC20();
         strategy = new MerkleDistributorStrategy();
 
+        // Deploy scripts
+        createExampleScript = new CreateExampleRecipients();
+        generateTreeScript = new GenerateMerkleTree();
+        generateProofScript = new GenerateProof();
+
         vm.startPrank(address(createdDAO));
         allocatorStrategyFactory.registerStrategyType(toBytes32("merkle-strategy"), address(strategy), "");
 
-        // Set up merkle tree test data
+        // Set up merkle tree test data (keep legacy for existing tests)
         setupMerkleTreeData();
+        
+        // Set up script-generated test data
+        setupScriptGeneratedData();
     }
 
     function setupMerkleTreeData() internal {
@@ -72,6 +95,35 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function _hashPair(bytes32 a, bytes32 b) internal pure returns (bytes32) {
         return a < b ? keccak256(abi.encodePacked(a, b)) : keccak256(abi.encodePacked(b, a));
+    }
+
+    function setupScriptGeneratedData() internal {
+        // Create test recipients using the script
+        createExampleScript.createTestnetExample(TEST_RECIPIENTS_FILE);
+        
+        // Generate merkle tree using the script
+        generateTreeScript.generate(TEST_RECIPIENTS_FILE);
+    }
+
+    function getScriptGeneratedMerkleRoot() internal view returns (bytes32) {
+        string memory treeJson = vm.readFile(TEST_TREE_FILE);
+        return treeJson.readBytes32(".merkleRoot");
+    }
+
+    function getScriptGeneratedProof(address recipient) internal returns (bytes32[] memory, uint256) {
+        // Generate proof using script
+        generateProofScript.generateProof(TEST_TREE_FILE, recipient);
+        
+        // Read the generated proof file from test data directory
+        string memory proofFile = string.concat("./test/scripts/data/proof-", vm.toString(recipient), ".json");
+        string memory proofJson = vm.readFile(proofFile);
+        
+        // Parse proof data
+        bytes memory proofData = proofJson.parseRaw(".proof");
+        bytes32[] memory proof = abi.decode(proofData, (bytes32[]));
+        uint256 amount = proofJson.readUint(".amount");
+        
+        return (proof, amount);
     }
 
     function getMerkleProof(uint256 index) internal view returns (bytes32[] memory proof) {
@@ -306,5 +358,178 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         payoutAmount = capitalDistributorPlugin.getCampaignPayout(campaignId, bob, bobClaimData);
         assertEq(payoutAmount, 2 ether, "Bob's payout should be 2 ether");
+    }
+
+    // ============================================================================
+    // Script-based Tests
+    // ============================================================================
+
+    function test_ScriptGeneratedMerkleTree() public {
+        bytes32 scriptRoot = getScriptGeneratedMerkleRoot();
+        assertNotEq(scriptRoot, bytes32(0), "Script should generate non-zero merkle root");
+        
+        vm.startPrank(address(createdDAO));
+        bytes memory metadata = "";
+        bytes memory allocatorDeploymentParams = "";
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            metadata,
+            toBytes32("merkle-strategy"),
+            allocatorDeploymentParams,
+            abi.encode(scriptRoot),
+            IERC20(token),
+            bytes32(0),
+            metadata,
+            false,
+            0,
+            0
+        );
+
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+        assertTrue(address(campaign.allocationStrategy) != address(0), "Allocation strategy should be set");
+    }
+
+    function test_ScriptGeneratedProofsClaim() public {
+        token.mint(address(createdDAO), 100 ether);
+        bytes32 scriptRoot = getScriptGeneratedMerkleRoot();
+        
+        vm.startPrank(address(createdDAO));
+        bytes memory metadata = "";
+        bytes memory allocatorDeploymentParams = "";
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            metadata,
+            toBytes32("merkle-strategy"),
+            allocatorDeploymentParams,
+            abi.encode(scriptRoot),
+            IERC20(token),
+            bytes32(0),
+            metadata,
+            false,
+            0,
+            0
+        );
+        vm.stopPrank();
+
+        // Test claims using script-generated proofs
+        address testRecipient1 = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266; // From testnet example
+        address testRecipient2 = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8; // From testnet example
+
+        // Get proof for recipient 1
+        (bytes32[] memory proof1, uint256 amount1) = getScriptGeneratedProof(testRecipient1);
+        bytes memory claimData1 = abi.encode(proof1, amount1);
+
+        // Get proof for recipient 2  
+        (bytes32[] memory proof2, uint256 amount2) = getScriptGeneratedProof(testRecipient2);
+        bytes memory claimData2 = abi.encode(proof2, amount2);
+
+        uint256 initialBalance1 = token.balanceOf(testRecipient1);
+        uint256 initialBalance2 = token.balanceOf(testRecipient2);
+
+        vm.startPrank(address(createdDAO));
+        
+        // Claim for recipient 1
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, testRecipient1, claimData1, "");
+        assertEq(token.balanceOf(testRecipient1), initialBalance1 + amount1, "Recipient 1 should receive correct amount");
+
+        // Claim for recipient 2
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, testRecipient2, claimData2, "");
+        assertEq(token.balanceOf(testRecipient2), initialBalance2 + amount2, "Recipient 2 should receive correct amount");
+    }
+
+    function test_ScriptGeneratedProofValidation() public {
+        bytes32 scriptRoot = getScriptGeneratedMerkleRoot();
+        
+        vm.startPrank(address(createdDAO));
+        bytes memory metadata = "";
+        bytes memory allocatorDeploymentParams = "";
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            metadata,
+            toBytes32("merkle-strategy"),
+            allocatorDeploymentParams,
+            abi.encode(scriptRoot),
+            IERC20(token),
+            bytes32(0),
+            metadata,
+            false,
+            0,
+            0
+        );
+        vm.stopPrank();
+
+        // Test that script-generated proofs are valid
+        address testRecipient = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+        (bytes32[] memory proof, uint256 amount) = getScriptGeneratedProof(testRecipient);
+        bytes memory claimData = abi.encode(proof, amount);
+
+        uint256 payoutAmount = capitalDistributorPlugin.getCampaignPayout(campaignId, testRecipient, claimData);
+        assertEq(payoutAmount, amount, "Script-generated proof should be valid");
+        assertGt(payoutAmount, 0, "Payout amount should be greater than 0");
+    }
+
+    function test_LargeRecipientSetUsingScripts() public {
+        // Create large recipient set using script
+        createExampleScript.createLargeExample("./test/scripts/data/large-recipients-test.json");
+        generateTreeScript.generate("./test/scripts/data/large-recipients-test.json");
+        
+        string memory largeTreeJson = vm.readFile("./test/scripts/data/merkle-tree.json");
+        bytes32 largeRoot = largeTreeJson.readBytes32(".merkleRoot");
+        uint256 totalRecipients = largeTreeJson.readUint(".totalRecipients");
+        
+        assertEq(totalRecipients, 100, "Should have 100 recipients");
+        assertNotEq(largeRoot, bytes32(0), "Should generate valid merkle root for large set");
+        
+        token.mint(address(createdDAO), 1000 ether);
+        vm.startPrank(address(createdDAO));
+        bytes memory metadata = "";
+        bytes memory allocatorDeploymentParams = "";
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            metadata,
+            toBytes32("merkle-strategy"),
+            allocatorDeploymentParams,
+            abi.encode(largeRoot),
+            IERC20(token),
+            bytes32(0),
+            metadata,
+            false,
+            0,
+            0
+        );
+        vm.stopPrank();
+
+        // Test claims for a few recipients from the large set
+        address testAddr1 = address(uint160(uint256(keccak256(abi.encodePacked("recipient", uint256(5))))));
+        address testAddr2 = address(uint160(uint256(keccak256(abi.encodePacked("recipient", uint256(25))))));
+        
+        // Generate proofs using script
+        generateProofScript.generateProof("./test/scripts/data/merkle-tree.json", testAddr1);
+        generateProofScript.generateProof("./test/scripts/data/merkle-tree.json", testAddr2);
+        
+        // Read proof files
+        string memory proof1File = string.concat("./test/scripts/data/proof-", vm.toString(testAddr1), ".json");
+        string memory proof2File = string.concat("./test/scripts/data/proof-", vm.toString(testAddr2), ".json");
+        
+        string memory proof1Json = vm.readFile(proof1File);
+        string memory proof2Json = vm.readFile(proof2File);
+        
+        // Verify proofs are valid
+        bool valid1 = proof1Json.readBool(".valid");
+        bool valid2 = proof2Json.readBool(".valid");
+        
+        assertTrue(valid1, "Proof for recipient 5 should be valid");
+        assertTrue(valid2, "Proof for recipient 25 should be valid");
+        
+        // Test actual claims
+        bytes memory proofData1 = proof1Json.parseRaw(".proof");
+        bytes32[] memory proof1Array = abi.decode(proofData1, (bytes32[]));
+        uint256 amount1 = proof1Json.readUint(".amount");
+        
+        bytes memory claimData1 = abi.encode(proof1Array, amount1);
+        uint256 payoutAmount1 = capitalDistributorPlugin.getCampaignPayout(campaignId, testAddr1, claimData1);
+        
+        assertEq(payoutAmount1, amount1, "Payout should match script-generated amount");
+        assertGt(payoutAmount1, 0, "Should be able to claim from large recipient set");
     }
 }

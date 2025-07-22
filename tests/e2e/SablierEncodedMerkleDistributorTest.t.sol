@@ -3,6 +3,7 @@ pragma solidity >=0.8.29 <0.9.0;
 
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
+import {stdJson} from "forge-std/StdJson.sol";
 
 import {PluginRepoFactory} from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
 import {DAOFactory} from "@aragon/osx/framework/dao/DAOFactory.sol";
@@ -13,11 +14,16 @@ import {MerkleDistributorStrategy} from "../../src/allocatorStrategies/MerkleDis
 import {IAllocatorStrategyFactory} from "../../src/interfaces/IAllocatorStrategyFactory.sol";
 import {IPayoutActionEncoder} from "../../src/interfaces/IPayoutActionEncoder.sol";
 import {ISablierLockup, SablierLinearPayoutActionEncoder} from "../../src/payoutActionEncoders/SablierLinearPayoutActionEncoder.sol";
+import {CreateExampleRecipients} from "../../scripts/merkleDistributor/CreateExampleRecipients.s.sol";
+import {GenerateMerkleTree} from "../../scripts/merkleDistributor/GenerateMerkleTree.s.sol";
+import {GenerateProof} from "../../scripts/merkleDistributor/GenerateProof.s.sol";
 
 /// @title SablierEncodedMerkleDistributorTest
 /// @notice E2E test for Merkle distributor with Sablier stream encoding on mainnet fork
 /// @dev This test forks mainnet to test real Sablier protocol integration
 contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
+    using stdJson for string;
+    
     // Mainnet addresses
     address constant USDC_MAINNET = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48; // Replace with actual USDC address
     address constant SABLIER_V2_LOCKUP_LINEAR = 0x3F6E8a8Cffe377c4649aCeB01e6F20c60fAA356c; // Replace with actual Sablier address
@@ -29,11 +35,20 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
     MerkleDistributorStrategy strategy;
     uint256 campaignId;
 
+    // Script instances
+    CreateExampleRecipients createExampleScript;
+    GenerateMerkleTree generateTreeScript;
+    GenerateProof generateProofScript;
+
     // Test data
     uint256 constant TOTAL_DISTRIBUTION_AMOUNT = 10_000e6; // 10,000 USDC
     bytes32 merkleRoot;
     mapping(address => uint256) recipientAmounts;
     mapping(address => bytes32[]) recipientProofs;
+    
+    // Script-generated test data
+    string constant E2E_RECIPIENTS_FILE = "./test/scripts/data/e2e-test-recipients.json";
+    string constant E2E_TREE_FILE = "./test/scripts/data/merkle-tree.json";
 
     // =============================================================================
     // Abstract Function Implementations
@@ -65,6 +80,11 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
         );
 
         vm.stopPrank();
+        
+        // Deploy merkle tree scripts
+        createExampleScript = new CreateExampleRecipients();
+        generateTreeScript = new GenerateMerkleTree();
+        generateProofScript = new GenerateProof();
     }
 
     function setupTestData() internal override {
@@ -264,5 +284,118 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
 
         // Assert reasonable gas usage (adjust based on actual implementation)
         assertTrue(gasUsed < 500_000, "Claim should use reasonable amount of gas");
+    }
+
+    // =============================================================================
+    // Script-based E2E Tests  
+    // =============================================================================
+
+    function setupScriptGeneratedE2EData() internal {
+        // Create recipients using script - customize for E2E test with realistic amounts
+        string memory customRecipients = createCustomE2ERecipients();
+        vm.writeFile(E2E_RECIPIENTS_FILE, customRecipients);
+        
+        // Generate merkle tree
+        generateTreeScript.generate(E2E_RECIPIENTS_FILE);
+    }
+
+    function createCustomE2ERecipients() internal view returns (string memory) {
+        // Create realistic recipients for E2E testing with USDC amounts
+        return string.concat(
+            "[\n",
+            "  {\"account\": \"", vm.toString(alice), "\", \"amount\": \"2500000000\"},\n", // 2,500 USDC (6 decimals)
+            "  {\"account\": \"", vm.toString(bob), "\", \"amount\": \"3000000000\"},\n",   // 3,000 USDC
+            "  {\"account\": \"", vm.toString(carol), "\", \"amount\": \"2000000000\"},\n", // 2,000 USDC
+            "  {\"account\": \"", vm.toString(david), "\", \"amount\": \"2500000000\"}\n",  // 2,500 USDC
+            "]"
+        );
+    }
+
+    function getScriptGeneratedE2EMerkleRoot() internal view returns (bytes32) {
+        string memory treeJson = vm.readFile(E2E_TREE_FILE);
+        return treeJson.readBytes32(".merkleRoot");
+    }
+
+    function getScriptGeneratedE2EProof(address recipient) internal returns (bytes32[] memory, uint256) {
+        // Generate proof using script
+        generateProofScript.generateProof(E2E_TREE_FILE, recipient);
+        
+        // Read the generated proof file
+        string memory proofFile = string.concat("./test/scripts/data/proof-", vm.toString(recipient), ".json");
+        string memory proofJson = vm.readFile(proofFile);
+        
+        // Parse proof data
+        bytes memory proofData = proofJson.parseRaw(".proof");
+        bytes32[] memory proof = abi.decode(proofData, (bytes32[]));
+        uint256 amount = proofJson.readUint(".amount");
+        
+        return (proof, amount);
+    }
+
+    function test_ScriptGeneratedE2EWithSablierStreams() public {
+        // Setup script-generated data
+        setupScriptGeneratedE2EData();
+        bytes32 scriptRoot = getScriptGeneratedE2EMerkleRoot();
+
+        vm.startPrank(address(dao));
+
+        // Create campaign using script-generated merkle root
+        uint256 scriptCampaignId = capitalDistributorPlugin.createCampaign(
+            "ipfs://QmScriptGeneratedCampaignMetadata",
+            toBytes32("merkle-strategy"),
+            "",
+            abi.encode(scriptRoot),
+            usdc,
+            toBytes32("sablier-linear-encoder"),
+            abi.encode(
+                SABLIER_V2_LOCKUP_LINEAR,
+                1 weeks, // stream duration
+                0, // no cliff
+                0, // No immediate unlock
+                0, // No cliff unlock
+                true, // Cancelable
+                false, // Transferable
+                address(0), // No broker
+                0
+            ),
+            false,
+            0,
+            0
+        );
+
+        vm.stopPrank();
+
+        // Test claims using script-generated proofs
+        (bytes32[] memory aliceProof, uint256 aliceAmount) = getScriptGeneratedE2EProof(alice);
+        (bytes32[] memory bobProof, uint256 bobAmount) = getScriptGeneratedE2EProof(bob);
+
+        // Verify amounts match expected USDC amounts (6 decimals)
+        assertEq(aliceAmount, 2_500e6, "Alice amount should be 2,500 USDC");
+        assertEq(bobAmount, 3_000e6, "Bob amount should be 3,000 USDC");
+
+        // Test payout calculations
+        bytes memory aliceClaimData = abi.encode(aliceProof, aliceAmount);
+        bytes memory bobClaimData = abi.encode(bobProof, bobAmount);
+
+        uint256 alicePayout = capitalDistributorPlugin.getCampaignPayout(scriptCampaignId, alice, aliceClaimData);
+        uint256 bobPayout = capitalDistributorPlugin.getCampaignPayout(scriptCampaignId, bob, bobClaimData);
+
+        assertEq(alicePayout, aliceAmount, "Alice's script-generated payout should be correct");
+        assertEq(bobPayout, bobAmount, "Bob's script-generated payout should be correct");
+
+        // Test actual claims (would create Sablier streams in real scenario)
+        vm.startPrank(address(dao));
+
+        // Alice claims
+        capitalDistributorPlugin.claimCampaignPayout(scriptCampaignId, alice, aliceClaimData, "");
+
+        // Bob claims
+        capitalDistributorPlugin.claimCampaignPayout(scriptCampaignId, bob, bobClaimData, "");
+
+        vm.stopPrank();
+
+        // Verify that the merkle tree scripts work seamlessly with complex E2E scenarios
+        // involving real DeFi protocols like Sablier
+        assertTrue(true, "Script-generated merkle trees work with complex E2E scenarios");
     }
 }

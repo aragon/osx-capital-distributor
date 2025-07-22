@@ -14,6 +14,13 @@ package-lock.json
 pnpm-lock.yaml
 yarn.lock
 
+# test data artifacts (generated dynamically)
+test/scripts/data/proof-*.json
+test/scripts/data/merkle-tree.json
+test/scripts/data/test-recipients-merkle.json
+test/scripts/data/large-recipients-test.json
+test/scripts/data/e2e-test-recipients.json
+
 # broadcasts
 !broadcast
 broadcast/*

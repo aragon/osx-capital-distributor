@@ -129,7 +129,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         assertEq(address(campaign.token), address(token), "Token not equal");
         assertEq(address(campaign.actionEncoder), address(0), "Action encoder should be zero");
         assertEq(campaign.multipleClaimsAllowed, false, "Multiple claims should be false");
-        assertEq(campaign.active, true, "Campaign should be active");
+        assertTrue(campaign.state == CapitalDistributorPlugin.CampaignState.ACTIVE, "Campaign should be active");
         assertEq(campaign.startTime, 0, "Start time should be 0");
         assertEq(campaign.endTime, 0, "End time should be 0");
 
@@ -162,7 +162,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         assertTrue(address(campaign.allocationStrategy) != address(0), "Allocation strategy not set");
         assertEq(address(campaign.token), address(token), "Token not equal");
         assertEq(campaign.multipleClaimsAllowed, true, "Multiple claims should be true");
-        assertEq(campaign.active, true, "Campaign should be active");
+        assertTrue(campaign.state == CapitalDistributorPlugin.CampaignState.ACTIVE, "Campaign should be active");
 
         vm.stopPrank();
     }
@@ -485,7 +485,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        assertTrue(campaign.active, "Campaign should be active by default");
+        assertTrue(campaign.state == CapitalDistributorPlugin.CampaignState.ACTIVE, "Campaign should be active by default");
         assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be active via function");
 
         vm.stopPrank();
@@ -520,7 +520,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         assertEq(address(campaign.token), address(token), "Token not stored correctly");
         assertEq(address(campaign.actionEncoder), address(0), "Action encoder not stored correctly");
         assertEq(campaign.multipleClaimsAllowed, multipleClaimsAllowed, "Multiple claims not stored correctly");
-        assertTrue(campaign.active, "Active flag not stored correctly");
+        assertTrue(campaign.state == CapitalDistributorPlugin.CampaignState.ACTIVE, "Active flag not stored correctly");
         assertEq(campaign.startTime, startTime, "Start time not stored correctly");
         assertEq(campaign.endTime, endTime, "End time not stored correctly");
 
@@ -765,7 +765,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         assertEq(campaign.startTime, startTime, "Start time not equal");
         assertEq(campaign.endTime, endTime, "End time not equal");
-        assertTrue(campaign.active, "Campaign should be active");
+        assertTrue(campaign.state == CapitalDistributorPlugin.CampaignState.ACTIVE, "Campaign should be active");
 
         vm.stopPrank();
     }
@@ -1013,7 +1013,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         uint256 futureStart = block.timestamp + 1000;
         uint256 campaignId = createCampaignWithParams(false, futureStart, 0);
 
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaignId));
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector, campaignId, block.timestamp, futureStart, 0));
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
 
         vm.stopPrank();
@@ -1027,7 +1027,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         uint256 pastEnd = block.timestamp - 1;
         uint256 campaignId = createCampaignWithParams(false, 0, pastEnd);
 
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaignId));
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector, campaignId, block.timestamp, 0, pastEnd));
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
 
         vm.stopPrank();
@@ -1051,17 +1051,17 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.stopPrank();
     }
 
-    /// @notice Test claiming fails when campaign is inactive
-    function test_ClaimingFailsWhenCampaignInactive() public {
+    /// @notice Test claiming fails when campaign is ended
+    function test_ClaimingFailsWhenCampaignEnded() public {
         mintTokensToDAO(1 ether);
         vm.startPrank(address(createdDAO));
 
         uint256 campaignId = createBasicCampaign();
         
         // Deactivate campaign
-        capitalDistributorPlugin.deactivateCampaign(campaignId);
+        capitalDistributorPlugin.endCampaign(campaignId);
 
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaignId));
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignNotActive.selector, campaignId, CapitalDistributorPlugin.CampaignState.ENDED));
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
 
         vm.stopPrank();
@@ -1239,7 +1239,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.warp(endTime);
 
         // Should fail (end time is exclusive)
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaignId));
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector, campaignId, endTime, 0, endTime));
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
 
         vm.stopPrank();
@@ -1281,7 +1281,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be inactive");
 
         // Claiming should fail
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaignId));
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector, campaignId, endTime + 1, 0, endTime));
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
 
         vm.stopPrank();
@@ -1316,9 +1316,9 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         // Deactivate
         vm.expectEmit(true, true, true, true);
-        emit CapitalDistributorPlugin.CampaignDeactivated(campaignId);
+        emit CapitalDistributorPlugin.CampaignEnded(campaignId);
         
-        capitalDistributorPlugin.deactivateCampaign(campaignId);
+        capitalDistributorPlugin.endCampaign(campaignId);
 
         // Verify campaign is inactive
         assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be inactive");
@@ -1334,7 +1334,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         vm.startPrank(alice);
         vm.expectRevert();
-        capitalDistributorPlugin.deactivateCampaign(campaignId);
+        capitalDistributorPlugin.endCampaign(campaignId);
         vm.stopPrank();
     }
 
@@ -1345,11 +1345,11 @@ contract CapitalDistributorPluginTest is AragonTest {
         uint256 campaignId = createBasicCampaign();
         
         // Deactivate once
-        capitalDistributorPlugin.deactivateCampaign(campaignId);
+        capitalDistributorPlugin.endCampaign(campaignId);
 
-        // Try to deactivate again
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaignId));
-        capitalDistributorPlugin.deactivateCampaign(campaignId);
+        // Try to end again
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.InvalidStateTransition.selector, campaignId, CapitalDistributorPlugin.CampaignState.ENDED, CapitalDistributorPlugin.CampaignState.ENDED));
+        capitalDistributorPlugin.endCampaign(campaignId);
 
         vm.stopPrank();
     }
@@ -1361,7 +1361,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         uint256 nonExistentId = 999;
         
         vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignNotFound.selector, nonExistentId));
-        capitalDistributorPlugin.deactivateCampaign(nonExistentId);
+        capitalDistributorPlugin.endCampaign(nonExistentId);
 
         vm.stopPrank();
     }
@@ -1374,10 +1374,10 @@ contract CapitalDistributorPluginTest is AragonTest {
         uint256 campaignId = createBasicCampaign();
         
         // Deactivate campaign
-        capitalDistributorPlugin.deactivateCampaign(campaignId);
+        capitalDistributorPlugin.endCampaign(campaignId);
 
         // Try to claim
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaignId));
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignNotActive.selector, campaignId, CapitalDistributorPlugin.CampaignState.ENDED));
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
 
         vm.stopPrank();
@@ -1487,7 +1487,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         // Create 2 campaigns, but deactivate one
         uint256 campaign1 = createBasicCampaign();
         uint256 campaign2 = createBasicCampaign();
-        capitalDistributorPlugin.deactivateCampaign(campaign2);
+        capitalDistributorPlugin.endCampaign(campaign2);
 
         uint256[] memory campaignIds = new uint256[](2);
         address[] memory recipients = new address[](2);
@@ -1500,7 +1500,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         recipients[1] = alice;
 
         // Batch claim should revert because one campaign is inactive
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaign2));
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignNotActive.selector, campaign2, CapitalDistributorPlugin.CampaignState.ENDED));
         capitalDistributorPlugin.batchClaimCampaignPayout(
             campaignIds,
             recipients,
@@ -1603,7 +1603,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be active");
 
         // Deactivate and check
-        capitalDistributorPlugin.deactivateCampaign(campaignId);
+        capitalDistributorPlugin.endCampaign(campaignId);
         assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be inactive");
 
         vm.stopPrank();
@@ -1787,11 +1787,11 @@ contract CapitalDistributorPluginTest is AragonTest {
         assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 1 ether, "1 ether claimed");
 
         // 6. Deactivate campaign
-        capitalDistributorPlugin.deactivateCampaign(campaignId);
+        capitalDistributorPlugin.endCampaign(campaignId);
         assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Should be inactive after deactivation");
 
         // 7. Verify can't claim after deactivation
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignInactive.selector, campaignId));
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignNotActive.selector, campaignId, CapitalDistributorPlugin.CampaignState.ENDED));
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
 
         vm.stopPrank();

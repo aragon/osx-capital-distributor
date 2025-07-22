@@ -48,6 +48,9 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
 
     /// @notice Thrown when the merkle root is zero (invalid)
     error InvalidMerkleRoot();
+    
+    /// @notice Thrown when the new merkle root is identical to the current one
+    error DuplicateMerkleRoot(bytes32 root);
 
     /// @notice Thrown when the merkle proof verification fails
     error InvalidMerkleProof(address plugin, uint256 campaignId, address account);
@@ -166,9 +169,14 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
         }
 
         bytes32 newMerkleRoot = decodeCampaignSetupData(_auxData);
-
+        
         if (newMerkleRoot == bytes32(0)) {
             revert InvalidMerkleRoot();
+        }
+        
+        // Prevent setting the same root again (no-op protection)
+        if (newMerkleRoot == oldMerkleRoot) {
+            revert DuplicateMerkleRoot(newMerkleRoot);
         }
 
         // Update the merkle root

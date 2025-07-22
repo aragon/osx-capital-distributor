@@ -34,6 +34,13 @@ contract CapitalDistributorPlugin is
     /// @notice The ID of the permission required to create a campaign.
     bytes32 public constant CAMPAIGN_CREATOR_PERMISSION_ID = keccak256("CAMPAIGN_CREATOR_PERMISSION");
 
+    /// @notice Represents the different states a campaign can be in
+    enum CampaignState {
+        ACTIVE,  // Normal operation, claims allowed
+        PAUSED,  // Temporarily paused (for updates), can be resumed
+        ENDED    // Permanently ended, cannot be resumed
+    }
+
     /// @notice The AllocatorStrategyFactory instance used to deploy strategies.
     AllocatorStrategyFactory public allocatorStrategyFactory;
 
@@ -51,7 +58,7 @@ contract CapitalDistributorPlugin is
      * @param token The address of the token that will be used for the payouts
      * @param actionEncoder The logic to execute when claiming the payout
      * @param multipleClaimsAllowed Whether recipients can claim multiple times for this campaign
-     * @param active Whether the campaign is active and accepting claims
+     * @param state The current state of the campaign (ACTIVE, PAUSED, or ENDED)
      * @param startTime The timestamp when the campaign becomes active (0 means no start time restriction)
      * @param endTime The timestamp when the campaign ends (0 means no end time restriction)
      */
@@ -61,7 +68,7 @@ contract CapitalDistributorPlugin is
         IERC20 token;
         IPayoutActionEncoder actionEncoder;
         bool multipleClaimsAllowed;
-        bool active;
+        CampaignState state;
         uint256 startTime; // 0 means no start time restriction
         uint256 endTime; // 0 means no end time restriction
     }
@@ -74,7 +81,7 @@ contract CapitalDistributorPlugin is
     /**
      * @notice Stores all campaign configurations, mapping a campaign ID to its Campaign struct.
      * The public visibility automatically creates a getter function:
-     * `function campaigns(uint256 _campaignId) external view returns (bytes memory metadataURI, address allocationStrategy, address token, address actionEncoder, bool multipleClaimsAllowed, bool active)`
+     * `function campaigns(uint256 _campaignId) external view returns (bytes memory metadataURI, address allocationStrategy, address token, address actionEncoder, bool multipleClaimsAllowed, CampaignState state)`
      */
     mapping(uint256 campaignId => Campaign) public campaigns;
 
@@ -113,9 +120,17 @@ contract CapitalDistributorPlugin is
     /// @param totalClaimed The total amount claimed by this recipient for this campaign.
     event PayoutClaimed(uint256 indexed campaignId, address indexed recipient, uint256 amount, uint256 totalClaimed);
 
-    /// @notice Emitted when a campaign is deactivated.
-    /// @param campaignId The ID of the campaign that was deactivated.
-    event CampaignDeactivated(uint256 indexed campaignId);
+    /// @notice Emitted when a campaign is paused.
+    /// @param campaignId The ID of the campaign that was paused.
+    event CampaignPaused(uint256 indexed campaignId);
+    
+    /// @notice Emitted when a campaign is resumed from pause.
+    /// @param campaignId The ID of the campaign that was resumed.
+    event CampaignResumed(uint256 indexed campaignId);
+    
+    /// @notice Emitted when a campaign is permanently ended.
+    /// @param campaignId The ID of the campaign that was ended.
+    event CampaignEnded(uint256 indexed campaignId);
 
     /// @notice Thrown when a zero address is provided where a valid address is required.
     /// @param parameter The name of the parameter that was zero.
@@ -159,9 +174,23 @@ contract CapitalDistributorPlugin is
     /// @param functionName The function that failed.
     error ExternalCallFailed(address target, string functionName);
 
-    /// @notice Thrown when trying to operate on an inactive campaign.
-    /// @param campaignId The ID of the inactive campaign.
-    error CampaignInactive(uint256 campaignId);
+    /// @notice Thrown when trying to claim from a campaign that is not active.
+    /// @param campaignId The ID of the campaign.
+    /// @param currentState The current state of the campaign.
+    error CampaignNotActive(uint256 campaignId, CampaignState currentState);
+    
+    /// @notice Thrown when trying to perform an invalid state transition.
+    /// @param campaignId The ID of the campaign.
+    /// @param currentState The current state of the campaign.
+    /// @param attemptedState The attempted new state.
+    error InvalidStateTransition(uint256 campaignId, CampaignState currentState, CampaignState attemptedState);
+    
+    /// @notice Thrown when trying to claim from a campaign outside its time bounds.
+    /// @param campaignId The ID of the campaign.
+    /// @param currentTime The current block timestamp.
+    /// @param startTime The campaign start time (0 if no restriction).
+    /// @param endTime The campaign end time (0 if no restriction).
+    error CampaignOutsideTimeBounds(uint256 campaignId, uint256 currentTime, uint256 startTime, uint256 endTime);
 
     /// @notice Thrown when array parameters have mismatched lengths.
     error ArrayLengthMismatch();
@@ -270,7 +299,7 @@ contract CapitalDistributorPlugin is
             campaigns[id].metadataURI = _metadataURI;
             campaigns[id].token = _token;
             campaigns[id].multipleClaimsAllowed = _multipleClaimsAllowed;
-            campaigns[id].active = true;
+            campaigns[id].state = CampaignState.ACTIVE;
             campaigns[id].startTime = _startTime;
             campaigns[id].endTime = _endTime;
         }
@@ -354,13 +383,13 @@ contract CapitalDistributorPlugin is
         Campaign storage campaign = campaigns[_campaignId];
 
         // Check if campaign is active
-        if (!campaign.active) {
-            revert CampaignInactive(_campaignId);
+        if (campaign.state != CampaignState.ACTIVE) {
+            revert CampaignNotActive(_campaignId, campaign.state);
         }
 
         // Check if campaign is within time bounds
         if (!_isCampaignWithinTimeBounds(campaign)) {
-            revert CampaignInactive(_campaignId);
+            revert CampaignOutsideTimeBounds(_campaignId, block.timestamp, campaign.startTime, campaign.endTime);
         }
 
         // Cache claimed amount to avoid repeated storage reads
@@ -429,23 +458,53 @@ contract CapitalDistributorPlugin is
             return false;
         }
 
-        // Check if campaign is flagged as active and within time bounds
-        return campaign.active && _isCampaignWithinTimeBounds(campaign);
+        // Check if campaign is in active state and within time bounds
+        return campaign.state == CampaignState.ACTIVE && _isCampaignWithinTimeBounds(campaign);
     }
 
-    /// @notice Deactivates a campaign, preventing further claims.
-    /// @param _campaignId The ID of the campaign to deactivate.
-    function deactivateCampaign(uint256 _campaignId) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) {
+    /// @notice Pauses a campaign temporarily, preventing further claims.
+    /// @dev Can only be called on ACTIVE campaigns. Paused campaigns can be resumed.
+    /// @param _campaignId The ID of the campaign to pause.
+    function pauseCampaign(uint256 _campaignId) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) {
         _requireCampaignExists(_campaignId);
         Campaign storage campaign = campaigns[_campaignId];
-
-        // Check if campaign is already inactive
-        if (!campaign.active) {
-            revert CampaignInactive(_campaignId);
+        
+        if (campaign.state != CampaignState.ACTIVE) {
+            revert InvalidStateTransition(_campaignId, campaign.state, CampaignState.PAUSED);
         }
-
-        campaign.active = false;
-        emit CampaignDeactivated(_campaignId);
+        
+        campaign.state = CampaignState.PAUSED;
+        emit CampaignPaused(_campaignId);
+    }
+    
+    /// @notice Resumes a paused campaign, allowing claims again.
+    /// @dev Can only be called on PAUSED campaigns.
+    /// @param _campaignId The ID of the campaign to resume.
+    function resumeCampaign(uint256 _campaignId) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) {
+        _requireCampaignExists(_campaignId);
+        Campaign storage campaign = campaigns[_campaignId];
+        
+        if (campaign.state != CampaignState.PAUSED) {
+            revert InvalidStateTransition(_campaignId, campaign.state, CampaignState.ACTIVE);
+        }
+        
+        campaign.state = CampaignState.ACTIVE;
+        emit CampaignResumed(_campaignId);
+    }
+    
+    /// @notice Permanently ends a campaign, preventing all future claims.
+    /// @dev Can be called on ACTIVE or PAUSED campaigns. This action is irreversible.
+    /// @param _campaignId The ID of the campaign to end.
+    function endCampaign(uint256 _campaignId) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) {
+        _requireCampaignExists(_campaignId);
+        Campaign storage campaign = campaigns[_campaignId];
+        
+        if (campaign.state == CampaignState.ENDED) {
+            revert InvalidStateTransition(_campaignId, campaign.state, CampaignState.ENDED);
+        }
+        
+        campaign.state = CampaignState.ENDED;
+        emit CampaignEnded(_campaignId);
     }
 
     /// @notice Claims payouts from multiple campaigns in a single transaction.
