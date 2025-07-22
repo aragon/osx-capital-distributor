@@ -8,6 +8,7 @@ import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProo
 import {IAllocatorStrategy} from "../interfaces/IAllocatorStrategy.sol";
 import {AllocatorStrategyBase} from "./AllocatorStrategyBase.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
+import {CapitalDistributorPlugin} from "../CapitalDistributorPlugin.sol";
 
 /// @title MerkleDistributorStrategy
 /// @notice A merkle tree-based allocation strategy that allows recipients to claim tokens
@@ -21,15 +22,14 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
         mapping(address => uint256) claimed;
     }
 
-    /// @notice Maps plugin address to campaign ID to merkle campaign data
-    mapping(address plugin => mapping(uint256 campaignId => MerkleCampaign)) public merkleCampaigns;
+    /// @notice Maps campaign ID to merkle campaign data
+    mapping(uint256 campaignId => MerkleCampaign) public merkleCampaigns;
 
     /// @notice Emitted when a new merkle campaign is set up
-    event MerkleCampaignSet(address indexed plugin, uint256 indexed campaignId, bytes32 merkleRoot);
+    event MerkleCampaignSet(uint256 indexed campaignId, bytes32 merkleRoot);
 
     /// @notice Emitted when a recipient claims their allocation
     event AllocationClaimed(
-        address indexed plugin,
         uint256 indexed campaignId,
         address indexed recipient,
         uint256 amount
@@ -37,29 +37,31 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
 
     /// @notice Emitted when a merkle campaign root is updated
     event MerkleCampaignUpdated(
-        address indexed plugin,
         uint256 indexed campaignId,
         bytes32 oldMerkleRoot,
         bytes32 newMerkleRoot
     );
 
     /// @notice Thrown when trying to set a campaign that already exists
-    error MerkleCampaignAlreadyExists(address plugin, uint256 campaignId);
+    error MerkleCampaignAlreadyExists(uint256 campaignId);
 
     /// @notice Thrown when the merkle root is zero (invalid)
     error InvalidMerkleRoot();
-    
+
     /// @notice Thrown when the new merkle root is identical to the current one
     error DuplicateMerkleRoot(bytes32 root);
 
     /// @notice Thrown when the merkle proof verification fails
-    error InvalidMerkleProof(address plugin, uint256 campaignId, address account);
+    error InvalidMerkleProof(uint256 campaignId, address account);
 
     /// @notice Thrown when a recipient has already claimed their allocation
-    error AlreadyClaimed(address plugin, uint256 campaignId, address account);
+    error AlreadyClaimed(uint256 campaignId, address account);
 
-    /// @notice Thrown when no campaign exists for the given plugin and campaign ID
-    error CampaignNotFound(address plugin, uint256 campaignId);
+    /// @notice Thrown when no campaign exists for the given campaign ID
+    error CampaignNotFound(uint256 campaignId);
+
+    /// @notice Thrown when trying to update a campaign that is not active
+    error CampaignNotActiveForUpdate(uint256 campaignId);
 
     /// @notice Decodes the auxiliary data for setting up a merkle campaign
     /// @param _auxData The encoded data containing the merkle root
@@ -94,11 +96,9 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
             revert OnlyDAOAllowed(msg.sender);
         }
 
-        address plugin = msg.sender;
-
         // Check if campaign already exists
-        if (merkleCampaigns[plugin][_campaignId].merkleRoot != bytes32(0)) {
-            revert MerkleCampaignAlreadyExists(plugin, _campaignId);
+        if (merkleCampaigns[_campaignId].merkleRoot != bytes32(0)) {
+            revert MerkleCampaignAlreadyExists(_campaignId);
         }
 
         bytes32 merkleRoot = decodeCampaignSetupData(_auxData);
@@ -108,10 +108,10 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
         }
 
         // Initialize the campaign struct (merkleRoot is set, hasClaimed mapping is automatically empty)
-        merkleCampaigns[plugin][_campaignId].merkleRoot = merkleRoot;
+        merkleCampaigns[_campaignId].merkleRoot = merkleRoot;
 
         emit AllocationCampaignCreated(plugin, _campaignId);
-        emit MerkleCampaignSet(plugin, _campaignId, merkleRoot);
+        emit MerkleCampaignSet(_campaignId, merkleRoot);
     }
 
     /// @inheritdoc IAllocatorStrategy
@@ -120,8 +120,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
         address _account,
         bytes calldata _auxData
     ) public view override returns (uint256 amount) {
-        address plugin = msg.sender;
-        bytes32 merkleRoot = merkleCampaigns[plugin][_campaignId].merkleRoot;
+        bytes32 merkleRoot = merkleCampaigns[_campaignId].merkleRoot;
 
         if (merkleRoot == bytes32(0)) {
             return 0; // Campaign doesn't exist
@@ -130,7 +129,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
         (bytes32[] memory merkleProof, uint256 claimAmount) = decodeClaimData(_auxData);
 
         // Check if already claimed
-        if (merkleCampaigns[plugin][_campaignId].claimed[_account] >= claimAmount) {
+        if (merkleCampaigns[_campaignId].claimed[_account] >= claimAmount) {
             return 0; // Already claimed
         }
 
@@ -146,42 +145,45 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     }
 
     /// @notice Gets the merkle root for a specific campaign
-    /// @param _plugin The plugin address that created the campaign
     /// @param _campaignId The campaign ID
     /// @return merkleRoot The merkle root for the campaign
-    function getCampaignMerkleRoot(address _plugin, uint256 _campaignId) external view returns (bytes32 merkleRoot) {
-        return merkleCampaigns[_plugin][_campaignId].merkleRoot;
+    function getCampaignMerkleRoot(uint256 _campaignId) external view returns (bytes32 merkleRoot) {
+        return merkleCampaigns[_campaignId].merkleRoot;
     }
 
     /// @notice Updates the merkle root for an existing campaign
     /// @param _campaignId The campaign ID to update
     /// @param _auxData The encoded data containing the new merkle root
     function updateCampaignMerkleRoot(uint256 _campaignId, bytes calldata _auxData) external {
-        address plugin = msg.sender;
-        if (address(DaoAuthorizableUpgradeable(plugin).dao()) != address(dao())) {
+        if (msg.sender != owner() && msg.sender != address(dao())) {
             revert OnlyDAOAllowed(msg.sender);
         }
 
+        // Check if campaign is active (not paused or ended)
+        if (!CapitalDistributorPlugin(plugin).isCampaignActive(_campaignId)) {
+            revert CampaignNotActiveForUpdate(_campaignId);
+        }
+
         // Check if campaign exists
-        bytes32 oldMerkleRoot = merkleCampaigns[plugin][_campaignId].merkleRoot;
+        bytes32 oldMerkleRoot = merkleCampaigns[_campaignId].merkleRoot;
         if (oldMerkleRoot == bytes32(0)) {
-            revert CampaignNotFound(plugin, _campaignId);
+            revert CampaignNotFound(_campaignId);
         }
 
         bytes32 newMerkleRoot = decodeCampaignSetupData(_auxData);
-        
+
         if (newMerkleRoot == bytes32(0)) {
             revert InvalidMerkleRoot();
         }
-        
+
         // Prevent setting the same root again (no-op protection)
         if (newMerkleRoot == oldMerkleRoot) {
             revert DuplicateMerkleRoot(newMerkleRoot);
         }
 
         // Update the merkle root
-        merkleCampaigns[plugin][_campaignId].merkleRoot = newMerkleRoot;
+        merkleCampaigns[_campaignId].merkleRoot = newMerkleRoot;
 
-        emit MerkleCampaignUpdated(plugin, _campaignId, oldMerkleRoot, newMerkleRoot);
+        emit MerkleCampaignUpdated(_campaignId, oldMerkleRoot, newMerkleRoot);
     }
 }

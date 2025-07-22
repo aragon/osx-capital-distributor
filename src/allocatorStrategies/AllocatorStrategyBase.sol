@@ -14,6 +14,7 @@ import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 /// abstract functions to define specific allocation logic.
 abstract contract AllocatorStrategyBase is IAllocatorStrategy, DaoAuthorizableUpgradeable, OwnableUpgradeable, ERC165Upgradeable {
     bytes32 public strategyTypeId;
+    address public plugin;
 
     // =========================================================================
     // Constructor
@@ -30,14 +31,16 @@ abstract contract AllocatorStrategyBase is IAllocatorStrategy, DaoAuthorizableUp
     /// @notice Initializes the strategy with the given parameters
     /// @param _strategyTypeId The type ID of the strategy
     /// @param _dao The DAO that will control this strategy
-    function initialize(bytes32 _strategyTypeId, IDAO _dao, address _owner, bytes calldata) public virtual initializer {
+    /// @param _plugin The plugin address that created this strategy
+    function initialize(bytes32 _strategyTypeId, IDAO _dao, address _plugin, bytes calldata) public virtual initializer {
         __DaoAuthorizableUpgradeable_init(_dao);
         __ERC165_init();
 
-        // Owner will be set directly to the plugin who's calling the initialize
+        // Set plugin as owner for backward compatibility, but store plugin separately
         __Ownable_init();
-        _transferOwnership(_owner);
-
+        _transferOwnership(_plugin);
+        
+        plugin = _plugin;
         strategyTypeId = _strategyTypeId;
     }
 

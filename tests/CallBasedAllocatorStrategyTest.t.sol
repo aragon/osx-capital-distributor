@@ -136,7 +136,9 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
         assertTrue(address(campaign.allocationStrategy) != address(0), "Allocation campaign address is not set");
 
-        campaign.allocationStrategy.setAllocationCampaign(campaignId, getAllocationCampaignAuxData(voter));
+        // Test setting a different campaign ID on the same strategy
+        uint256 newCampaignId = 999; // Different campaign ID
+        campaign.allocationStrategy.setAllocationCampaign(newCampaignId, getAllocationCampaignAuxData(voter));
     }
 
     function getAllocationCampaignAuxData(MockVoter _voter) public pure returns (bytes memory auxData) {

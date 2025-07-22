@@ -393,7 +393,7 @@ contract AllocatorStrategyFactoryTest is Test {
         factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
         gasUsed = gasStart - gasleft();
         console2.log("Gas used for strategy deployment:", gasUsed);
-        assertTrue(gasUsed < 200000);
+        assertTrue(gasUsed < 220000); // Increased due to plugin address storage
         
         // Instance exists check gas test
         gasStart = gasleft();
