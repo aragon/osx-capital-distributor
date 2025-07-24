@@ -31,6 +31,10 @@ interface IAllocatorStrategy is IERC165 {
     /// @return The strategy ID.
     function strategyTypeId() external view returns (bytes32);
 
+    /// @notice Returns the Solidity types expected for strategy initialization auxiliary data.
+    /// @return types Comma-separated string of Solidity type strings expected for initialize _auxData parameter.
+    function getInitializationEncodingTypes() external view returns (string memory types);
+
     /// @notice Returns the Solidity types expected for campaign creation auxiliary data.
     /// @return types Comma-separated string of Solidity type strings expected for setAllocationCampaign _auxData parameter.
     function getCreationEncodingTypes() external view returns (string memory types);

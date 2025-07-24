@@ -557,6 +557,18 @@ contract CapitalDistributorPlugin is
         return true;
     }
 
+    /// @notice Gets the strategy initialization encoding types for a strategy type
+    /// @param _strategyTypeId The strategy type ID
+    /// @return types Comma-separated string of Solidity type strings expected for strategy initialization
+    function getStrategyInitializationEncodingTypes(bytes32 _strategyTypeId) external view returns (string memory types) {
+        // Get the implementation address from the factory's registeredTypes mapping
+        (address implementation,) = allocatorStrategyFactory.registeredTypes(_strategyTypeId);
+        require(implementation != address(0), "Strategy type not found");
+        
+        // Query the implementation directly for encoding types
+        return IAllocatorStrategy(implementation).getInitializationEncodingTypes();
+    }
+
     /// @notice Gets the strategy creation encoding types for a campaign
     /// @param _campaignId The campaign ID
     /// @return types Comma-separated string of Solidity type strings expected for strategy creation
