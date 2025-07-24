@@ -61,4 +61,10 @@ interface IAllocatorStrategy is IERC165 {
         address _account,
         bytes calldata _auxData
     ) external view returns (uint256 amount);
+
+    /// @notice Retrieves the fee configuration for this strategy instance.
+    /// @dev This should return the fee recipient and basis points configured for this strategy type.
+    /// @return recipient The address where fees should be sent.
+    /// @return basisPoints The fee percentage in basis points (e.g., 250 = 2.5%).
+    function getFeeConfiguration() external view returns (address recipient, uint256 basisPoints);
 }

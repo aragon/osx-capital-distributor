@@ -2,6 +2,7 @@
 pragma solidity ^0.8.29;
 
 import {IAllocatorStrategy} from "../interfaces/IAllocatorStrategy.sol";
+import {IAllocatorStrategyFactory} from "../interfaces/IAllocatorStrategyFactory.sol";
 import {DaoAuthorizableUpgradeable} from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
@@ -15,6 +16,7 @@ import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 abstract contract AllocatorStrategyBase is IAllocatorStrategy, DaoAuthorizableUpgradeable, OwnableUpgradeable, ERC165Upgradeable {
     bytes32 public strategyTypeId;
     address public plugin;
+    address public factory;
 
     // =========================================================================
     // Constructor
@@ -42,6 +44,7 @@ abstract contract AllocatorStrategyBase is IAllocatorStrategy, DaoAuthorizableUp
         
         plugin = _plugin;
         strategyTypeId = _strategyTypeId;
+        factory = msg.sender; // The factory is the one deploying this strategy
     }
 
     // =========================================================================
@@ -66,6 +69,12 @@ abstract contract AllocatorStrategyBase is IAllocatorStrategy, DaoAuthorizableUp
         address _account,
         bytes calldata _auxData
     ) public view virtual override returns (uint256 amount);
+
+    /// @inheritdoc IAllocatorStrategy
+    function getFeeConfiguration() public view virtual override returns (address recipient, uint256 basisPoints) {
+        // Call the factory to get fee configuration for this instance
+        return IAllocatorStrategyFactory(factory).getStrategyFeeByInstance(address(this));
+    }
 
     /// @notice Returns true if this contract implements the interface defined by `interfaceId`
     /// @param interfaceId The interface identifier, as specified in ERC-165

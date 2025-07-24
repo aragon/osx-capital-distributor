@@ -56,7 +56,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         generateProofScript = new GenerateProof();
 
         vm.startPrank(address(createdDAO));
-        allocatorStrategyFactory.registerStrategyType(toBytes32("merkle-strategy"), address(strategy), "");
+        allocatorStrategyFactory.registerStrategyType(toBytes32("merkle-strategy"), address(strategy), "", address(0), 0);
 
         // Set up merkle tree test data (keep legacy for existing tests)
         setupMerkleTreeData();

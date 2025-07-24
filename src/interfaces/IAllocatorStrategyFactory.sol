@@ -61,4 +61,12 @@ interface IAllocatorStrategyFactory {
         IDAO _dao,
         bytes calldata _params
     ) external returns (address strategy);
+
+    /**
+     * @notice Gets the fee configuration for a deployed strategy instance.
+     * @param _strategyInstance The address of the strategy instance.
+     * @return recipient The address where fees are sent.
+     * @return basisPoints The fee percentage in basis points.
+     */
+    function getStrategyFeeByInstance(address _strategyInstance) external view returns (address recipient, uint256 basisPoints);
 }

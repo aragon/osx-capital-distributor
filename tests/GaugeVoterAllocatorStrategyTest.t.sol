@@ -62,7 +62,9 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         allocatorStrategyFactory.registerStrategyType(
             STRATEGY_TYPE_ID, 
             address(strategy), 
-            "GaugeVoterAllocatorStrategy"
+            "GaugeVoterAllocatorStrategy",
+            address(0),
+            0
         );
         vm.stopPrank();
         

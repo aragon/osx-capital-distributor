@@ -65,13 +65,17 @@ contract Deploy is BaseScript {
         allocatorStrategyFactory.registerStrategyType(
             toBytes32("call-based-strategy"),
             address(callBasedAllocatorStrategy),
-            "0x00"
+            "0x00",
+            address(0),
+            0
         );
         MerkleDistributorStrategy merkleDistributorStrategy = new MerkleDistributorStrategy();
         allocatorStrategyFactory.registerStrategyType(
             toBytes32("merkle-distributor-strategy"),
             address(merkleDistributorStrategy),
-            "0x00"
+            "0x00",
+            address(0),
+            0
         );
 
         // 3. Add the ActionEncoders to the Factory registry

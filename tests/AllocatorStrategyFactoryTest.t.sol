@@ -46,6 +46,7 @@ contract AllocatorStrategyFactoryTest is Test {
     event StrategyRetrieved(bytes32 indexed strategyId, address indexed strategy, bytes32 indexed deploymentId);
     event TypeRegistered(bytes32 indexed typeId, address indexed implementation, string metadata, address indexed registrar);
     event InstanceDeployed(bytes32 indexed typeId, address indexed instance, bytes32 indexed deploymentId, address deployer);
+    event StrategyFeeConfigured(bytes32 indexed strategyId, address indexed feeRecipient, uint256 feeBasisPoints);
 
     function setUp() public {
         factory = new AllocatorStrategyFactory();
@@ -83,7 +84,7 @@ contract AllocatorStrategyFactoryTest is Test {
         vm.expectEmit(true, true, false, true);
         emit StrategyTypeRegistered(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA);
         
-        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA);
+        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
         
         FactoryBase.RegisteredType memory registeredType = factory.getRegisteredType(MERKLE_STRATEGY_ID);
         assertEq(registeredType.implementation, address(merkleImplementation));
@@ -95,8 +96,8 @@ contract AllocatorStrategyFactoryTest is Test {
 
     /// @notice Test multiple strategy type registrations
     function test_RegisterStrategyType_Multiple() public {
-        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA);
-        factory.registerStrategyType(MOCK_STRATEGY_ID, address(mockImplementation), MOCK_METADATA);
+        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
+        factory.registerStrategyType(MOCK_STRATEGY_ID, address(mockImplementation), MOCK_METADATA, address(0), 0);
         
         assertTrue(factory.isTypeRegistered(MERKLE_STRATEGY_ID));
         assertTrue(factory.isTypeRegistered(MOCK_STRATEGY_ID));
@@ -111,27 +112,27 @@ contract AllocatorStrategyFactoryTest is Test {
     /// @notice Test registration with empty strategy ID
     function test_RegisterStrategyType_RevertEmptyId() public {
         vm.expectRevert(FactoryBase.EmptyTypeId.selector);
-        factory.registerStrategyType(EMPTY_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA);
+        factory.registerStrategyType(EMPTY_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
     }
 
     /// @notice Test registration with zero implementation address
     function test_RegisterStrategyType_RevertZeroImplementation() public {
         vm.expectRevert(abi.encodeWithSelector(FactoryBase.InvalidImplementation.selector, address(0), "Implementation address cannot be zero"));
-        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(0), MERKLE_METADATA);
+        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(0), MERKLE_METADATA, address(0), 0);
     }
 
     /// @notice Test registration with non-contract address
     function test_RegisterStrategyType_RevertNonContract() public {
         vm.expectRevert(abi.encodeWithSelector(FactoryBase.InvalidImplementation.selector, alice, "Implementation must be a deployed contract"));
-        factory.registerStrategyType(MERKLE_STRATEGY_ID, alice, MERKLE_METADATA);
+        factory.registerStrategyType(MERKLE_STRATEGY_ID, alice, MERKLE_METADATA, address(0), 0);
     }
 
     /// @notice Test duplicate strategy type registration
     function test_RegisterStrategyType_RevertAlreadyRegistered() public {
-        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA);
+        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
         
         vm.expectRevert(abi.encodeWithSelector(FactoryBase.AlreadyRegistered.selector, MERKLE_STRATEGY_ID));
-        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(mockImplementation), MOCK_METADATA);
+        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(mockImplementation), MOCK_METADATA, address(0), 0);
     }
 
     /// ===============================
@@ -140,7 +141,7 @@ contract AllocatorStrategyFactoryTest is Test {
 
     /// @notice Test successful strategy deployment
     function test_DeployStrategy_Success() public {
-        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA);
+        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
         
         bytes memory auxData = abi.encode(bytes32(keccak256("test-merkle-root")));
         
@@ -169,7 +170,7 @@ contract AllocatorStrategyFactoryTest is Test {
 
     /// @notice Test deployment with duplicate parameters
     function test_DeployStrategy_RevertInstanceAlreadyDeployed() public {
-        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA);
+        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
         
         bytes memory auxData = abi.encode(bytes32(keccak256("test-merkle-root")));
         
@@ -185,7 +186,7 @@ contract AllocatorStrategyFactoryTest is Test {
 
     /// @notice Test deployment with different auxiliary data creates different instances
     function test_DeployStrategy_DifferentAuxDataCreatesNewInstance() public {
-        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA);
+        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
         
         bytes memory auxData1 = abi.encode(bytes32(keccak256("root1")));
         bytes memory auxData2 = abi.encode(bytes32(keccak256("root2")));
@@ -200,7 +201,7 @@ contract AllocatorStrategyFactoryTest is Test {
 
     /// @notice Test deployment with different DAOs creates different instances
     function test_DeployStrategy_DifferentDAOCreatesNewInstance() public {
-        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA);
+        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
         
         bytes memory auxData = abi.encode(bytes32(keccak256("test-merkle-root")));
         
@@ -218,7 +219,7 @@ contract AllocatorStrategyFactoryTest is Test {
 
     /// @notice Test getOrDeployStrategy returns existing instance
     function test_GetOrDeployStrategy_ReturnsExisting() public {
-        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA);
+        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
         
         bytes memory auxData = abi.encode(bytes32(keccak256("test-merkle-root")));
         
@@ -236,7 +237,7 @@ contract AllocatorStrategyFactoryTest is Test {
 
     /// @notice Test getOrDeployStrategy deploys new instance when none exists
     function test_GetOrDeployStrategy_DeploysNew() public {
-        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA);
+        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
         
         bytes memory auxData = abi.encode(bytes32(keccak256("test-merkle-root")));
         
@@ -252,7 +253,7 @@ contract AllocatorStrategyFactoryTest is Test {
 
     /// @notice Test instanceExists returns correct values
     function test_InstanceExists() public {
-        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA);
+        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
         
         bytes memory auxData = abi.encode(bytes32(keccak256("test-merkle-root")));
         
@@ -311,13 +312,13 @@ contract AllocatorStrategyFactoryTest is Test {
     /// @notice Test malicious implementation registration (should be allowed)
     function test_Security_MaliciousImplementationRegistration() public {
         // Registration should succeed (factory doesn't validate implementation logic)
-        factory.registerStrategyType(MALICIOUS_STRATEGY_ID, maliciousImplementation, MALICIOUS_METADATA);
+        factory.registerStrategyType(MALICIOUS_STRATEGY_ID, maliciousImplementation, MALICIOUS_METADATA, address(0), 0);
         assertTrue(factory.isTypeRegistered(MALICIOUS_STRATEGY_ID));
     }
 
     /// @notice Test malicious implementation deployment failure
     function test_Security_MaliciousImplementationDeploymentFailure() public {
-        factory.registerStrategyType(MALICIOUS_STRATEGY_ID, maliciousImplementation, MALICIOUS_METADATA);
+        factory.registerStrategyType(MALICIOUS_STRATEGY_ID, maliciousImplementation, MALICIOUS_METADATA, address(0), 0);
         
         bytes memory auxData = abi.encode(bytes32(keccak256("malicious-data")));
         
@@ -331,7 +332,7 @@ contract AllocatorStrategyFactoryTest is Test {
         vm.startPrank(maliciousActor);
         
         // Should succeed - no access control on registration
-        factory.registerStrategyType(MALICIOUS_STRATEGY_ID, address(mockImplementation), MALICIOUS_METADATA);
+        factory.registerStrategyType(MALICIOUS_STRATEGY_ID, address(mockImplementation), MALICIOUS_METADATA, address(0), 0);
         assertTrue(factory.isTypeRegistered(MALICIOUS_STRATEGY_ID));
         
         vm.stopPrank();
@@ -339,7 +340,7 @@ contract AllocatorStrategyFactoryTest is Test {
 
     /// @notice Test large auxiliary data handling
     function test_Security_LargeAuxiliaryData() public {
-        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA);
+        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
         
         // Create very large auxiliary data (10KB)
         bytes memory largeAuxData = new bytes(10240);
@@ -354,7 +355,7 @@ contract AllocatorStrategyFactoryTest is Test {
 
     /// @notice Test initialization data injection
     function test_Security_InitializationDataInjection() public {
-        factory.registerStrategyType(MOCK_STRATEGY_ID, address(mockImplementation), MOCK_METADATA);
+        factory.registerStrategyType(MOCK_STRATEGY_ID, address(mockImplementation), MOCK_METADATA, address(0), 0);
         
         // Attempt to inject malicious data through auxData
         bytes memory maliciousAuxData = abi.encode(
@@ -382,7 +383,7 @@ contract AllocatorStrategyFactoryTest is Test {
         
         // Registration gas test
         gasStart = gasleft();
-        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA);
+        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
         gasUsed = gasStart - gasleft();
         console2.log("Gas used for strategy registration:", gasUsed);
         assertTrue(gasUsed < 150000);
@@ -393,7 +394,7 @@ contract AllocatorStrategyFactoryTest is Test {
         factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
         gasUsed = gasStart - gasleft();
         console2.log("Gas used for strategy deployment:", gasUsed);
-        assertTrue(gasUsed < 220000); // Increased due to plugin address storage
+        assertTrue(gasUsed < 240000); // Increased due to plugin address and fee storage
         
         // Instance exists check gas test
         gasStart = gasleft();
@@ -409,7 +410,7 @@ contract AllocatorStrategyFactoryTest is Test {
 
     /// @notice Test deployment with empty auxiliary data
     function test_EdgeCase_EmptyAuxiliaryData() public {
-        factory.registerStrategyType(MOCK_STRATEGY_ID, address(mockImplementation), MOCK_METADATA);
+        factory.registerStrategyType(MOCK_STRATEGY_ID, address(mockImplementation), MOCK_METADATA, address(0), 0);
         
         bytes memory emptyAuxData = "";
         address strategy = factory.deployStrategy(MOCK_STRATEGY_ID, dao, emptyAuxData);
@@ -420,7 +421,7 @@ contract AllocatorStrategyFactoryTest is Test {
 
     /// @notice Test deployment with maximum auxiliary data size
     function test_EdgeCase_MaxAuxiliaryData() public {
-        factory.registerStrategyType(MOCK_STRATEGY_ID, address(mockImplementation), MOCK_METADATA);
+        factory.registerStrategyType(MOCK_STRATEGY_ID, address(mockImplementation), MOCK_METADATA, address(0), 0);
         
         // Create maximum reasonable auxiliary data (64KB)
         bytes memory maxAuxData = new bytes(65536);
@@ -434,8 +435,8 @@ contract AllocatorStrategyFactoryTest is Test {
 
     /// @notice Test multiple concurrent deployments
     function test_EdgeCase_ConcurrentDeployments() public {
-        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA);
-        factory.registerStrategyType(MOCK_STRATEGY_ID, address(mockImplementation), MOCK_METADATA);
+        factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
+        factory.registerStrategyType(MOCK_STRATEGY_ID, address(mockImplementation), MOCK_METADATA, address(0), 0);
         
         bytes memory auxData1 = abi.encode(bytes32(keccak256("concurrent1")));
         bytes memory auxData2 = abi.encode(bytes32(keccak256("concurrent2")));
@@ -463,7 +464,7 @@ contract AllocatorStrategyFactoryTest is Test {
         vm.assume(bytes(metadata).length > 0);
         
         // Should succeed with valid parameters
-        factory.registerStrategyType(strategyId, address(mockImplementation), metadata);
+        factory.registerStrategyType(strategyId, address(mockImplementation), metadata, address(0), 0);
         assertTrue(factory.isTypeRegistered(strategyId));
         
         FactoryBase.RegisteredType memory registeredType = factory.getRegisteredType(strategyId);
@@ -492,7 +493,7 @@ contract AllocatorStrategyFactoryTest is Test {
         vm.assume(daoAddr != address(0));
         vm.assume(auxData.length < 10000); // Reasonable size limit
         
-        factory.registerStrategyType(strategyId, address(mockImplementation), "Fuzz Test Strategy");
+        factory.registerStrategyType(strategyId, address(mockImplementation), "Fuzz Test Strategy", address(0), 0);
         
         address strategy = factory.deployStrategy(strategyId, IDAO(daoAddr), auxData);
         assertTrue(strategy != address(0));
@@ -533,6 +534,10 @@ contract MaliciousImplementation is IAllocatorStrategy {
 
     function getClaimeableAmount(uint256, address, bytes calldata) external pure returns (uint256) {
         return 0;
+    }
+
+    function getFeeConfiguration() external pure returns (address recipient, uint256 basisPoints) {
+        return (address(0), 0);
     }
 
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {

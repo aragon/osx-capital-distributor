@@ -21,7 +21,7 @@ contract CampaignStateManagementTest is AragonTest {
         capitalDistributorPlugin = CapitalDistributorPlugin(pluginAddress[0]);
         token = new MintableERC20();
         strategy = new AllocatorStrategyMock();
-        allocatorStrategyFactory.registerStrategyType(toBytes32("mock-strategy"), address(strategy), "");
+        allocatorStrategyFactory.registerStrategyType(toBytes32("mock-strategy"), address(strategy), "", address(0), 0);
     }
     
     function createBasicCampaign() internal returns (uint256 campaignId) {

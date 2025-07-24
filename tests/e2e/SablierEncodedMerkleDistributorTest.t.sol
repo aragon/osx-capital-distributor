@@ -69,7 +69,7 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
 
         // Register merkle strategy
         strategy = new MerkleDistributorStrategy();
-        allocatorStrategyFactory.registerStrategyType(toBytes32("merkle-strategy"), address(strategy), "");
+        allocatorStrategyFactory.registerStrategyType(toBytes32("merkle-strategy"), address(strategy), "", address(0), 0);
 
         // Register Sablier action encoder
         SablierLinearPayoutActionEncoder sablierLinearPayoutActionEncoder = new SablierLinearPayoutActionEncoder();

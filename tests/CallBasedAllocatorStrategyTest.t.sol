@@ -32,7 +32,7 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
         strategy = new CallBasedAllocatorStrategy();
         voter = new MockVoter();
         vm.startPrank(address(createdDAO));
-        allocatorStrategyFactory.registerStrategyType(toBytes32("call-based-strategy"), address(strategy), "");
+        allocatorStrategyFactory.registerStrategyType(toBytes32("call-based-strategy"), address(strategy), "", address(0), 0);
     }
 
     function test_CreateCampaign() public {

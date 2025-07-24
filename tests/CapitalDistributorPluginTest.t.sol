@@ -35,7 +35,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         token = new MintableERC20();
         strategy = new AllocatorStrategyMock();
 
-        allocatorStrategyFactory.registerStrategyType(toBytes32("mock-strategy"), address(strategy), "");
+        allocatorStrategyFactory.registerStrategyType(toBytes32("mock-strategy"), address(strategy), "", address(0), 0);
 
         vaultToSendTokens = new ERC4626Mock(address(token));
         vaultDepositActionEncoder = new VaultDepositPayoutActionEncoder();

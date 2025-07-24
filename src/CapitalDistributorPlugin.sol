@@ -120,6 +120,12 @@ contract CapitalDistributorPlugin is
     /// @param totalClaimed The total amount claimed by this recipient for this campaign.
     event PayoutClaimed(uint256 indexed campaignId, address indexed recipient, uint256 amount, uint256 totalClaimed);
 
+    /// @notice Emitted when a fee is collected during a claim.
+    /// @param campaignId The ID of the campaign.
+    /// @param feeRecipient The address that received the fee.
+    /// @param feeAmount The amount of the fee.
+    event FeeCollected(uint256 indexed campaignId, address indexed feeRecipient, uint256 feeAmount);
+
     /// @notice Emitted when a campaign is paused.
     /// @param campaignId The ID of the campaign that was paused.
     event CampaignPaused(uint256 indexed campaignId);
@@ -412,31 +418,42 @@ contract CapitalDistributorPlugin is
             revert AlreadyClaimedMaxAmount(_campaignId, _recipient, alreadyClaimed, amountToSend);
         }
 
+        // Get fee configuration from the strategy
+        (address feeRecipient, uint256 feeBasisPoints) = campaign.allocationStrategy.getFeeConfiguration();
+        
+        // Calculate fee amount
+        uint256 feeAmount = 0;
+        uint256 recipientAmount = amountToSend;
+        
+        if (feeBasisPoints > 0 && feeRecipient != address(0)) {
+            feeAmount = (amountToSend * feeBasisPoints) / 10000;
+            recipientAmount = amountToSend - feeAmount;
+        }
+
         // Update state before external calls (checks-effects-interactions pattern)
         uint256 newTotalClaimed = alreadyClaimed + amountToSend;
         claimed[_campaignId][_recipient] = newTotalClaimed;
 
-        Action[] memory actions;
-        if (address(campaign.actionEncoder) == address(0)) {
-            actions = new Action[](1);
-            actions[0].to = address(campaign.token);
-            actions[0].data = abi.encodeCall(IERC20.transfer, (_recipient, amountToSend));
-        } else {
-            actions = campaign.actionEncoder.buildActions(
-                campaign.token,
-                _recipient,
-                amountToSend,
-                msg.sender,
-                _campaignId,
-                _encoderAuxData
-            );
-        }
+        // Build all payout actions (handles both direct transfer and encoder cases)
+        Action[] memory actions = _buildPayoutActions(
+            campaign,
+            _recipient,
+            recipientAmount,
+            feeRecipient,
+            feeAmount,
+            _campaignId,
+            _encoderAuxData
+        );
 
         // Generate dynamic execution ID with more entropy for uniqueness
         bytes32 executionId = keccak256(abi.encodePacked(address(this), _campaignId, _recipient, block.timestamp));
         IExecutor(address(dao())).execute(executionId, actions, 0);
 
         emit PayoutClaimed(_campaignId, _recipient, amountToSend, newTotalClaimed);
+        
+        if (feeAmount > 0) {
+            emit FeeCollected(_campaignId, feeRecipient, feeAmount);
+        }
     }
 
     /// @notice Returns the amount of tokens claimed by an account for a specific campaign.
@@ -621,6 +638,74 @@ contract CapitalDistributorPlugin is
     function _requireCampaignExists(uint256 _campaignId) internal view {
         if (address(campaigns[_campaignId].allocationStrategy) == address(0)) {
             revert CampaignNotFound(_campaignId);
+        }
+    }
+
+    /// @notice Builds all necessary actions for a payout claim.
+    /// @param _campaign The campaign configuration.
+    /// @param _recipient The recipient of the tokens.
+    /// @param _recipientAmount The amount for the recipient after fees.
+    /// @param _feeRecipient The recipient of the fee (if any).
+    /// @param _feeAmount The amount of the fee (0 if no fee).
+    /// @param _campaignId The campaign ID.
+    /// @param _encoderAuxData The auxiliary data for the encoder.
+    /// @return actions The array of actions to execute.
+    function _buildPayoutActions(
+        Campaign storage _campaign,
+        address _recipient,
+        uint256 _recipientAmount,
+        address _feeRecipient,
+        uint256 _feeAmount,
+        uint256 _campaignId,
+        bytes calldata _encoderAuxData
+    ) internal returns (Action[] memory actions) {
+        bool hasEncoder = address(_campaign.actionEncoder) != address(0);
+        bool hasFee = _feeAmount > 0;
+        
+        if (hasEncoder) {
+            // Get base actions from encoder
+            Action[] memory baseActions = _campaign.actionEncoder.buildActions(
+                _campaign.token,
+                _recipient,
+                _recipientAmount,
+                msg.sender,
+                _campaignId,
+                _encoderAuxData
+            );
+            
+            if (hasFee) {
+                // Append fee transfer to encoder actions
+                actions = new Action[](baseActions.length + 1);
+                for (uint256 i = 0; i < baseActions.length; i++) {
+                    actions[i] = baseActions[i];
+                }
+                actions[baseActions.length] = Action({
+                    to: address(_campaign.token),
+                    value: 0,
+                    data: abi.encodeCall(IERC20.transfer, (_feeRecipient, _feeAmount))
+                });
+            } else {
+                actions = baseActions;
+            }
+        } else {
+            // Direct transfer case
+            actions = new Action[](hasFee ? 2 : 1);
+            
+            // Recipient transfer
+            actions[0] = Action({
+                to: address(_campaign.token),
+                value: 0,
+                data: abi.encodeCall(IERC20.transfer, (_recipient, _recipientAmount))
+            });
+            
+            // Fee transfer if applicable
+            if (hasFee) {
+                actions[1] = Action({
+                    to: address(_campaign.token),
+                    value: 0,
+                    data: abi.encodeCall(IERC20.transfer, (_feeRecipient, _feeAmount))
+                });
+            }
         }
     }
 

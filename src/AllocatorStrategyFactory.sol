@@ -15,11 +15,20 @@ import {FactoryBase} from "./FactoryBase.sol";
 contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     using Clones for address;
 
+    /// @notice Fee configuration for a strategy type
+    struct FeeConfig {
+        address recipient;      // Where fees are sent
+        uint256 basisPoints;   // Fee percentage (e.g., 250 = 2.5%, max 1000 = 10%)
+    }
+
     /// @notice Maps deployment parameters hash to deployed strategy addresses.
     mapping(bytes32 deploymentId => address strategy) public deployedInstances;
 
     /// @notice Maps strategy addresses to their type IDs.
     mapping(address instance => bytes32 typeId) public instanceToType;
+
+    /// @notice Maps strategy type IDs to their fee configurations.
+    mapping(bytes32 strategyTypeId => FeeConfig) public strategyFees;
 
     /// @notice Emitted when a new strategy type is registered
     /// @param strategyId The unique identifier for the strategy type
@@ -38,14 +47,36 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     /// @param deploymentId The deployment identifier
     event StrategyRetrieved(bytes32 indexed strategyId, address indexed strategy, bytes32 indexed deploymentId);
 
+    /// @notice Emitted when a strategy type is registered with fee configuration
+    /// @param strategyId The unique identifier for the strategy type
+    /// @param feeRecipient The address where fees will be sent
+    /// @param feeBasisPoints The fee percentage in basis points
+    event StrategyFeeConfigured(bytes32 indexed strategyId, address indexed feeRecipient, uint256 feeBasisPoints);
+
+    /// @notice Error thrown when fee recipient is zero address
+    error InvalidFeeRecipient();
+
+    /// @notice Error thrown when fee basis points exceed maximum allowed
+    /// @param provided The provided fee basis points
+    /// @param maximum The maximum allowed fee basis points
+    error ExcessiveFee(uint256 provided, uint256 maximum);
+
     /**
      * @notice Registers a new strategy type in the factory.
      * @param _strategyId Unique identifier for the strategy type.
      * @param _implementation Address of the strategy implementation contract.
      * @param _metadata Human-readable name for the strategy type.
+     * @param _feeRecipient Address where fees for this strategy type will be sent.
+     * @param _feeBasisPoints Fee percentage in basis points (max 1000 = 10%).
      * @dev Validates that the implementation supports the IAllocatorStrategy interface.
      */
-    function registerStrategyType(bytes32 _strategyId, address _implementation, string calldata _metadata) external {
+    function registerStrategyType(
+        bytes32 _strategyId, 
+        address _implementation, 
+        string calldata _metadata,
+        address _feeRecipient,
+        uint256 _feeBasisPoints
+    ) external {
         // Validate basic requirements first
         if (_strategyId == bytes32(0)) {
             revert EmptyTypeId();
@@ -60,6 +91,14 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
             revert InvalidImplementation(_implementation, "Implementation must be a deployed contract");
         }
         
+        // Validate fee configuration
+        if (_feeBasisPoints > 0 && _feeRecipient == address(0)) {
+            revert InvalidFeeRecipient();
+        }
+        if (_feeBasisPoints > 1000) { // Max 10%
+            revert ExcessiveFee(_feeBasisPoints, 1000);
+        }
+        
         // Validate that the implementation supports the IAllocatorStrategy interface
         try IERC165(_implementation).supportsInterface(type(IAllocatorStrategy).interfaceId) returns (bool supported) {
             if (!supported) {
@@ -71,8 +110,16 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         
         // Register the type
         registeredTypes[_strategyId] = RegisteredType({implementation: _implementation, metadata: _metadata});
+        
+        // Store fee configuration
+        strategyFees[_strategyId] = FeeConfig({
+            recipient: _feeRecipient,
+            basisPoints: _feeBasisPoints
+        });
+        
         emit TypeRegistered(_strategyId, _implementation, _metadata, msg.sender);
         emit StrategyTypeRegistered(_strategyId, _implementation, _metadata);
+        emit StrategyFeeConfigured(_strategyId, _feeRecipient, _feeBasisPoints);
     }
 
     /**
@@ -140,6 +187,21 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         assembly {
             exists := iszero(iszero(strategy))
         }
+    }
+
+    /**
+     * @notice Gets the fee configuration for a deployed strategy instance.
+     * @param _strategyInstance The address of the strategy instance.
+     * @return recipient The address where fees are sent.
+     * @return basisPoints The fee percentage in basis points.
+     */
+    function getStrategyFeeByInstance(address _strategyInstance) external view returns (address recipient, uint256 basisPoints) {
+        bytes32 typeId = instanceToType[_strategyInstance];
+        if (typeId == bytes32(0)) {
+            return (address(0), 0); // Strategy not found or not deployed by this factory
+        }
+        FeeConfig memory feeConfig = strategyFees[typeId];
+        return (feeConfig.recipient, feeConfig.basisPoints);
     }
 
     /**
