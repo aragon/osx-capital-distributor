@@ -259,4 +259,13 @@ contract SablierLinearPayoutActionEncoder is PayoutActionEncoderBase {
     function getClaimEncodingTypes() external pure override returns (string memory types) {
         return ""; // This encoder doesn't use encoderAuxData in buildActions
     }
+
+    // =========================================================================
+    // Storage Gap
+    // =========================================================================
+    
+    /// @dev Storage gap to allow for future upgrades without storage collision.
+    /// This contract adds 1 storage slot: campaignStreamConfigs mapping.
+    /// Note: SABLIER_V2_LOCKUP is a constant and doesn't use storage.
+    uint256[49] private __gap;
 }
