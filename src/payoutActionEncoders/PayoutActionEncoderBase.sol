@@ -69,4 +69,12 @@ abstract contract PayoutActionEncoderBase is IPayoutActionEncoder, DaoAuthorizab
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         return interfaceId == type(IPayoutActionEncoder).interfaceId || super.supportsInterface(interfaceId);
     }
+
+    // =========================================================================
+    // Storage Gap
+    // =========================================================================
+    
+    /// @dev Storage gap to allow for future upgrades without storage collision.
+    /// This contract uses 1 storage slot: encoderId.
+    uint256[49] private __gap;
 }

@@ -36,9 +36,9 @@ contract CapitalDistributorPlugin is
 
     /// @notice Represents the different states a campaign can be in
     enum CampaignState {
-        ACTIVE,  // Normal operation, claims allowed
-        PAUSED,  // Temporarily paused (for updates), can be resumed
-        ENDED    // Permanently ended, cannot be resumed
+        ACTIVE, // Normal operation, claims allowed
+        PAUSED, // Temporarily paused (for updates), can be resumed
+        ENDED // Permanently ended, cannot be resumed
     }
 
     /// @notice The AllocatorStrategyFactory instance used to deploy strategies.
@@ -129,11 +129,11 @@ contract CapitalDistributorPlugin is
     /// @notice Emitted when a campaign is paused.
     /// @param campaignId The ID of the campaign that was paused.
     event CampaignPaused(uint256 indexed campaignId);
-    
+
     /// @notice Emitted when a campaign is resumed from pause.
     /// @param campaignId The ID of the campaign that was resumed.
     event CampaignResumed(uint256 indexed campaignId);
-    
+
     /// @notice Emitted when a campaign is permanently ended.
     /// @param campaignId The ID of the campaign that was ended.
     event CampaignEnded(uint256 indexed campaignId);
@@ -184,13 +184,13 @@ contract CapitalDistributorPlugin is
     /// @param campaignId The ID of the campaign.
     /// @param currentState The current state of the campaign.
     error CampaignNotActive(uint256 campaignId, CampaignState currentState);
-    
+
     /// @notice Thrown when trying to perform an invalid state transition.
     /// @param campaignId The ID of the campaign.
     /// @param currentState The current state of the campaign.
     /// @param attemptedState The attempted new state.
     error InvalidStateTransition(uint256 campaignId, CampaignState currentState, CampaignState attemptedState);
-    
+
     /// @notice Thrown when trying to claim from a campaign outside its time bounds.
     /// @param campaignId The ID of the campaign.
     /// @param currentTime The current block timestamp.
@@ -420,11 +420,11 @@ contract CapitalDistributorPlugin is
 
         // Get fee configuration from the strategy
         (address feeRecipient, uint256 feeBasisPoints) = campaign.allocationStrategy.getFeeConfiguration();
-        
+
         // Calculate fee amount
         uint256 feeAmount = 0;
         uint256 recipientAmount = amountToSend;
-        
+
         if (feeBasisPoints > 0 && feeRecipient != address(0)) {
             feeAmount = (amountToSend * feeBasisPoints) / 10000;
             recipientAmount = amountToSend - feeAmount;
@@ -450,7 +450,7 @@ contract CapitalDistributorPlugin is
         IExecutor(address(dao())).execute(executionId, actions, 0);
 
         emit PayoutClaimed(_campaignId, _recipient, amountToSend, newTotalClaimed);
-        
+
         if (feeAmount > 0) {
             emit FeeCollected(_campaignId, feeRecipient, feeAmount);
         }
@@ -485,41 +485,41 @@ contract CapitalDistributorPlugin is
     function pauseCampaign(uint256 _campaignId) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) {
         _requireCampaignExists(_campaignId);
         Campaign storage campaign = campaigns[_campaignId];
-        
+
         if (campaign.state != CampaignState.ACTIVE) {
             revert InvalidStateTransition(_campaignId, campaign.state, CampaignState.PAUSED);
         }
-        
+
         campaign.state = CampaignState.PAUSED;
         emit CampaignPaused(_campaignId);
     }
-    
+
     /// @notice Resumes a paused campaign, allowing claims again.
     /// @dev Can only be called on PAUSED campaigns.
     /// @param _campaignId The ID of the campaign to resume.
     function resumeCampaign(uint256 _campaignId) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) {
         _requireCampaignExists(_campaignId);
         Campaign storage campaign = campaigns[_campaignId];
-        
+
         if (campaign.state != CampaignState.PAUSED) {
             revert InvalidStateTransition(_campaignId, campaign.state, CampaignState.ACTIVE);
         }
-        
+
         campaign.state = CampaignState.ACTIVE;
         emit CampaignResumed(_campaignId);
     }
-    
+
     /// @notice Permanently ends a campaign, preventing all future claims.
     /// @dev Can be called on ACTIVE or PAUSED campaigns. This action is irreversible.
     /// @param _campaignId The ID of the campaign to end.
     function endCampaign(uint256 _campaignId) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) {
         _requireCampaignExists(_campaignId);
         Campaign storage campaign = campaigns[_campaignId];
-        
+
         if (campaign.state == CampaignState.ENDED) {
             revert InvalidStateTransition(_campaignId, campaign.state, CampaignState.ENDED);
         }
-        
+
         campaign.state = CampaignState.ENDED;
         emit CampaignEnded(_campaignId);
     }
@@ -577,11 +577,13 @@ contract CapitalDistributorPlugin is
     /// @notice Gets the strategy initialization encoding types for a strategy type
     /// @param _strategyTypeId The strategy type ID
     /// @return types Comma-separated string of Solidity type strings expected for strategy initialization
-    function getStrategyInitializationEncodingTypes(bytes32 _strategyTypeId) external view returns (string memory types) {
+    function getStrategyInitializationEncodingTypes(
+        bytes32 _strategyTypeId
+    ) external view returns (string memory types) {
         // Get the implementation address from the factory's registeredTypes mapping
-        (address implementation,) = allocatorStrategyFactory.registeredTypes(_strategyTypeId);
+        (address implementation, ) = allocatorStrategyFactory.registeredTypes(_strategyTypeId);
         require(implementation != address(0), "Strategy type not found");
-        
+
         // Query the implementation directly for encoding types
         return IAllocatorStrategy(implementation).getInitializationEncodingTypes();
     }
@@ -661,7 +663,7 @@ contract CapitalDistributorPlugin is
     ) internal returns (Action[] memory actions) {
         bool hasEncoder = address(_campaign.actionEncoder) != address(0);
         bool hasFee = _feeAmount > 0;
-        
+
         if (hasEncoder) {
             // Get base actions from encoder
             Action[] memory baseActions = _campaign.actionEncoder.buildActions(
@@ -672,7 +674,7 @@ contract CapitalDistributorPlugin is
                 _campaignId,
                 _encoderAuxData
             );
-            
+
             if (hasFee) {
                 // Append fee transfer to encoder actions
                 actions = new Action[](baseActions.length + 1);
@@ -690,14 +692,14 @@ contract CapitalDistributorPlugin is
         } else {
             // Direct transfer case
             actions = new Action[](hasFee ? 2 : 1);
-            
+
             // Recipient transfer
             actions[0] = Action({
                 to: address(_campaign.token),
                 value: 0,
                 data: abi.encodeCall(IERC20.transfer, (_recipient, _recipientAmount))
             });
-            
+
             // Fee transfer if applicable
             if (hasFee) {
                 actions[1] = Action({
@@ -710,5 +712,5 @@ contract CapitalDistributorPlugin is
     }
 
     /// @notice This empty reserved space is put in place to allow future versions to add new variables without shifting down storage in the inheritance chain (see [OpenZeppelin's guide about storage gaps](https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps)).
-    uint256[46] private __gap;
+    uint256[44] private __gap;
 }

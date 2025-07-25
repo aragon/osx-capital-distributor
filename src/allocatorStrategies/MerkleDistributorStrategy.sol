@@ -191,4 +191,12 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
 
         emit MerkleCampaignUpdated(_campaignId, oldMerkleRoot, newMerkleRoot);
     }
+
+    // =========================================================================
+    // Storage Gap
+    // =========================================================================
+    
+    /// @dev Storage gap to allow for future upgrades without storage collision.
+    /// This contract adds 1 storage slot: merkleCampaigns mapping.
+    uint256[49] private __gap;
 }

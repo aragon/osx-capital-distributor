@@ -107,4 +107,12 @@ contract CallBasedAllocatorStrategy is AllocatorStrategyBase {
         if (success == false) revert CallFailed(_campaignId, _account);
         return abi.decode(result, (uint256));
     }
+
+    // =========================================================================
+    // Storage Gap
+    // =========================================================================
+    
+    /// @dev Storage gap to allow for future upgrades without storage collision.
+    /// This contract adds 1 storage slot: allocationCampaigns mapping.
+    uint256[49] private __gap;
 }

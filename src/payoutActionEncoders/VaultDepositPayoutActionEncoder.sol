@@ -99,4 +99,12 @@ contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
     function getClaimEncodingTypes() external pure override returns (string memory types) {
         return ""; // This encoder doesn't use encoderAuxData in buildActions
     }
+
+    // =========================================================================
+    // Storage Gap
+    // =========================================================================
+    
+    /// @dev Storage gap to allow for future upgrades without storage collision.
+    /// This contract adds no additional storage beyond the base contract.
+    uint256[50] private __gap;
 }
