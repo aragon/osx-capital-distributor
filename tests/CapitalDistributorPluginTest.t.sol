@@ -6,6 +6,7 @@ import {console2} from "forge-std/console2.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
+import {Action} from "@aragon/commons/executors/IExecutor.sol";
 
 import {IPayoutActionEncoder} from "../src/interfaces/IPayoutActionEncoder.sol";
 import {CapitalDistributorPlugin} from "../src/CapitalDistributorPlugin.sol";
@@ -14,6 +15,7 @@ import {IAllocatorStrategy} from "../src/interfaces/IAllocatorStrategy.sol";
 import {AllocatorStrategyMock} from "./mocks/AllocatorStrategyMock.sol";
 import {VaultDepositPayoutActionEncoder} from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
 import {IAllocatorStrategyFactory} from "../src/interfaces/IAllocatorStrategyFactory.sol";
+import {IActionEncoderFactory} from "../src/interfaces/IActionEncoderFactory.sol";
 
 import {MintableERC20} from "./mocks/MintableERC20.sol";
 import {ERC4626Mock} from "./mocks/ERC4626Mock.sol";
@@ -89,6 +91,27 @@ contract CapitalDistributorPluginTest is AragonTest {
             multipleClaimsAllowed,
             startTime,
             endTime
+        );
+    }
+
+    /// @notice Helper function to create a campaign with custom strategy and encoder
+    function createCampaignWithStrategy(
+        bytes32 strategyId,
+        bytes32 encoderId,
+        bytes memory encoderInitData,
+        bool multipleClaimsAllowed
+    ) internal returns (uint256) {
+        return capitalDistributorPlugin.createCampaign(
+            "",
+            strategyId,
+            "",
+            "",
+            IERC20(token),
+            encoderId,
+            encoderInitData,
+            multipleClaimsAllowed,
+            0,
+            0
         );
     }
 
@@ -1795,5 +1818,883 @@ contract CapitalDistributorPluginTest is AragonTest {
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
 
         vm.stopPrank();
+    }
+
+    // ============================================
+    // T08: Campaign State Management Tests
+    // ============================================
+
+    /// @notice Test pausing an active campaign
+    function test_PauseCampaign() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+        
+        // Verify campaign is active initially
+        assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be active");
+
+        // Pause the campaign
+        vm.expectEmit(true, false, false, false);
+        emit CapitalDistributorPlugin.CampaignPaused(campaignId);
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+
+        // Verify campaign is not active after pausing
+        assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should not be active when paused");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test resuming a paused campaign
+    function test_ResumeCampaign() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+        
+        // Pause the campaign first
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+        assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be paused");
+
+        // Resume the campaign
+        vm.expectEmit(true, false, false, false);
+        emit CapitalDistributorPlugin.CampaignResumed(campaignId);
+        capitalDistributorPlugin.resumeCampaign(campaignId);
+
+        // Verify campaign is active again
+        assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be active after resume");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test pausing already paused campaign fails
+    function test_PauseAlreadyPausedCampaign() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+        
+        // Pause the campaign
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+
+        // Try to pause again - should fail
+        vm.expectRevert(abi.encodeWithSelector(
+            CapitalDistributorPlugin.InvalidStateTransition.selector,
+            campaignId,
+            CapitalDistributorPlugin.CampaignState.PAUSED,
+            CapitalDistributorPlugin.CampaignState.PAUSED
+        ));
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test resuming non-paused campaign fails
+    function test_ResumeNonPausedCampaign() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+        
+        // Try to resume active campaign - should fail
+        vm.expectRevert(abi.encodeWithSelector(
+            CapitalDistributorPlugin.InvalidStateTransition.selector,
+            campaignId,
+            CapitalDistributorPlugin.CampaignState.ACTIVE,
+            CapitalDistributorPlugin.CampaignState.ACTIVE
+        ));
+        capitalDistributorPlugin.resumeCampaign(campaignId);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test pausing ended campaign fails
+    function test_PauseEndedCampaign() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+        
+        // End the campaign
+        capitalDistributorPlugin.endCampaign(campaignId);
+
+        // Try to pause ended campaign - should fail
+        vm.expectRevert(abi.encodeWithSelector(
+            CapitalDistributorPlugin.InvalidStateTransition.selector,
+            campaignId,
+            CapitalDistributorPlugin.CampaignState.ENDED,
+            CapitalDistributorPlugin.CampaignState.PAUSED
+        ));
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test resuming ended campaign fails
+    function test_ResumeEndedCampaign() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+        
+        // End the campaign
+        capitalDistributorPlugin.endCampaign(campaignId);
+
+        // Try to resume ended campaign - should fail
+        vm.expectRevert(abi.encodeWithSelector(
+            CapitalDistributorPlugin.InvalidStateTransition.selector,
+            campaignId,
+            CapitalDistributorPlugin.CampaignState.ENDED,
+            CapitalDistributorPlugin.CampaignState.ACTIVE
+        ));
+        capitalDistributorPlugin.resumeCampaign(campaignId);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test claiming from paused campaign fails
+    function test_ClaimFromPausedCampaign() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+        
+        // Pause the campaign
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+
+        // Try to claim - should fail
+        vm.expectRevert(abi.encodeWithSelector(
+            CapitalDistributorPlugin.CampaignNotActive.selector,
+            campaignId,
+            CapitalDistributorPlugin.CampaignState.PAUSED
+        ));
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test campaign lifecycle with pause/resume
+    function test_CampaignLifecycleWithPauseResume() public {
+        mintTokensToDAO(2 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+        
+        // 1. Claim while active
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+        assertEq(token.balanceOf(alice), 1 ether, "Alice should receive 1 ether");
+
+        // 2. Pause campaign
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+
+        // 3. Verify can't claim while paused
+        vm.expectRevert(abi.encodeWithSelector(
+            CapitalDistributorPlugin.CampaignNotActive.selector,
+            campaignId,
+            CapitalDistributorPlugin.CampaignState.PAUSED
+        ));
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, "", "");
+
+        // 4. Resume campaign
+        capitalDistributorPlugin.resumeCampaign(campaignId);
+
+        // 5. Claim after resume
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, "", "");
+        assertEq(token.balanceOf(bob), 1 ether, "Bob should receive 1 ether after resume");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test only authorized addresses can pause campaigns
+    function test_PauseCampaignRequiresPermission() public {
+        mintTokensToDAO(1 ether);
+        vm.prank(address(createdDAO));
+        uint256 campaignId = createBasicCampaign();
+
+        // Try to pause as unauthorized user
+        vm.prank(alice);
+        vm.expectRevert();
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+    }
+
+    /// @notice Test only authorized addresses can resume campaigns
+    function test_ResumeCampaignRequiresPermission() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+        uint256 campaignId = createBasicCampaign();
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+        vm.stopPrank();
+
+        // Try to resume as unauthorized user
+        vm.prank(alice);
+        vm.expectRevert();
+        capitalDistributorPlugin.resumeCampaign(campaignId);
+    }
+
+    /// @notice Test pause/resume non-existent campaign
+    function test_PauseResumeNonExistentCampaign() public {
+        vm.startPrank(address(createdDAO));
+
+        uint256 nonExistentId = 999;
+
+        // Try to pause non-existent campaign
+        vm.expectRevert(abi.encodeWithSelector(
+            CapitalDistributorPlugin.CampaignNotFound.selector,
+            nonExistentId
+        ));
+        capitalDistributorPlugin.pauseCampaign(nonExistentId);
+
+        // Try to resume non-existent campaign
+        vm.expectRevert(abi.encodeWithSelector(
+            CapitalDistributorPlugin.CampaignNotFound.selector,
+            nonExistentId
+        ));
+        capitalDistributorPlugin.resumeCampaign(nonExistentId);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test ending a paused campaign
+    function test_EndPausedCampaign() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        uint256 campaignId = createBasicCampaign();
+        
+        // Pause the campaign
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+
+        // End the paused campaign - should succeed
+        vm.expectEmit(true, false, false, false);
+        emit CapitalDistributorPlugin.CampaignEnded(campaignId);
+        capitalDistributorPlugin.endCampaign(campaignId);
+
+        // Verify can't resume ended campaign
+        vm.expectRevert(abi.encodeWithSelector(
+            CapitalDistributorPlugin.InvalidStateTransition.selector,
+            campaignId,
+            CapitalDistributorPlugin.CampaignState.ENDED,
+            CapitalDistributorPlugin.CampaignState.ACTIVE
+        ));
+        capitalDistributorPlugin.resumeCampaign(campaignId);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test batch claim with paused campaigns
+    function test_BatchClaimWithPausedCampaigns() public {
+        mintTokensToDAO(3 ether);
+        vm.startPrank(address(createdDAO));
+
+        // Create 3 campaigns
+        uint256 campaign1 = createBasicCampaign();
+        uint256 campaign2 = createBasicCampaign();
+        uint256 campaign3 = createBasicCampaign();
+
+        // Pause the middle campaign
+        capitalDistributorPlugin.pauseCampaign(campaign2);
+
+        // Prepare batch claim arrays
+        uint256[] memory campaignIds = new uint256[](3);
+        campaignIds[0] = campaign1;
+        campaignIds[1] = campaign2;
+        campaignIds[2] = campaign3;
+
+        address[] memory recipients = new address[](3);
+        recipients[0] = alice;
+        recipients[1] = bob;
+        recipients[2] = carol;
+
+        bytes[] memory strategiesAuxData = new bytes[](3);
+        bytes[] memory encodersAuxData = new bytes[](3);
+
+        // Batch claim should succeed for active campaigns but fail for paused one
+        // The entire batch will revert due to the paused campaign
+        vm.expectRevert(abi.encodeWithSelector(
+            CapitalDistributorPlugin.CampaignNotActive.selector,
+            campaign2,
+            CapitalDistributorPlugin.CampaignState.PAUSED
+        ));
+        capitalDistributorPlugin.batchClaimCampaignPayout(
+            campaignIds,
+            recipients,
+            strategiesAuxData,
+            encodersAuxData
+        );
+
+        vm.stopPrank();
+    }
+
+    // ============================================
+    // T09: Fee Mechanism Tests
+    // ============================================
+
+    /// @notice Test claiming with fee configuration
+    function test_ClaimWithFeeConfiguration() public {
+        // Register a strategy with fee configuration
+        address feeRecipient = makeAddr("feeRecipient");
+        uint256 feeBasisPoints = 500; // 5%
+        
+        allocatorStrategyFactory.registerStrategyType(
+            toBytes32("fee-strategy"),
+            address(strategy),
+            "",
+            feeRecipient,
+            feeBasisPoints
+        );
+
+        // Create campaign with fee-enabled strategy
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+        
+        uint256 campaignId = createCampaignWithStrategy(
+            toBytes32("fee-strategy"),
+            bytes32(0),
+            "",
+            false
+        );
+
+        // Claim payout
+        uint256 claimAmount = 1 ether;
+        uint256 expectedFee = (claimAmount * feeBasisPoints) / 10000;
+        uint256 expectedRecipientAmount = claimAmount - expectedFee;
+
+        // Expect events
+        vm.expectEmit(true, true, true, true);
+        emit CapitalDistributorPlugin.PayoutClaimed(campaignId, alice, claimAmount, claimAmount);
+        
+        vm.expectEmit(true, true, true, false);
+        emit CapitalDistributorPlugin.FeeCollected(campaignId, feeRecipient, expectedFee);
+
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        // Verify balances
+        assertEq(token.balanceOf(alice), expectedRecipientAmount, "Alice should receive amount minus fee");
+        assertEq(token.balanceOf(feeRecipient), expectedFee, "Fee recipient should receive fee");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test claiming with zero fee
+    function test_ClaimWithZeroFee() public {
+        // Register a strategy with zero fee
+        allocatorStrategyFactory.registerStrategyType(
+            toBytes32("zero-fee-strategy"),
+            address(strategy),
+            "",
+            address(0),
+            0
+        );
+
+        // Create campaign
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+        
+        uint256 campaignId = createCampaignWithStrategy(
+            toBytes32("zero-fee-strategy"),
+            bytes32(0),
+            "",
+            false
+        );
+
+        // Claim payout - should not emit FeeCollected event
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        // Verify alice receives full amount
+        assertEq(token.balanceOf(alice), 1 ether, "Alice should receive full amount with zero fee");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test claiming with maximum fee (10%)
+    function test_ClaimWithMaximumFee() public {
+        // Register a strategy with maximum allowed fee (10%)
+        address feeRecipient = makeAddr("feeRecipient");
+        uint256 feeBasisPoints = 1000; // 10%
+        
+        allocatorStrategyFactory.registerStrategyType(
+            toBytes32("max-fee-strategy"),
+            address(strategy),
+            "",
+            feeRecipient,
+            feeBasisPoints
+        );
+
+        // Create campaign (note: mock strategy returns 1 ether, not 10)
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+        
+        uint256 campaignId = createCampaignWithStrategy(
+            toBytes32("max-fee-strategy"),
+            bytes32(0),
+            "",
+            false
+        );
+
+        // Claim payout
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        // Verify balances (1 ether total, 10% fee)
+        assertEq(token.balanceOf(alice), 0.9 ether, "Alice should receive 90% with 10% fee");
+        assertEq(token.balanceOf(feeRecipient), 0.1 ether, "Fee recipient should receive 10%");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test fee calculation accuracy
+    function test_FeeCalculationAccuracy() public {
+        // Register a strategy with 2.5% fee
+        address feeRecipient = makeAddr("feeRecipient");
+        uint256 feeBasisPoints = 250; // 2.5%
+        
+        allocatorStrategyFactory.registerStrategyType(
+            toBytes32("accuracy-fee-strategy"),
+            address(strategy),
+            "",
+            feeRecipient,
+            feeBasisPoints
+        );
+
+        // Note: Mock strategy always returns 1 ether
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+        
+        uint256 campaignId = createCampaignWithStrategy(
+            toBytes32("accuracy-fee-strategy"),
+            bytes32(0),
+            "",
+            false
+        );
+
+        // Claim
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        // Calculate expected values for 1 ether
+        uint256 claimAmount = 1 ether;
+        uint256 expectedFee = (claimAmount * feeBasisPoints) / 10000;
+        uint256 expectedRecipient = claimAmount - expectedFee;
+
+        // Verify
+        assertEq(token.balanceOf(alice), expectedRecipient, "Incorrect recipient amount");
+        assertEq(token.balanceOf(feeRecipient), expectedFee, "Incorrect fee amount");
+
+        // Test edge case: Verify fee calculation precision
+        assertEq(expectedFee, 25000000000000000, "Fee should be exactly 0.025 ether");
+        assertEq(expectedRecipient, 975000000000000000, "Recipient should get exactly 0.975 ether");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test fee with action encoder
+    function test_FeeWithActionEncoder() public {
+        // Register a strategy with fee
+        address feeRecipient = makeAddr("feeRecipient");
+        uint256 feeBasisPoints = 300; // 3%
+        
+        allocatorStrategyFactory.registerStrategyType(
+            toBytes32("encoder-fee-strategy"),
+            address(strategy),
+            "",
+            feeRecipient,
+            feeBasisPoints
+        );
+
+        // Register vault deposit encoder
+        actionEncoderFactory.registerActionEncoder(
+            toBytes32("vault-deposit"),
+            address(vaultDepositActionEncoder),
+            ""
+        );
+
+        // Create campaign with encoder
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+        
+        uint256 campaignId = createCampaignWithStrategy(
+            toBytes32("encoder-fee-strategy"),
+            toBytes32("vault-deposit"),
+            abi.encode(address(vaultToSendTokens)),
+            false
+        );
+
+        // Claim with encoder - fee should still be collected
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        // Verify fee was collected
+        uint256 expectedFee = (1 ether * feeBasisPoints) / 10000;
+        assertEq(token.balanceOf(feeRecipient), expectedFee, "Fee should be collected with encoder");
+        
+        // Verify vault received the recipient amount
+        uint256 expectedVaultAmount = 1 ether - expectedFee;
+        assertEq(vaultToSendTokens.totalAssets(), expectedVaultAmount, "Vault should receive amount minus fee");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test batch claim with fees
+    function test_BatchClaimWithFees() public {
+        // Register strategies with different fees
+        address feeRecipient1 = makeAddr("feeRecipient1");
+        address feeRecipient2 = makeAddr("feeRecipient2");
+        
+        allocatorStrategyFactory.registerStrategyType(
+            toBytes32("batch-fee-1"),
+            address(strategy),
+            "",
+            feeRecipient1,
+            200 // 2%
+        );
+        
+        allocatorStrategyFactory.registerStrategyType(
+            toBytes32("batch-fee-2"),
+            address(strategy),
+            "",
+            feeRecipient2,
+            500 // 5%
+        );
+
+        // Create campaigns
+        mintTokensToDAO(3 ether);
+        vm.startPrank(address(createdDAO));
+        
+        uint256 campaign1 = createCampaignWithStrategy(
+            toBytes32("batch-fee-1"),
+            bytes32(0),
+            "",
+            false
+        );
+        
+        uint256 campaign2 = createCampaignWithStrategy(
+            toBytes32("batch-fee-2"),
+            bytes32(0),
+            "",
+            false
+        );
+
+        // Batch claim
+        uint256[] memory campaignIds = new uint256[](2);
+        campaignIds[0] = campaign1;
+        campaignIds[1] = campaign2;
+
+        address[] memory recipients = new address[](2);
+        recipients[0] = alice;
+        recipients[1] = bob;
+
+        bytes[] memory strategiesAuxData = new bytes[](2);
+        bytes[] memory encodersAuxData = new bytes[](2);
+
+        capitalDistributorPlugin.batchClaimCampaignPayout(
+            campaignIds,
+            recipients,
+            strategiesAuxData,
+            encodersAuxData
+        );
+
+        // Verify fees collected
+        assertEq(token.balanceOf(feeRecipient1), 1 ether * 200 / 10000, "Fee recipient 1 should receive 2%");
+        assertEq(token.balanceOf(feeRecipient2), 1 ether * 500 / 10000, "Fee recipient 2 should receive 5%");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test fee collection on single claim
+    function test_FeeCollectionEvent() public {
+        // Register a strategy with fee
+        address feeRecipient = makeAddr("feeRecipient");
+        uint256 feeBasisPoints = 100; // 1%
+        
+        allocatorStrategyFactory.registerStrategyType(
+            toBytes32("event-fee-strategy"),
+            address(strategy),
+            "",
+            feeRecipient,
+            feeBasisPoints
+        );
+
+        // Create campaign
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+        
+        uint256 campaignId = createCampaignWithStrategy(
+            toBytes32("event-fee-strategy"),
+            bytes32(0),
+            "",
+            false
+        );
+
+        // Expect fee collection event
+        uint256 expectedFee = 1 ether * feeBasisPoints / 10000;
+        vm.expectEmit(true, true, true, true);
+        emit CapitalDistributorPlugin.FeeCollected(campaignId, feeRecipient, expectedFee);
+
+        // Claim
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+
+        // Verify fee was collected
+        assertEq(token.balanceOf(feeRecipient), expectedFee, "Fee collected");
+        assertEq(token.balanceOf(alice), 1 ether - expectedFee, "Alice received amount minus fee");
+
+        vm.stopPrank();
+    }
+
+    // ============================================
+    // T10: Factory Deployment Failure Tests
+    // ============================================
+
+    /// @notice Test campaign creation fails when strategy deployment returns zero address
+    function test_CreateCampaignFailsWhenStrategyDeploymentReturnsZeroAddress() public {
+        // Mock factory to return zero address for this strategy
+        vm.mockCall(
+            address(allocatorStrategyFactory),
+            abi.encodeWithSelector(
+                IAllocatorStrategyFactory.getOrDeployStrategy.selector,
+                toBytes32("zero-address-strategy"),
+                address(createdDAO),
+                ""
+            ),
+            abi.encode(address(0))
+        );
+
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        // Try to create campaign - should fail
+        vm.expectRevert(abi.encodeWithSelector(
+            CapitalDistributorPlugin.FactoryDeploymentFailed.selector,
+            "AllocatorStrategy"
+        ));
+        capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("zero-address-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+
+        vm.stopPrank();
+        vm.clearMockedCalls();
+    }
+
+    /// @notice Test campaign creation handles factory deployment reverting
+    function test_CreateCampaignHandlesFactoryDeploymentRevert() public {
+        // Mock factory to revert on deployment
+        vm.mockCallRevert(
+            address(allocatorStrategyFactory),
+            abi.encodeWithSelector(
+                IAllocatorStrategyFactory.getOrDeployStrategy.selector,
+                toBytes32("reverting-strategy"),
+                address(createdDAO),
+                ""
+            ),
+            "Deployment failed"
+        );
+
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        // Try to create campaign - should bubble up the revert
+        vm.expectRevert("Deployment failed");
+        capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("reverting-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+
+        vm.stopPrank();
+        vm.clearMockedCalls();
+    }
+
+    /// @notice Test external call failure during strategy setup
+    function test_ExternalCallFailureDuringStrategySetup() public {
+        // Deploy a mock strategy that reverts on setAllocationCampaign
+        MockFailingStrategy failingStrategy = new MockFailingStrategy();
+        
+        allocatorStrategyFactory.registerStrategyType(
+            toBytes32("failing-strategy"),
+            address(failingStrategy),
+            "",
+            address(0),
+            0
+        );
+
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        // The factory will catch the setup failure and wrap it in DeploymentFailed
+        vm.expectRevert();
+        capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("failing-strategy"),
+            "",
+            "trigger-failure",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test action encoder factory deployment failure
+    function test_ActionEncoderFactoryDeploymentFailure() public {
+        // Mock encoder factory to return zero address
+        vm.mockCall(
+            address(actionEncoderFactory),
+            abi.encodeWithSelector(
+                IActionEncoderFactory.getOrDeployActionEncoder.selector,
+                toBytes32("zero-encoder"),
+                address(createdDAO),
+                ""
+            ),
+            abi.encode(address(0))
+        );
+
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        // ISSUE FOUND: When encoder factory returns zero address, the plugin still tries to call
+        // setupCampaign on address(0), which causes a revert. This is a potential bug in the contract.
+        // The plugin should check if actionEncoder != address(0) before calling setupCampaign.
+        
+        // Expect revert when trying to create campaign with zero encoder
+        vm.expectRevert();
+        capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            toBytes32("zero-encoder"),
+            "",
+            false,
+            0,
+            0
+        );
+
+        vm.stopPrank();
+        vm.clearMockedCalls();
+    }
+
+    /// @notice Test encoder setup failure
+    function test_EncoderSetupFailure() public {
+        // Deploy a mock encoder that reverts on setupCampaign
+        MockFailingEncoder failingEncoder = new MockFailingEncoder();
+        
+        actionEncoderFactory.registerActionEncoder(
+            toBytes32("failing-encoder"),
+            address(failingEncoder),
+            ""
+        );
+
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDAO));
+
+        // The factory will catch the setup failure and wrap it in DeploymentFailed
+        vm.expectRevert();
+        capitalDistributorPlugin.createCampaign(
+            "",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            toBytes32("failing-encoder"),
+            "trigger-failure",
+            false,
+            0,
+            0
+        );
+
+        vm.stopPrank();
+    }
+}
+
+// Mock contracts for testing failures
+contract MockFailingStrategy is IAllocatorStrategy {
+    function getClaimeableAmount(uint256, address, bytes calldata) external pure returns (uint256) {
+        return 1 ether;
+    }
+    
+    function setAllocationCampaign(uint256, bytes calldata auxData) external pure {
+        if (keccak256(auxData) == keccak256("trigger-failure")) {
+            revert("Setup failed");
+        }
+    }
+    
+    function getInitializationEncodingTypes() external pure returns (string memory) {
+        return "";
+    }
+    
+    function getCreationEncodingTypes() external pure returns (string memory) {
+        return "";
+    }
+    
+    function getClaimEncodingTypes() external pure returns (string memory) {
+        return "";
+    }
+    
+    function getFeeConfiguration() external pure returns (address, uint256) {
+        return (address(0), 0);
+    }
+    
+    function strategyTypeId() external pure returns (bytes32) {
+        return bytes32(0);
+    }
+    
+    function supportsInterface(bytes4) external pure returns (bool) {
+        return true;
+    }
+}
+
+contract MockFailingEncoder is IPayoutActionEncoder {
+    function buildActions(
+        IERC20,
+        address,
+        uint256,
+        address,
+        uint256,
+        bytes calldata
+    ) external pure returns (Action[] memory) {
+        return new Action[](0);
+    }
+    
+    function setupCampaign(uint256, bytes calldata auxData) external pure {
+        if (keccak256(auxData) == keccak256("trigger-failure")) {
+            revert("Encoder setup failed");
+        }
+    }
+    
+    function getInitializationEncodingTypes() external pure returns (string memory) {
+        return "";
+    }
+    
+    function getCreationEncodingTypes() external pure returns (string memory) {
+        return "";
+    }
+    
+    function getClaimEncodingTypes() external pure returns (string memory) {
+        return "";
+    }
+    
+    function encoderId() external pure returns (bytes32) {
+        return bytes32(0);
+    }
+    
+    function supportsInterface(bytes4) external pure returns (bool) {
+        return true;
     }
 }

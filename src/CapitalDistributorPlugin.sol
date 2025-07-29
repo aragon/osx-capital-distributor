@@ -283,16 +283,14 @@ contract CapitalDistributorPlugin is
         // Setup action encoder
         {
             if (_actionEncoder != bytes32(0)) {
-                bytes memory actionEncoderInitializationAuxData = _actionEncoderInitializationAuxData;
-
                 IPayoutActionEncoder actionEncoder = actionEncoderFactory.getOrDeployActionEncoder(
                     _actionEncoder,
                     dao(),
-                    actionEncoderInitializationAuxData
+                    _actionEncoderInitializationAuxData
                 );
                 campaigns[id].actionEncoder = actionEncoder;
 
-                try actionEncoder.setupCampaign(id, actionEncoderInitializationAuxData) {
+                try actionEncoder.setupCampaign(id, _actionEncoderInitializationAuxData) {
                     // Action encoder setup successful
                 } catch {
                     revert ExternalCallFailed(address(actionEncoder), "setupCampaign");
@@ -660,7 +658,7 @@ contract CapitalDistributorPlugin is
         uint256 _feeAmount,
         uint256 _campaignId,
         bytes calldata _encoderAuxData
-    ) internal returns (Action[] memory actions) {
+    ) internal view returns (Action[] memory actions) {
         bool hasEncoder = address(_campaign.actionEncoder) != address(0);
         bool hasFee = _feeAmount > 0;
 
