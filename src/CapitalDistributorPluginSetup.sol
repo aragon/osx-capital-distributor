@@ -20,6 +20,8 @@ import {CapitalDistributorPlugin} from "./CapitalDistributorPlugin.sol";
 import {AllocatorStrategyFactory} from "./AllocatorStrategyFactory.sol";
 import {ActionEncoderFactory} from "./ActionEncoderFactory.sol";
 
+import {MetadataExtensionUpgradeable} from "@aragon/commons/utils/metadata/MetadataExtensionUpgradeable.sol";
+
 /// @title CapitalDistributorPlugin
 /// @author Aragon Association - 2025
 /// @notice The setup contract of the `CapitalDistributor` plugin.
@@ -28,8 +30,9 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
     using ProxyLib for address;
 
     bytes32 internal constant EXECUTE_PERMISSION_ID = keccak256("EXECUTE_PERMISSION");
-    bytes32 public constant UPGRADE_PLUGIN_PERMISSION_ID = keccak256("UPGRADE_PLUGIN_PERMISSION_ID");
+    bytes32 private constant UPGRADE_PLUGIN_PERMISSION_ID = keccak256("UPGRADE_PLUGIN_PERMISSION");
     bytes32 public constant CAMPAIGN_CREATOR_PERMISSION_ID = keccak256("CAMPAIGN_CREATOR_PERMISSION");
+    bytes32 public constant SET_METADATA_PERMISSION_ID = keccak256("SET_METADATA_PERMISSION");
 
     /// @notice The address of the `CapitalDistributorPlugin` base contract.
     CapitalDistributorPlugin private immutable capitalDistributorPluginBase;
@@ -65,7 +68,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
         );
 
         // Prepare permissions
-        PermissionLib.MultiTargetPermission[] memory permissions = new PermissionLib.MultiTargetPermission[](3);
+        PermissionLib.MultiTargetPermission[] memory permissions = new PermissionLib.MultiTargetPermission[](4);
 
         // Request the permissions to be granted
 
@@ -96,6 +99,14 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             permissionId: CAMPAIGN_CREATOR_PERMISSION_ID
         });
 
+        permissions[3] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Grant,
+            where: plugin,
+            who: _dao,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: SET_METADATA_PERMISSION_ID
+        });
+
         preparedSetupData.helpers = helpers;
         preparedSetupData.permissions = permissions;
     }
@@ -112,7 +123,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
         }
 
         // Set permissions to be Revoked.
-        permissions = new PermissionLib.MultiTargetPermission[](3);
+        permissions = new PermissionLib.MultiTargetPermission[](4);
 
         permissions[0] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Revoke,
@@ -136,6 +147,14 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             who: _payload.plugin,
             condition: PermissionLib.NO_CONDITION,
             permissionId: EXECUTE_PERMISSION_ID
+        });
+
+        permissions[3] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Revoke,
+            where: _payload.plugin,
+            who: _dao,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: SET_METADATA_PERMISSION_ID
         });
     }
 
