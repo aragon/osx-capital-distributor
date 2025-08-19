@@ -17,8 +17,8 @@ import {Admin} from "@aragon/admin-plugin/Admin.sol";
 import {AdminSetup} from "@aragon/admin-plugin/AdminSetup.sol";
 
 import {CapitalDistributorPluginSetup} from "../src/CapitalDistributorPluginSetup.sol";
-import {AllocatorStrategyFactory} from "../src/AllocatorStrategyFactory.sol";
-import {ActionEncoderFactory} from "../src/ActionEncoderFactory.sol";
+import {AllocatorStrategyFactory} from "../src/factories/AllocatorStrategyFactory.sol";
+import {ActionEncoderFactory} from "../src/factories/ActionEncoderFactory.sol";
 
 // Allocator Strategies
 import {CallBasedAllocatorStrategy} from "../src/allocatorStrategies/CallBasedAllocatorStrategy.sol";

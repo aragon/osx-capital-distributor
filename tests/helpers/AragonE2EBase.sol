@@ -16,8 +16,8 @@ import {PluginSetupRef} from "@aragon/osx/framework/plugin/setup/PluginSetupProc
 
 import {CapitalDistributorPlugin} from "../../src/CapitalDistributorPlugin.sol";
 import {CapitalDistributorPluginSetup} from "../../src/CapitalDistributorPluginSetup.sol";
-import {AllocatorStrategyFactory} from "../../src/AllocatorStrategyFactory.sol";
-import {ActionEncoderFactory} from "../../src/ActionEncoderFactory.sol";
+import {AllocatorStrategyFactory} from "../../src/factories/AllocatorStrategyFactory.sol";
+import {ActionEncoderFactory} from "../../src/factories/ActionEncoderFactory.sol";
 
 /// @title AragonE2EBase
 /// @notice Base contract for end-to-end tests of the Capital Distributor Plugin

@@ -4,8 +4,8 @@ pragma solidity ^0.8.29;
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {IAllocatorStrategy} from "./interfaces/IAllocatorStrategy.sol";
-import {IAllocatorStrategyFactory} from "./interfaces/IAllocatorStrategyFactory.sol";
+import {IAllocatorStrategy} from "../interfaces/IAllocatorStrategy.sol";
+import {IAllocatorStrategyFactory} from "../interfaces/IAllocatorStrategyFactory.sol";
 import {FactoryBase} from "./FactoryBase.sol";
 
 /// @title AllocatorStrategyFactory

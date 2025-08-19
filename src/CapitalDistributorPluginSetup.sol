@@ -17,8 +17,8 @@ import {PluginUpgradeableSetup} from "@aragon/commons/plugin/setup/PluginUpgrade
 import {IPluginSetup} from "@aragon/commons/plugin/setup/IPluginSetup.sol";
 
 import {CapitalDistributorPlugin} from "./CapitalDistributorPlugin.sol";
-import {AllocatorStrategyFactory} from "./AllocatorStrategyFactory.sol";
-import {ActionEncoderFactory} from "./ActionEncoderFactory.sol";
+import {AllocatorStrategyFactory} from "./factories/AllocatorStrategyFactory.sol";
+import {ActionEncoderFactory} from "./factories/ActionEncoderFactory.sol";
 
 import {MetadataExtensionUpgradeable} from "@aragon/commons/utils/metadata/MetadataExtensionUpgradeable.sol";
 

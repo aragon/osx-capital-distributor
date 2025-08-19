@@ -2,7 +2,7 @@
 pragma solidity ^0.8.29;
 
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {FactoryBase} from "../FactoryBase.sol";
+import {FactoryBase} from "../factories/FactoryBase.sol";
 
 /// @title IAllocatorStrategyFactory
 /// @notice Interface for the AllocatorStrategyFactory contract.

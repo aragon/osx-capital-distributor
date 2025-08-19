@@ -181,8 +181,8 @@ pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {CapitalDistributorPluginSetup} from "../src/CapitalDistributorPluginSetup.sol";
-import {AllocatorStrategyFactory} from "../src/AllocatorStrategyFactory.sol";
-import {ActionEncoderFactory} from "../src/ActionEncoderFactory.sol";
+import {AllocatorStrategyFactory} from "../src/factories/AllocatorStrategyFactory.sol";
+import {ActionEncoderFactory} from "../src/factories/ActionEncoderFactory.sol";
 // ... other imports
 
 contract CapitalDistributorPluginSetupTest is Test {

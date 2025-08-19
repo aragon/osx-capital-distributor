@@ -3,9 +3,9 @@ pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {AllocatorStrategyFactory} from "../src/AllocatorStrategyFactory.sol";
+import {AllocatorStrategyFactory} from "../src/factories/AllocatorStrategyFactory.sol";
 import {CapitalDistributorPlugin} from "../src/CapitalDistributorPlugin.sol";
-import {ActionEncoderFactory} from "../src/ActionEncoderFactory.sol";
+import {ActionEncoderFactory} from "../src/factories/ActionEncoderFactory.sol";
 import {IAllocatorStrategy} from "../src/interfaces/IAllocatorStrategy.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";

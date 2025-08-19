@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
 import {VaultDepositPayoutActionEncoder, IVault} from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
-import {ActionEncoderFactory} from "../src/ActionEncoderFactory.sol";
+import {ActionEncoderFactory} from "../src/factories/ActionEncoderFactory.sol";
 import {IPayoutActionEncoder} from "../src/interfaces/IPayoutActionEncoder.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";

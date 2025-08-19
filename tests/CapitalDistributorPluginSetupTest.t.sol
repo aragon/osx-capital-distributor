@@ -7,8 +7,8 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
 import {CapitalDistributorPluginSetup} from "../src/CapitalDistributorPluginSetup.sol";
 import {CapitalDistributorPlugin} from "../src/CapitalDistributorPlugin.sol";
-import {AllocatorStrategyFactory} from "../src/AllocatorStrategyFactory.sol";
-import {ActionEncoderFactory} from "../src/ActionEncoderFactory.sol";
+import {AllocatorStrategyFactory} from "../src/factories/AllocatorStrategyFactory.sol";
+import {ActionEncoderFactory} from "../src/factories/ActionEncoderFactory.sol";
 
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";

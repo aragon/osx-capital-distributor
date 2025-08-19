@@ -15,8 +15,8 @@ import {MetadataExtensionUpgradeable} from "@aragon/commons/utils/metadata/Metad
 
 import {IAllocatorStrategy} from "./interfaces/IAllocatorStrategy.sol";
 import {IPayoutActionEncoder} from "./interfaces/IPayoutActionEncoder.sol";
-import {AllocatorStrategyFactory} from "./AllocatorStrategyFactory.sol";
-import {ActionEncoderFactory} from "./ActionEncoderFactory.sol";
+import {AllocatorStrategyFactory} from "./factories/AllocatorStrategyFactory.sol";
+import {ActionEncoderFactory} from "./factories/ActionEncoderFactory.sol";
 
 /// @title CapitalDistributorPlugin
 /// @author AragonX - 2025

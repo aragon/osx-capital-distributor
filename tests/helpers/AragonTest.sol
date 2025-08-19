@@ -16,8 +16,8 @@ import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 
 import {CapitalDistributorPlugin} from "../../src/CapitalDistributorPlugin.sol";
 import {CapitalDistributorPluginSetup} from "../../src/CapitalDistributorPluginSetup.sol";
-import {AllocatorStrategyFactory} from "../../src/AllocatorStrategyFactory.sol";
-import {ActionEncoderFactory} from "../../src/ActionEncoderFactory.sol";
+import {AllocatorStrategyFactory} from "../../src/factories/AllocatorStrategyFactory.sol";
+import {ActionEncoderFactory} from "../../src/factories/ActionEncoderFactory.sol";
 import {VaultDepositPayoutActionEncoder} from "../../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
 
 contract AragonTest is Test {
