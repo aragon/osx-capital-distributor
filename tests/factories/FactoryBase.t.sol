@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {FactoryBase} from "../src/factories/FactoryBase.sol";
+import {FactoryBase} from "../../src/factories/FactoryBase.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 

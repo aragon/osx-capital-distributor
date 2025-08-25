@@ -3,17 +3,17 @@ pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {AllocatorStrategyFactory} from "../src/factories/AllocatorStrategyFactory.sol";
-import {CapitalDistributorPlugin} from "../src/CapitalDistributorPlugin.sol";
-import {ActionEncoderFactory} from "../src/factories/ActionEncoderFactory.sol";
-import {IAllocatorStrategy} from "../src/interfaces/IAllocatorStrategy.sol";
+import {AllocatorStrategyFactory} from "../../src/factories/AllocatorStrategyFactory.sol";
+import {CapitalDistributorPlugin} from "../../src/CapitalDistributorPlugin.sol";
+import {ActionEncoderFactory} from "../../src/factories/ActionEncoderFactory.sol";
+import {IAllocatorStrategy} from "../../src/interfaces/IAllocatorStrategy.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {Action, IExecutor} from "@aragon/commons/executors/IExecutor.sol";
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
-import {MerkleDistributorStrategy} from "../src/allocatorStrategies/MerkleDistributorStrategy.sol";
-import {MintableERC20} from "./mocks/MintableERC20.sol";
-import {AragonTest} from "./helpers/AragonTest.sol";
+import {MerkleDistributorStrategy} from "../../src/allocatorStrategies/MerkleDistributorStrategy.sol";
+import {MintableERC20} from "../mocks/MintableERC20.sol";
+import {AragonTest} from "../helpers/AragonTest.sol";
 
 /// @title AllocatorStrategyFeeTest
 /// @notice Test suite for the fee functionality in allocator strategies

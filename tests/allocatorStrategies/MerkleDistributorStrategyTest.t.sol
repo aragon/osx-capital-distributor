@@ -8,18 +8,18 @@ import {stdJson} from "forge-std/StdJson.sol";
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 
-import {IPayoutActionEncoder} from "../src/interfaces/IPayoutActionEncoder.sol";
-import {CapitalDistributorPlugin} from "../src/CapitalDistributorPlugin.sol";
-import {AragonTest} from "./helpers/AragonTest.sol";
-import {IAllocatorStrategy} from "../src/interfaces/IAllocatorStrategy.sol";
-import {IAllocatorStrategyFactory} from "../src/interfaces/IAllocatorStrategyFactory.sol";
-import {MerkleDistributorStrategy} from "../src/allocatorStrategies/MerkleDistributorStrategy.sol";
+import {IPayoutActionEncoder} from "../../src/interfaces/IPayoutActionEncoder.sol";
+import {CapitalDistributorPlugin} from "../../src/CapitalDistributorPlugin.sol";
+import {AragonTest} from "../helpers/AragonTest.sol";
+import {IAllocatorStrategy} from "../../src/interfaces/IAllocatorStrategy.sol";
+import {IAllocatorStrategyFactory} from "../../src/interfaces/IAllocatorStrategyFactory.sol";
+import {MerkleDistributorStrategy} from "../../src/allocatorStrategies/MerkleDistributorStrategy.sol";
 
-import {MintableERC20} from "./mocks/MintableERC20.sol";
+import {MintableERC20} from "../mocks/MintableERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {CreateExampleRecipients} from "../script/utils/CreateExampleRecipients.s.sol";
-import {GenerateMerkleTree} from "../script/utils/GenerateMerkleTree.s.sol";
-import {GenerateProof} from "../script/utils/GenerateProof.s.sol";
+import {CreateExampleRecipients} from "../../script/utils/CreateExampleRecipients.s.sol";
+import {GenerateMerkleTree} from "../../script/utils/GenerateMerkleTree.s.sol";
+import {GenerateProof} from "../../script/utils/GenerateProof.s.sol";
 
 contract MerkleDistributorStrategyTest is AragonTest {
     using stdJson for string;

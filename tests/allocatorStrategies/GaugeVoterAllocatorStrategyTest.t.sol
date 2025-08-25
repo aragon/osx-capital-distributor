@@ -4,13 +4,13 @@ pragma solidity >=0.8.29 <0.9.0;
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
-import {AragonTest} from "./helpers/AragonTest.sol";
-import {GaugeVoterAllocatorStrategy} from "../src/allocatorStrategies/GaugeVoterAllocatorStrategy.sol";
-import {MockAddressGaugeVoter} from "./mocks/MockAddressGaugeVoter.sol";
-import {MintableERC20} from "./mocks/MintableERC20.sol";
-import {IAllocatorStrategy} from "../src/interfaces/IAllocatorStrategy.sol";
-import {IAddressGaugeVoter} from "../src/interfaces/helpers/IAddressGaugeVoter.sol";
-import {CapitalDistributorPlugin} from "../src/CapitalDistributorPlugin.sol";
+import {AragonTest} from "../helpers/AragonTest.sol";
+import {GaugeVoterAllocatorStrategy} from "../../src/allocatorStrategies/GaugeVoterAllocatorStrategy.sol";
+import {MockAddressGaugeVoter} from "../mocks/MockAddressGaugeVoter.sol";
+import {MintableERC20} from "../mocks/MintableERC20.sol";
+import {IAllocatorStrategy} from "../../src/interfaces/IAllocatorStrategy.sol";
+import {IAddressGaugeVoter} from "../../src/interfaces/helpers/IAddressGaugeVoter.sol";
+import {CapitalDistributorPlugin} from "../../src/CapitalDistributorPlugin.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /// @title GaugeVoterAllocatorStrategyTest

@@ -4,15 +4,15 @@ pragma solidity ^0.8.29;
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
-import {VaultDepositPayoutActionEncoder, IVault} from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
-import {ActionEncoderFactory} from "../src/factories/ActionEncoderFactory.sol";
-import {IPayoutActionEncoder} from "../src/interfaces/IPayoutActionEncoder.sol";
+import {VaultDepositPayoutActionEncoder, IVault} from "../../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
+import {ActionEncoderFactory} from "../../src/factories/ActionEncoderFactory.sol";
+import {IPayoutActionEncoder} from "../../src/interfaces/IPayoutActionEncoder.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {Action} from "@aragon/commons/executors/IExecutor.sol";
 
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
-import {AragonTest} from "./helpers/AragonTest.sol";
+import {AragonTest} from "../helpers/AragonTest.sol";
 
 /// @title VaultDepositPayoutActionEncoderTest
 /// @notice Comprehensive test suite for VaultDepositPayoutActionEncoder

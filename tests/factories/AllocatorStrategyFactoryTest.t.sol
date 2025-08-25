@@ -3,15 +3,15 @@ pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {AllocatorStrategyFactory} from "../src/factories/AllocatorStrategyFactory.sol";
-import {FactoryBase} from "../src/factories/FactoryBase.sol";
-import {IAllocatorStrategyFactory} from "../src/interfaces/IAllocatorStrategyFactory.sol";
-import {IAllocatorStrategy} from "../src/interfaces/IAllocatorStrategy.sol";
+import {AllocatorStrategyFactory} from "../../src/factories/AllocatorStrategyFactory.sol";
+import {FactoryBase} from "../../src/factories/FactoryBase.sol";
+import {IAllocatorStrategyFactory} from "../../src/interfaces/IAllocatorStrategyFactory.sol";
+import {IAllocatorStrategy} from "../../src/interfaces/IAllocatorStrategy.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
-import {MerkleDistributorStrategy} from "../src/allocatorStrategies/MerkleDistributorStrategy.sol";
-import {AllocatorStrategyMock} from "./mocks/AllocatorStrategyMock.sol";
+import {MerkleDistributorStrategy} from "../../src/allocatorStrategies/MerkleDistributorStrategy.sol";
+import {AllocatorStrategyMock} from "../mocks/AllocatorStrategyMock.sol";
 
 /// @title AllocatorStrategyFactory Test Suite
 /// @author AragonX - 2025

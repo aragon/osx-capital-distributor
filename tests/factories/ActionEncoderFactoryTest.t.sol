@@ -3,16 +3,16 @@ pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {ActionEncoderFactory} from "../src/factories/ActionEncoderFactory.sol";
-import {FactoryBase} from "../src/factories/FactoryBase.sol";
-import {IActionEncoderFactory} from "../src/interfaces/IActionEncoderFactory.sol";
-import {IPayoutActionEncoder} from "../src/interfaces/IPayoutActionEncoder.sol";
+import {ActionEncoderFactory} from "../../src/factories/ActionEncoderFactory.sol";
+import {FactoryBase} from "../../src/factories/FactoryBase.sol";
+import {IActionEncoderFactory} from "../../src/interfaces/IActionEncoderFactory.sol";
+import {IPayoutActionEncoder} from "../../src/interfaces/IPayoutActionEncoder.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
-import {VaultDepositPayoutActionEncoder} from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
-import {SablierLinearPayoutActionEncoder} from "../src/payoutActionEncoders/SablierLinearPayoutActionEncoder.sol";
-import {PayoutActionEncoderBase} from "../src/payoutActionEncoders/PayoutActionEncoderBase.sol";
+import {VaultDepositPayoutActionEncoder} from "../../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
+import {SablierLinearPayoutActionEncoder} from "../../src/payoutActionEncoders/SablierLinearPayoutActionEncoder.sol";
+import {PayoutActionEncoderBase} from "../../src/payoutActionEncoders/PayoutActionEncoderBase.sol";
 import {Action} from "@aragon/commons/executors/IExecutor.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 

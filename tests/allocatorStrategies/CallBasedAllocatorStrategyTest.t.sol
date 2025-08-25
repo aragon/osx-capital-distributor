@@ -6,16 +6,16 @@ import {console2} from "forge-std/console2.sol";
 
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 
-import {IPayoutActionEncoder} from "../src/interfaces/IPayoutActionEncoder.sol";
-import {CapitalDistributorPlugin} from "../src/CapitalDistributorPlugin.sol";
-import {AragonTest} from "./helpers/AragonTest.sol";
-import {IAllocatorStrategy} from "../src/interfaces/IAllocatorStrategy.sol";
-import {AllocatorStrategyMock} from "./mocks/AllocatorStrategyMock.sol";
-import {IAllocatorStrategyFactory} from "../src/interfaces/IAllocatorStrategyFactory.sol";
-import {CallBasedAllocatorStrategy} from "../src/allocatorStrategies/CallBasedAllocatorStrategy.sol";
+import {IPayoutActionEncoder} from "../../src/interfaces/IPayoutActionEncoder.sol";
+import {CapitalDistributorPlugin} from "../../src/CapitalDistributorPlugin.sol";
+import {AragonTest} from "../helpers/AragonTest.sol";
+import {IAllocatorStrategy} from "../../src/interfaces/IAllocatorStrategy.sol";
+import {AllocatorStrategyMock} from "../mocks/AllocatorStrategyMock.sol";
+import {IAllocatorStrategyFactory} from "../../src/interfaces/IAllocatorStrategyFactory.sol";
+import {CallBasedAllocatorStrategy} from "../../src/allocatorStrategies/CallBasedAllocatorStrategy.sol";
 
-import {MintableERC20} from "./mocks/MintableERC20.sol";
-import {MockVoter} from "./mocks/MockVoter.sol";
+import {MintableERC20} from "../mocks/MintableERC20.sol";
+import {MockVoter} from "../mocks/MockVoter.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 contract CallBasedAllocatorStrategyTest is AragonTest {
