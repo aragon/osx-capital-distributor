@@ -6,6 +6,7 @@
     "name": "aragon",
     "url": "https://github.com/aragon"
   },
+  "license": "AGPL-3.0-or-later",
   "dependencies": {
     "@aragon/admin-plugin": "aragon/admin-plugin",
     "@aragon/multisig-plugin": "aragon/multisig-plugin",

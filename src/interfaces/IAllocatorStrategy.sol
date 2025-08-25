@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
