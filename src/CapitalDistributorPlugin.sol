@@ -117,8 +117,7 @@ contract CapitalDistributorPlugin is
     /// @param campaignId The ID of the campaign from which the payout was claimed.
     /// @param recipient The address that received the payout.
     /// @param amount The amount of tokens claimed.
-    /// @param totalClaimed The total amount claimed by this recipient for this campaign.
-    event PayoutClaimed(uint256 indexed campaignId, address indexed recipient, uint256 amount, uint256 totalClaimed);
+    event PayoutClaimed(uint256 indexed campaignId, address indexed recipient, uint256 amount);
 
     /// @notice Emitted when a fee is collected during a claim.
     /// @param campaignId The ID of the campaign.
@@ -404,16 +403,20 @@ contract CapitalDistributorPlugin is
             revert MultipleClaimsNotAllowed(_campaignId, _recipient);
         }
 
-        amountToSend = campaign.allocationStrategy.getClaimeableAmount(_campaignId, _recipient, _strategyAuxData);
+        uint256 totalAmountToSend = campaign.allocationStrategy.getClaimeableAmount(
+            _campaignId,
+            _recipient,
+            _strategyAuxData
+        );
 
         // Check if there's anything to claim
-        if (amountToSend == 0) {
+        if (totalAmountToSend == 0) {
             revert NoClaimableAmount(_campaignId, _recipient);
         }
 
         // Check if already claimed maximum amount
-        if (alreadyClaimed >= amountToSend) {
-            revert AlreadyClaimedMaxAmount(_campaignId, _recipient, alreadyClaimed, amountToSend);
+        if (alreadyClaimed >= totalAmountToSend) {
+            revert AlreadyClaimedMaxAmount(_campaignId, _recipient, alreadyClaimed, totalAmountToSend);
         }
 
         // Get fee configuration from the strategy
@@ -421,22 +424,21 @@ contract CapitalDistributorPlugin is
 
         // Calculate fee amount
         uint256 feeAmount = 0;
-        uint256 recipientAmount = amountToSend;
+        amountToSend = totalAmountToSend - alreadyClaimed;
 
         if (feeBasisPoints > 0 && feeRecipient != address(0)) {
             feeAmount = (amountToSend * feeBasisPoints) / 10000;
-            recipientAmount = amountToSend - feeAmount;
+            amountToSend = amountToSend - feeAmount;
         }
 
         // Update state before external calls (checks-effects-interactions pattern)
-        uint256 newTotalClaimed = alreadyClaimed + amountToSend;
-        claimed[_campaignId][_recipient] = newTotalClaimed;
+        claimed[_campaignId][_recipient] = totalAmountToSend;
 
         // Build all payout actions (handles both direct transfer and encoder cases)
         Action[] memory actions = _buildPayoutActions(
             campaign,
             _recipient,
-            recipientAmount,
+            amountToSend,
             feeRecipient,
             feeAmount,
             _campaignId,
@@ -447,7 +449,7 @@ contract CapitalDistributorPlugin is
         bytes32 executionId = keccak256(abi.encodePacked(address(this), _campaignId, _recipient, block.timestamp));
         IExecutor(address(dao())).execute(executionId, actions, 0);
 
-        emit PayoutClaimed(_campaignId, _recipient, amountToSend, newTotalClaimed);
+        emit PayoutClaimed(_campaignId, _recipient, amountToSend);
 
         if (feeAmount > 0) {
             emit FeeCollected(_campaignId, feeRecipient, feeAmount);
