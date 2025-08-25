@@ -20,28 +20,26 @@ strategies and encoders through factory contracts:
 
 ```mermaid
 graph TB
-    subgraph "Deployment & Setup"
-        PS[PluginSetup] -->|deploys| P[CapitalDistributorPlugin]
-        PS -->|registers with| AR[Aragon OSx Registry]
-        PS -->|configures| F1[AllocatorStrategyFactory]
-        PS -->|configures| F2[ActionEncoderFactory]
+    subgraph "Setup"
+        PS[PluginSetup] -->|deploys| P[Plugin]
+        PS -->|connects| F1[AllocatorStrategyFactory]
+        PS -->|connects| F2[ActionEncoderFactory]
     end
 
     subgraph "Campaign Creation"
-        O[Organization] -->|creates campaign| P
-        P -->|requests strategy| F1
-        P -->|requests encoder| F2
-        F1 -->|deploys/returns| AS[Allocation Strategy]
-        F2 -->|deploys/returns| AE[Action Encoder]
+        P -->|creates campaign| C[Campaign]
+        F1 -->|deploys| AS[Allocation Strategy Instance]
+        F2 -->|deploys| AE[Action Encoder Instance]
+        AS -->|linked to| C
+        AE -->|linked to| C
     end
 
     subgraph "Campaign Execution"
-        U[User] -->|claims| P
-        P -->|validates with| AS
-        AS -->|returns allocation| P
-        P -->|builds actions with| AE
-        AE -->|encodes payout| D[DAO Executor]
-        D -->|transfers tokens| U
+        U[User] -->|claims from| C
+        C -->|validates via| AS
+        C -->|encodes payout via| AE
+        AE -->|executes| T[Token Transfer]
+        T -->|to| U
     end
 ```
 
