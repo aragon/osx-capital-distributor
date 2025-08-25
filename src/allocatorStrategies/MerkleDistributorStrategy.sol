@@ -29,18 +29,10 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     event MerkleCampaignSet(uint256 indexed campaignId, bytes32 merkleRoot);
 
     /// @notice Emitted when a recipient claims their allocation
-    event AllocationClaimed(
-        uint256 indexed campaignId,
-        address indexed recipient,
-        uint256 amount
-    );
+    event AllocationClaimed(uint256 indexed campaignId, address indexed recipient, uint256 amount);
 
     /// @notice Emitted when a merkle campaign root is updated
-    event MerkleCampaignUpdated(
-        uint256 indexed campaignId,
-        bytes32 oldMerkleRoot,
-        bytes32 newMerkleRoot
-    );
+    event MerkleCampaignUpdated(uint256 indexed campaignId, bytes32 oldMerkleRoot, bytes32 newMerkleRoot);
 
     /// @notice Thrown when trying to set a campaign that already exists
     error MerkleCampaignAlreadyExists(uint256 campaignId);
@@ -61,7 +53,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     error CampaignNotFound(uint256 campaignId);
 
     /// @notice Thrown when trying to update a campaign that is not active
-    error CampaignNotActiveForUpdate(uint256 campaignId);
+    error CampaignNotPaused(uint256 campaignId);
 
     /// @notice Decodes the auxiliary data for setting up a merkle campaign
     /// @param _auxData The encoded data containing the merkle root
@@ -164,9 +156,10 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
             revert OnlyDAOAllowed(msg.sender);
         }
 
-        // Check if campaign is active (not paused or ended)
-        if (!CapitalDistributorPlugin(plugin).isCampaignActive(_campaignId)) {
-            revert CampaignNotActiveForUpdate(_campaignId);
+        // Check if campaign is paused (not active, or ended)
+        // The reason for this is so it's safe to take snapshots
+        if (!CapitalDistributorPlugin(plugin).isCampaignPaused(_campaignId)) {
+            revert CampaignNotPaused(_campaignId);
         }
 
         // Check if campaign exists
@@ -195,7 +188,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     // =========================================================================
     // Storage Gap
     // =========================================================================
-    
+
     /// @dev Storage gap to allow for future upgrades without storage collision.
     /// This contract adds 1 storage slot: merkleCampaigns mapping.
     uint256[49] private __gap;

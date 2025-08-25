@@ -23,7 +23,7 @@ import {GenerateProof} from "../../script/utils/GenerateProof.s.sol";
 
 contract MerkleDistributorStrategyTest is AragonTest {
     using stdJson for string;
-    
+
     CapitalDistributorPlugin capitalDistributorPlugin;
     MerkleDistributorStrategy strategy;
     MintableERC20 token;
@@ -38,8 +38,8 @@ contract MerkleDistributorStrategyTest is AragonTest {
     uint256[] amounts;
     bytes32[] leaves;
     bytes32 merkleRoot;
-    
-    // Script-generated test data  
+
+    // Script-generated test data
     string constant TEST_RECIPIENTS_FILE = "./tests/data/test-recipients-merkle.json";
     string constant TEST_TREE_FILE = "./tests/data/merkle-tree.json";
 
@@ -56,11 +56,17 @@ contract MerkleDistributorStrategyTest is AragonTest {
         generateProofScript = new GenerateProof();
 
         vm.startPrank(address(createdDAO));
-        allocatorStrategyFactory.registerStrategyType(toBytes32("merkle-strategy"), address(strategy), "", address(0), 0);
+        allocatorStrategyFactory.registerStrategyType(
+            toBytes32("merkle-strategy"),
+            address(strategy),
+            "",
+            address(0),
+            0
+        );
 
         // Set up merkle tree test data (keep legacy for existing tests)
         setupMerkleTreeData();
-        
+
         // Set up script-generated test data
         setupScriptGeneratedData();
     }
@@ -101,7 +107,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     function setupScriptGeneratedData() internal {
         // Create test recipients using the script
         createExampleScript.createTestnetExample(TEST_RECIPIENTS_FILE);
-        
+
         // Generate merkle tree using the script
         generateTreeScript.generate(TEST_RECIPIENTS_FILE);
     }
@@ -114,16 +120,16 @@ contract MerkleDistributorStrategyTest is AragonTest {
     function getScriptGeneratedProof(address recipient) internal returns (bytes32[] memory, uint256) {
         // Generate proof using script
         generateProofScript.generateProof(TEST_TREE_FILE, recipient);
-        
+
         // Read the generated proof file from test data directory
         string memory proofFile = string.concat("./tests/data/proof-", vm.toString(recipient), ".json");
         string memory proofJson = vm.readFile(proofFile);
-        
+
         // Parse proof data
         bytes memory proofData = proofJson.parseRaw(".proof");
         bytes32[] memory proof = abi.decode(proofData, (bytes32[]));
         uint256 amount = proofJson.readUint(".amount");
-        
+
         return (proof, amount);
     }
 
@@ -368,7 +374,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     function test_ScriptGeneratedMerkleTree() public {
         bytes32 scriptRoot = getScriptGeneratedMerkleRoot();
         assertNotEq(scriptRoot, bytes32(0), "Script should generate non-zero merkle root");
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -393,7 +399,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     function test_ScriptGeneratedProofsClaim() public {
         token.mint(address(createdDAO), 100 ether);
         bytes32 scriptRoot = getScriptGeneratedMerkleRoot();
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -420,7 +426,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         (bytes32[] memory proof1, uint256 amount1) = getScriptGeneratedProof(testRecipient1);
         bytes memory claimData1 = abi.encode(proof1, amount1);
 
-        // Get proof for recipient 2  
+        // Get proof for recipient 2
         (bytes32[] memory proof2, uint256 amount2) = getScriptGeneratedProof(testRecipient2);
         bytes memory claimData2 = abi.encode(proof2, amount2);
 
@@ -428,19 +434,27 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 initialBalance2 = token.balanceOf(testRecipient2);
 
         vm.startPrank(address(createdDAO));
-        
+
         // Claim for recipient 1
         capitalDistributorPlugin.claimCampaignPayout(campaignId, testRecipient1, claimData1, "");
-        assertEq(token.balanceOf(testRecipient1), initialBalance1 + amount1, "Recipient 1 should receive correct amount");
+        assertEq(
+            token.balanceOf(testRecipient1),
+            initialBalance1 + amount1,
+            "Recipient 1 should receive correct amount"
+        );
 
         // Claim for recipient 2
         capitalDistributorPlugin.claimCampaignPayout(campaignId, testRecipient2, claimData2, "");
-        assertEq(token.balanceOf(testRecipient2), initialBalance2 + amount2, "Recipient 2 should receive correct amount");
+        assertEq(
+            token.balanceOf(testRecipient2),
+            initialBalance2 + amount2,
+            "Recipient 2 should receive correct amount"
+        );
     }
 
     function test_ScriptGeneratedProofValidation() public {
         bytes32 scriptRoot = getScriptGeneratedMerkleRoot();
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -473,14 +487,14 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Create large recipient set using script
         createExampleScript.createLargeExample("./tests/data/large-recipients-test.json");
         generateTreeScript.generate("./tests/data/large-recipients-test.json");
-        
+
         string memory largeTreeJson = vm.readFile("./tests/data/merkle-tree.json");
         bytes32 largeRoot = largeTreeJson.readBytes32(".merkleRoot");
         uint256 totalRecipients = largeTreeJson.readUint(".totalRecipients");
-        
+
         assertEq(totalRecipients, 100, "Should have 100 recipients");
         assertNotEq(largeRoot, bytes32(0), "Should generate valid merkle root for large set");
-        
+
         token.mint(address(createdDAO), 1000 ether);
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
@@ -503,33 +517,33 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Test claims for a few recipients from the large set
         address testAddr1 = address(uint160(uint256(keccak256(abi.encodePacked("recipient", uint256(5))))));
         address testAddr2 = address(uint160(uint256(keccak256(abi.encodePacked("recipient", uint256(25))))));
-        
+
         // Generate proofs using script
         generateProofScript.generateProof("./tests/data/merkle-tree.json", testAddr1);
         generateProofScript.generateProof("./tests/data/merkle-tree.json", testAddr2);
-        
+
         // Read proof files
         string memory proof1File = string.concat("./tests/data/proof-", vm.toString(testAddr1), ".json");
         string memory proof2File = string.concat("./tests/data/proof-", vm.toString(testAddr2), ".json");
-        
+
         string memory proof1Json = vm.readFile(proof1File);
         string memory proof2Json = vm.readFile(proof2File);
-        
+
         // Verify proofs are valid
         bool valid1 = proof1Json.readBool(".valid");
         bool valid2 = proof2Json.readBool(".valid");
-        
+
         assertTrue(valid1, "Proof for recipient 5 should be valid");
         assertTrue(valid2, "Proof for recipient 25 should be valid");
-        
+
         // Test actual claims
         bytes memory proofData1 = proof1Json.parseRaw(".proof");
         bytes32[] memory proof1Array = abi.decode(proofData1, (bytes32[]));
         uint256 amount1 = proof1Json.readUint(".amount");
-        
+
         bytes memory claimData1 = abi.encode(proof1Array, amount1);
         uint256 payoutAmount1 = capitalDistributorPlugin.getCampaignPayout(campaignId, testAddr1, claimData1);
-        
+
         assertEq(payoutAmount1, amount1, "Payout should match script-generated amount");
         assertGt(payoutAmount1, 0, "Should be able to claim from large recipient set");
     }
@@ -538,11 +552,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
     // Campaign Pause State Validation Tests
     // ============================================================================
 
-    function test_UpdateMerkleRootFailsOnPausedCampaign() public {
+    function test_UpdateMerkleRootSucceedsOnPausedCampaign() public {
         // Setup: Create campaign with initial merkle root
         token.mint(address(createdDAO), 10 ether);
         bytes32 initialRoot = merkleRoot;
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -562,30 +576,43 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         // Pause the campaign
         capitalDistributorPlugin.pauseCampaign(campaignId);
-        
+
         // Verify campaign is paused
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        assertEq(uint8(campaign.state), uint8(CapitalDistributorPlugin.CampaignState.PAUSED), "Campaign should be paused");
-        
-        // Try to update merkle root on paused campaign
+        assertEq(
+            uint8(campaign.state),
+            uint8(CapitalDistributorPlugin.CampaignState.PAUSED),
+            "Campaign should be paused"
+        );
+
+        // Update merkle root on paused campaign should succeed
         bytes32 newRoot = keccak256("new-merkle-root");
         bytes memory newRootData = abi.encode(newRoot);
-        
-        vm.expectRevert(
-            abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotActiveForUpdate.selector, campaignId)
-        );
-        
+
+        // Should not revert - paused campaigns allow merkle root updates
+        vm.expectEmit(true, true, false, true);
+        emit MerkleDistributorStrategy.MerkleCampaignUpdated(campaignId, initialRoot, newRoot);
+
         // Call directly on strategy but from plugin context
         vm.stopPrank();
         vm.prank(address(capitalDistributorPlugin));
-        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(campaignId, newRootData);
+        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
+            campaignId,
+            newRootData
+        );
+
+        // Verify the merkle root was updated
+        bytes32 updatedRoot = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getCampaignMerkleRoot(
+            campaignId
+        );
+        assertEq(updatedRoot, newRoot, "Merkle root should be updated on paused campaign");
     }
 
     function test_UpdateMerkleRootFailsOnEndedCampaign() public {
         // Setup: Create campaign with initial merkle root
         token.mint(address(createdDAO), 10 ether);
         bytes32 initialRoot = merkleRoot;
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -605,30 +632,35 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         // End the campaign
         capitalDistributorPlugin.endCampaign(campaignId);
-        
+
         // Verify campaign is ended
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        assertEq(uint8(campaign.state), uint8(CapitalDistributorPlugin.CampaignState.ENDED), "Campaign should be ended");
-        
+        assertEq(
+            uint8(campaign.state),
+            uint8(CapitalDistributorPlugin.CampaignState.ENDED),
+            "Campaign should be ended"
+        );
+
         // Try to update merkle root on ended campaign
         bytes32 newRoot = keccak256("new-merkle-root");
         bytes memory newRootData = abi.encode(newRoot);
-        
-        vm.expectRevert(
-            abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotActiveForUpdate.selector, campaignId)
-        );
-        
+
+        vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, campaignId));
+
         // Call directly on strategy but from plugin context
         vm.stopPrank();
         vm.prank(address(capitalDistributorPlugin));
-        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(campaignId, newRootData);
+        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
+            campaignId,
+            newRootData
+        );
     }
 
-    function test_UpdateMerkleRootSucceedsOnActiveCampaign() public {
+    function test_UpdateMerkleRootFailsOnActiveCampaign() public {
         // Setup: Create active campaign with initial merkle root
         token.mint(address(createdDAO), 10 ether);
         bytes32 initialRoot = merkleRoot;
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -648,32 +680,34 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         // Verify campaign is active
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        assertEq(uint8(campaign.state), uint8(CapitalDistributorPlugin.CampaignState.ACTIVE), "Campaign should be active");
+        assertEq(
+            uint8(campaign.state),
+            uint8(CapitalDistributorPlugin.CampaignState.ACTIVE),
+            "Campaign should be active"
+        );
         assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be active");
-        
-        // Update merkle root on active campaign should succeed
+
+        // Update merkle root on active campaign should fail
         bytes32 newRoot = keccak256("new-merkle-root");
         bytes memory newRootData = abi.encode(newRoot);
-        
-        // Should not revert
-        vm.expectEmit(true, true, false, true);
-        emit MerkleDistributorStrategy.MerkleCampaignUpdated(campaignId, initialRoot, newRoot);
-        
+
+        // Should revert with CampaignNotPaused since active campaigns cannot be updated
+        vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, campaignId));
+
         // Call directly on strategy but from plugin context
         vm.stopPrank();
         vm.prank(address(capitalDistributorPlugin));
-        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(campaignId, newRootData);
-        
-        // Verify the merkle root was updated
-        bytes32 updatedRoot = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getCampaignMerkleRoot(campaignId);
-        assertEq(updatedRoot, newRoot, "Merkle root should be updated");
+        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
+            campaignId,
+            newRootData
+        );
     }
 
     function test_SafeMerkleRootUpdateWorkflow() public {
         // Setup: Create campaign and mint tokens
         token.mint(address(createdDAO), 10 ether);
         bytes32 initialRoot = merkleRoot;
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -693,38 +727,60 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
 
-        // Verify initial active state allows updates
+        // Verify initial active state
         assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be active initially");
-        
-        // Step 1: Pause campaign 
-        capitalDistributorPlugin.pauseCampaign(campaignId);
-        assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be paused");
-        
-        // Step 2: Update merkle root should fail on paused campaign (expected security behavior)
+
+        // Step 1: Try updating the campaign while active (should fail)
         bytes32 newRoot = keccak256("updated-merkle-root");
         bytes memory newRootData = abi.encode(newRoot);
-        
-        vm.expectRevert(
-            abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotActiveForUpdate.selector, campaignId)
-        );
-        
-        // Try to update while paused (should fail)
+
+        vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, campaignId));
+
+        // Try to update while active (should fail)
         vm.stopPrank();
         vm.prank(address(capitalDistributorPlugin));
-        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(campaignId, newRootData);
+        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
+            campaignId,
+            newRootData
+        );
+
+        // Step 2: Pause campaign to allow updates
+        vm.prank(address(createdDAO));
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+        assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be paused");
+
+        // Step 3: Update merkle root should succeed on paused campaign
+        vm.expectEmit(true, true, false, true);
+        emit MerkleDistributorStrategy.MerkleCampaignUpdated(campaignId, initialRoot, newRoot);
         
-        // Step 3: Resume campaign to allow updates
+        vm.prank(address(capitalDistributorPlugin));
+        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
+            campaignId,
+            newRootData
+        );
+
+        // Verify the update succeeded
+        bytes32 updatedRoot = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getCampaignMerkleRoot(
+            campaignId
+        );
+        assertEq(updatedRoot, newRoot, "Merkle root should be updated when paused");
+
+        // Step 4: Resume campaign and verify we can't update again
         vm.prank(address(createdDAO));
         capitalDistributorPlugin.resumeCampaign(campaignId);
         assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be active after resume");
+
+        // Try to update again while active (should fail)
+        bytes32 anotherRoot = keccak256("another-merkle-root");
+        bytes memory anotherRootData = abi.encode(anotherRoot);
+
+        vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, campaignId));
         
-        // Step 4: Now merkle root update should succeed on resumed active campaign
         vm.prank(address(capitalDistributorPlugin));
-        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(campaignId, newRootData);
-        
-        // Verify the update succeeded
-        bytes32 updatedRoot = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getCampaignMerkleRoot(campaignId);
-        assertEq(updatedRoot, newRoot, "Merkle root should be updated after resume");
+        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
+            campaignId,
+            anotherRootData
+        );
     }
 
     // ============================================================================
@@ -735,7 +791,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Setup: Create strategy first to test setAllocationCampaign directly
         token.mint(address(createdDAO), 10 ether);
         bytes32 validRoot = merkleRoot;
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -761,9 +817,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 invalidRoot = bytes32(0);
         bytes memory auxData = abi.encode(invalidRoot);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(MerkleDistributorStrategy.InvalidMerkleRoot.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.InvalidMerkleRoot.selector));
 
         // Direct call to setAllocationCampaign on the strategy to test the specific error
         vm.prank(address(capitalDistributorPlugin));
@@ -771,10 +825,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
     }
 
     function test_UpdateCampaignMerkleRootRevertOnInvalidMerkleRoot() public {
-        // Setup: Create active campaign
+        // Setup: Create campaign
         token.mint(address(createdDAO), 10 ether);
         bytes32 initialRoot = merkleRoot;
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -792,6 +846,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
             0
         );
 
+        // Pause the campaign to allow merkle root updates
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
         vm.stopPrank();
 
@@ -799,19 +856,20 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 invalidRoot = bytes32(0);
         bytes memory invalidRootData = abi.encode(invalidRoot);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(MerkleDistributorStrategy.InvalidMerkleRoot.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.InvalidMerkleRoot.selector));
 
         vm.prank(address(capitalDistributorPlugin));
-        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(campaignId, invalidRootData);
+        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
+            campaignId,
+            invalidRootData
+        );
     }
 
     function test_SetAllocationCampaignRevertOnAlreadyExistingCampaign() public {
         // Setup: Create first campaign
         token.mint(address(createdDAO), 10 ether);
         bytes32 firstRoot = merkleRoot;
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -842,14 +900,17 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Direct call to setAllocationCampaign on the strategy to test the specific error
         vm.stopPrank();
         vm.prank(address(capitalDistributorPlugin));
-        MerkleDistributorStrategy(address(campaign.allocationStrategy)).setAllocationCampaign(campaignId, secondAuxData);
+        MerkleDistributorStrategy(address(campaign.allocationStrategy)).setAllocationCampaign(
+            campaignId,
+            secondAuxData
+        );
     }
 
     function test_UpdateCampaignMerkleRootRevertOnDuplicateRoot() public {
-        // Setup: Create active campaign
+        // Setup: Create campaign
         token.mint(address(createdDAO), 10 ether);
         bytes32 initialRoot = merkleRoot;
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -867,25 +928,29 @@ contract MerkleDistributorStrategyTest is AragonTest {
             0
         );
 
+        // Pause the campaign to allow merkle root updates
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
         vm.stopPrank();
 
         // Try to update with the same merkle root (should fail)
         bytes memory duplicateRootData = abi.encode(initialRoot);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(MerkleDistributorStrategy.DuplicateMerkleRoot.selector, initialRoot)
-        );
+        vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.DuplicateMerkleRoot.selector, initialRoot));
 
         vm.prank(address(capitalDistributorPlugin));
-        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(campaignId, duplicateRootData);
+        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
+            campaignId,
+            duplicateRootData
+        );
     }
 
     function test_UpdateCampaignMerkleRootRevertOnCampaignNotFound() public {
         // Setup: Create active campaign to get strategy address
         token.mint(address(createdDAO), 10 ether);
         bytes32 initialRoot = merkleRoot;
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -907,25 +972,28 @@ contract MerkleDistributorStrategyTest is AragonTest {
         vm.stopPrank();
 
         // Try to update a non-existent campaign ID
-        // NOTE: Due to our security validation order, this will fail with CampaignNotActiveForUpdate 
+        // NOTE: Due to our security validation order, this will fail with CampaignNotActiveForUpdate
         // because isCampaignActive(999) returns false for non-existent campaigns, which is checked first
         uint256 nonExistentCampaignId = 999;
         bytes32 newRoot = keccak256("new-root");
         bytes memory newRootData = abi.encode(newRoot);
 
         vm.expectRevert(
-            abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotActiveForUpdate.selector, nonExistentCampaignId)
+            abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, nonExistentCampaignId)
         );
 
         vm.prank(address(capitalDistributorPlugin));
-        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(nonExistentCampaignId, newRootData);
+        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
+            nonExistentCampaignId,
+            newRootData
+        );
     }
 
     function test_UpdateCampaignMerkleRootUsesStoredPluginAddress() public {
-        // Setup: Create active campaign
+        // Setup: Create campaign
         token.mint(address(createdDAO), 10 ether);
         bytes32 initialRoot = merkleRoot;
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -943,20 +1011,23 @@ contract MerkleDistributorStrategyTest is AragonTest {
             0
         );
 
+        // Pause the campaign to allow merkle root updates
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
         vm.stopPrank();
 
         // Verify that the strategy has the correct plugin address stored
         MerkleDistributorStrategy strategy = MerkleDistributorStrategy(address(campaign.allocationStrategy));
         assertEq(strategy.plugin(), address(capitalDistributorPlugin), "Plugin address should be stored correctly");
-        
+
         // Test that updateCampaignMerkleRoot works when called by DAO (using stored plugin address)
         bytes32 newRoot = keccak256("new-root");
         bytes memory newRootData = abi.encode(newRoot);
-        
+
         vm.prank(address(createdDAO));
         strategy.updateCampaignMerkleRoot(campaignId, newRootData);
-        
+
         // Verify the root was updated
         bytes32 updatedRoot = strategy.getCampaignMerkleRoot(campaignId);
         assertEq(updatedRoot, newRoot, "Merkle root should be updated");
@@ -966,7 +1037,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Setup: Create active campaign to get strategy address
         token.mint(address(createdDAO), 10 ether);
         bytes32 initialRoot = merkleRoot;
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -989,8 +1060,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         // Get merkle root for non-existent campaign should return zero
         uint256 nonExistentCampaignId = 999;
-        bytes32 retrievedRoot = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getCampaignMerkleRoot(nonExistentCampaignId);
-        
+        bytes32 retrievedRoot = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getCampaignMerkleRoot(
+            nonExistentCampaignId
+        );
+
         assertEq(retrievedRoot, bytes32(0), "Non-existent campaign should return zero merkle root");
     }
 
@@ -1001,7 +1074,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     function test_MerkleCampaignSetEventEmission() public {
         token.mint(address(createdDAO), 10 ether);
         bytes32 testRoot = merkleRoot;
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -1029,7 +1102,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Setup: Create campaign
         token.mint(address(createdDAO), 10 ether);
         bytes32 initialRoot = merkleRoot;
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -1048,17 +1121,45 @@ contract MerkleDistributorStrategyTest is AragonTest {
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        vm.stopPrank();
+        
+        // Verify campaign starts active
+        assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be active initially");
 
-        // Test event emission during merkle root update
+        // Test that update fails when campaign is active
         bytes32 newRoot = keccak256("updated-root");
         bytes memory newRootData = abi.encode(newRoot);
 
+        vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, campaignId));
+        
+        vm.stopPrank();
+        vm.prank(address(capitalDistributorPlugin));
+        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
+            campaignId,
+            newRootData
+        );
+
+        // Now pause the campaign to allow updates
+        vm.prank(address(createdDAO));
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+        
+        // Verify campaign is paused
+        assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be paused");
+
+        // Test successful event emission during merkle root update on paused campaign
         vm.expectEmit(true, true, false, true);
         emit MerkleDistributorStrategy.MerkleCampaignUpdated(campaignId, initialRoot, newRoot);
 
         vm.prank(address(capitalDistributorPlugin));
-        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(campaignId, newRootData);
+        MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
+            campaignId,
+            newRootData
+        );
+
+        // Verify the merkle root was actually updated
+        bytes32 updatedRoot = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getCampaignMerkleRoot(
+            campaignId
+        );
+        assertEq(updatedRoot, newRoot, "Merkle root should be updated");
     }
 
     // ============================================================================
@@ -1068,7 +1169,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     function test_GetClaimableAmountReturnsZeroForNonExistentCampaign() public {
         // Setup strategy without any campaigns
         MerkleDistributorStrategy testStrategy = new MerkleDistributorStrategy();
-        
+
         // Test data
         uint256 nonExistentCampaignId = 999;
         address testAccount = alice;
@@ -1081,14 +1182,14 @@ contract MerkleDistributorStrategyTest is AragonTest {
         vm.startPrank(address(capitalDistributorPlugin));
         uint256 claimableAmount = testStrategy.getClaimeableAmount(nonExistentCampaignId, testAccount, auxData);
         vm.stopPrank();
-        
+
         assertEq(claimableAmount, 0, "Should return 0 for non-existent campaign");
     }
 
     function test_GetClaimableAmountReturnsZeroForPartialClaim() public {
         // Setup campaign
         token.mint(address(createdDAO), 10 ether);
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -1105,7 +1206,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
             0,
             0
         );
-        
+
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
         vm.stopPrank();
 
@@ -1113,25 +1214,30 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32[] memory aliceProof = getMerkleProof(0);
         uint256 fullAmount = amounts[0]; // Alice's full allocation
         uint256 partialAmount = fullAmount / 2; // Alice tries to claim less
-        
+
         // Test 1: Full amount should be claimable initially
         bytes memory fullClaimData = abi.encode(aliceProof, fullAmount);
         vm.prank(address(capitalDistributorPlugin));
-        uint256 claimableAmount = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getClaimeableAmount(campaignId, alice, fullClaimData);
+        uint256 claimableAmount = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getClaimeableAmount(
+            campaignId,
+            alice,
+            fullClaimData
+        );
         assertEq(claimableAmount, fullAmount, "Should return full amount initially");
 
         // Test 2: Invalid claim amount (more than allocated) should return 0
         uint256 excessiveAmount = fullAmount * 2;
         bytes memory excessiveClaimData = abi.encode(aliceProof, excessiveAmount);
         vm.prank(address(capitalDistributorPlugin));
-        uint256 excessiveClaimable = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getClaimeableAmount(campaignId, alice, excessiveClaimData);
+        uint256 excessiveClaimable = MerkleDistributorStrategy(address(campaign.allocationStrategy))
+            .getClaimeableAmount(campaignId, alice, excessiveClaimData);
         assertEq(excessiveClaimable, 0, "Should return 0 for excessive claim amount");
     }
 
     function test_GetClaimableAmountReturnsZeroForInvalidProof() public {
         // Setup campaign
         token.mint(address(createdDAO), 10 ether);
-        
+
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -1162,10 +1268,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_EncodingTypesReturnCorrectStrings() public {
         MerkleDistributorStrategy testStrategy = new MerkleDistributorStrategy();
-        
+
         string memory creationTypes = testStrategy.getCreationEncodingTypes();
         string memory claimTypes = testStrategy.getClaimEncodingTypes();
-        
+
         assertEq(creationTypes, "bytes32", "Creation encoding should be bytes32");
         assertEq(claimTypes, "bytes32[],uint256", "Claim encoding should be bytes32[],uint256");
     }
