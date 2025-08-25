@@ -42,10 +42,10 @@ contract VerifyProof is Script {
             console.log("  [%d]:", i, vm.toString(proof[i]));
         }
         
-        console.log("Result:", isValid ? "VALID ✅" : "INVALID ❌");
+        console.log("Result:", isValid ? "VALID" : "INVALID");
         
         if (!isValid) {
-            console.log("⚠️  Proof verification failed!");
+            console.log("WARNING: Proof verification failed!");
         }
     }
 
@@ -58,9 +58,9 @@ contract VerifyProof is Script {
         string memory json = vm.readFile(proofFilePath);
         
         // Parse proof data
-        address recipient = vm.parseAddress(vm.parseJson(json, ".recipient"));
-        uint256 amount = vm.parseUint(vm.parseJson(json, ".amount"));
-        bytes32 merkleRoot = vm.parseBytes32(vm.parseJson(json, ".merkleRoot"));
+        address recipient = abi.decode(vm.parseJson(json, ".recipient"), (address));
+        uint256 amount = abi.decode(vm.parseJson(json, ".amount"), (uint256));
+        bytes32 merkleRoot = abi.decode(vm.parseJson(json, ".merkleRoot"), (bytes32));
         
         // Parse proof array
         bytes memory proofData = vm.parseJson(json, ".proof");
@@ -80,8 +80,8 @@ contract VerifyProof is Script {
     function batchVerify(string memory merkleTreeFilePath, string memory proofsDirectory) external {
         // Read merkle tree file to get root
         string memory treeJson = vm.readFile(merkleTreeFilePath);
-        bytes32 merkleRoot = vm.parseBytes32(vm.parseJson(treeJson, ".merkleRoot"));
-        uint256 totalRecipients = vm.parseUint(vm.parseJson(treeJson, ".totalRecipients"));
+        bytes32 merkleRoot = abi.decode(vm.parseJson(treeJson, ".merkleRoot"), (bytes32));
+        uint256 totalRecipients = abi.decode(vm.parseJson(treeJson, ".totalRecipients"), (uint256));
         
         console.log("=== Batch Proof Verification ===");
         console.log("Merkle Root:", vm.toString(merkleRoot));
@@ -92,10 +92,10 @@ contract VerifyProof is Script {
         
         // Note: In a real implementation, you'd need to iterate through files in the directory
         // For now, this serves as a template for batch verification
-        console.log("⚠️  Batch verification requires manual file iteration");
+        console.log("WARNING: Batch verification requires manual file iteration");
         console.log("Use individual verifyFromFile() calls for each proof file");
         
-        console.log("Valid proofs: %d/%d", validProofs, totalProofs);
+        console.log("Valid proofs:", validProofs, "/", totalProofs);
     }
 
     /**
@@ -146,15 +146,15 @@ contract VerifyProof is Script {
             
             if (isLeft) {
                 currentHash = keccak256(abi.encodePacked(currentHash, proofElement));
-                console.log("  Step %d: hash(%s, %s) = %s", i + 1, vm.toString(currentHash), vm.toString(proofElement), vm.toString(currentHash));
+                console.log("  Step", i + 1, ": left hash");
             } else {
                 currentHash = keccak256(abi.encodePacked(proofElement, currentHash));
-                console.log("  Step %d: hash(%s, %s) = %s", i + 1, vm.toString(proofElement), vm.toString(currentHash), vm.toString(currentHash));
+                console.log("  Step", i + 1, ": right hash");
             }
         }
         
         console.log("Final computed:", vm.toString(currentHash));
         console.log("Expected root:", vm.toString(merkleRoot));
-        console.log("Result:", isValid ? "VALID ✅" : "INVALID ❌");
+        console.log("Result:", isValid ? "VALID" : "INVALID");
     }
 }

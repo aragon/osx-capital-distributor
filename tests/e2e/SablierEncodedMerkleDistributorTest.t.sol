@@ -14,9 +14,9 @@ import {MerkleDistributorStrategy} from "../../src/allocatorStrategies/MerkleDis
 import {IAllocatorStrategyFactory} from "../../src/interfaces/IAllocatorStrategyFactory.sol";
 import {IPayoutActionEncoder} from "../../src/interfaces/IPayoutActionEncoder.sol";
 import {ISablierLockup, SablierLinearPayoutActionEncoder} from "../../src/payoutActionEncoders/SablierLinearPayoutActionEncoder.sol";
-import {CreateExampleRecipients} from "../../scripts/merkleDistributor/CreateExampleRecipients.s.sol";
-import {GenerateMerkleTree} from "../../scripts/merkleDistributor/GenerateMerkleTree.s.sol";
-import {GenerateProof} from "../../scripts/merkleDistributor/GenerateProof.s.sol";
+import {CreateExampleRecipients} from "../../script/utils/CreateExampleRecipients.s.sol";
+import {GenerateMerkleTree} from "../../script/utils/GenerateMerkleTree.s.sol";
+import {GenerateProof} from "../../script/utils/GenerateProof.s.sol";
 
 /// @title SablierEncodedMerkleDistributorTest
 /// @notice E2E test for Merkle distributor with Sablier stream encoding on mainnet fork
@@ -47,8 +47,8 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
     mapping(address => bytes32[]) recipientProofs;
     
     // Script-generated test data
-    string constant E2E_RECIPIENTS_FILE = "./test/scripts/data/e2e-test-recipients.json";
-    string constant E2E_TREE_FILE = "./test/scripts/data/merkle-tree.json";
+    string constant E2E_RECIPIENTS_FILE = "./tests/data/e2e-test-recipients.json";
+    string constant E2E_TREE_FILE = "./tests/data/merkle-tree.json";
 
     // =============================================================================
     // Abstract Function Implementations
@@ -321,7 +321,7 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
         generateProofScript.generateProof(E2E_TREE_FILE, recipient);
         
         // Read the generated proof file
-        string memory proofFile = string.concat("./test/scripts/data/proof-", vm.toString(recipient), ".json");
+        string memory proofFile = string.concat("./tests/data/proof-", vm.toString(recipient), ".json");
         string memory proofJson = vm.readFile(proofFile);
         
         // Parse proof data

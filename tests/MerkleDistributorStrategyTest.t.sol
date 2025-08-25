@@ -17,9 +17,9 @@ import {MerkleDistributorStrategy} from "../src/allocatorStrategies/MerkleDistri
 
 import {MintableERC20} from "./mocks/MintableERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {CreateExampleRecipients} from "../scripts/merkleDistributor/CreateExampleRecipients.s.sol";
-import {GenerateMerkleTree} from "../scripts/merkleDistributor/GenerateMerkleTree.s.sol";
-import {GenerateProof} from "../scripts/merkleDistributor/GenerateProof.s.sol";
+import {CreateExampleRecipients} from "../script/utils/CreateExampleRecipients.s.sol";
+import {GenerateMerkleTree} from "../script/utils/GenerateMerkleTree.s.sol";
+import {GenerateProof} from "../script/utils/GenerateProof.s.sol";
 
 contract MerkleDistributorStrategyTest is AragonTest {
     using stdJson for string;
@@ -40,8 +40,8 @@ contract MerkleDistributorStrategyTest is AragonTest {
     bytes32 merkleRoot;
     
     // Script-generated test data  
-    string constant TEST_RECIPIENTS_FILE = "./test/scripts/data/test-recipients-merkle.json";
-    string constant TEST_TREE_FILE = "./test/scripts/data/merkle-tree.json";
+    string constant TEST_RECIPIENTS_FILE = "./tests/data/test-recipients-merkle.json";
+    string constant TEST_TREE_FILE = "./tests/data/merkle-tree.json";
 
     /// @dev A function invoked before each test case is run.
     function setUp() public virtual {
@@ -116,7 +116,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         generateProofScript.generateProof(TEST_TREE_FILE, recipient);
         
         // Read the generated proof file from test data directory
-        string memory proofFile = string.concat("./test/scripts/data/proof-", vm.toString(recipient), ".json");
+        string memory proofFile = string.concat("./tests/data/proof-", vm.toString(recipient), ".json");
         string memory proofJson = vm.readFile(proofFile);
         
         // Parse proof data
@@ -471,10 +471,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_LargeRecipientSetUsingScripts() public {
         // Create large recipient set using script
-        createExampleScript.createLargeExample("./test/scripts/data/large-recipients-test.json");
-        generateTreeScript.generate("./test/scripts/data/large-recipients-test.json");
+        createExampleScript.createLargeExample("./tests/data/large-recipients-test.json");
+        generateTreeScript.generate("./tests/data/large-recipients-test.json");
         
-        string memory largeTreeJson = vm.readFile("./test/scripts/data/merkle-tree.json");
+        string memory largeTreeJson = vm.readFile("./tests/data/merkle-tree.json");
         bytes32 largeRoot = largeTreeJson.readBytes32(".merkleRoot");
         uint256 totalRecipients = largeTreeJson.readUint(".totalRecipients");
         
@@ -505,12 +505,12 @@ contract MerkleDistributorStrategyTest is AragonTest {
         address testAddr2 = address(uint160(uint256(keccak256(abi.encodePacked("recipient", uint256(25))))));
         
         // Generate proofs using script
-        generateProofScript.generateProof("./test/scripts/data/merkle-tree.json", testAddr1);
-        generateProofScript.generateProof("./test/scripts/data/merkle-tree.json", testAddr2);
+        generateProofScript.generateProof("./tests/data/merkle-tree.json", testAddr1);
+        generateProofScript.generateProof("./tests/data/merkle-tree.json", testAddr2);
         
         // Read proof files
-        string memory proof1File = string.concat("./test/scripts/data/proof-", vm.toString(testAddr1), ".json");
-        string memory proof2File = string.concat("./test/scripts/data/proof-", vm.toString(testAddr2), ".json");
+        string memory proof1File = string.concat("./tests/data/proof-", vm.toString(testAddr1), ".json");
+        string memory proof2File = string.concat("./tests/data/proof-", vm.toString(testAddr2), ".json");
         
         string memory proof1Json = vm.readFile(proof1File);
         string memory proof2Json = vm.readFile(proof2File);

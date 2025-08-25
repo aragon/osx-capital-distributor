@@ -42,7 +42,7 @@ contract GenerateMerkleTree is Script {
         string memory output = createOutputJson(merkleRoot, recipients, leaves, totalAmount);
         
         // Write output file to test data directory
-        string memory outputPath = "./test/scripts/data/merkle-tree.json";
+        string memory outputPath = "./tests/data/merkle-tree.json";
         vm.writeFile(outputPath, output);
         
         // Log results

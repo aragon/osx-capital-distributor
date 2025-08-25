@@ -55,7 +55,7 @@ contract GenerateProof is Script {
         
         // Write output file to test data directory
         string memory outputPath = string.concat(
-            "./test/scripts/data/proof-",
+            "./tests/data/proof-",
             vm.toString(recipientAddress),
             ".json"
         );
