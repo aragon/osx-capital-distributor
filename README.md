@@ -1,7 +1,5 @@
-# Capital Distributor [![Open in Gitpod][gitpod-badge]][gitpod] [![Github Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: AGPL v3][license-badge]][license]
+# Capital Distributor [![Github Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: AGPL v3][license-badge]][license]
 
-[gitpod]: https://gitpod.io/#https://github.com/aragon/osx-capital-distributor
-[gitpod-badge]: https://img.shields.io/badge/Gitpod-Open%20in%20Gitpod-FFB45B?logo=gitpod
 [gha]: https://github.com/aragon/osx-capital-distributor/actions
 [gha-badge]: https://github.com/aragon/osx-capital-distributor/actions/workflows/ci.yml/badge.svg
 [foundry]: https://getfoundry.sh/
@@ -11,11 +9,14 @@
 
 ## Overview
 
-Capital Distributor is an Aragon OSx plugin that enables onchain organizations to create and manage capital distribution campaigns. Organizations can distribute tokens to their members through various allocation strategies and payout methods, making it ideal for airdrops, gauge distributions, incentive programs, grants, and rewards.
+Capital Distributor is an Aragon OSx plugin that enables onchain organizations to create and manage capital distribution
+campaigns. Organizations can distribute tokens to their members through various allocation strategies and payout
+methods, making it ideal for airdrops, gauge distributions, incentive programs, grants, and rewards.
 
 ## Architecture
 
-The system follows a modular architecture where the main plugin orchestrates campaigns using dynamically deployed strategies and encoders through factory contracts:
+The system follows a modular architecture where the main plugin orchestrates campaigns using dynamically deployed
+strategies and encoders through factory contracts:
 
 ```mermaid
 graph TB
@@ -25,7 +26,7 @@ graph TB
         PS -->|configures| F1[AllocatorStrategyFactory]
         PS -->|configures| F2[ActionEncoderFactory]
     end
-    
+
     subgraph "Campaign Creation"
         O[Organization] -->|creates campaign| P
         P -->|requests strategy| F1
@@ -33,7 +34,7 @@ graph TB
         F1 -->|deploys/returns| AS[Allocation Strategy]
         F2 -->|deploys/returns| AE[Action Encoder]
     end
-    
+
     subgraph "Campaign Execution"
         U[User] -->|claims| P
         P -->|validates with| AS
@@ -47,7 +48,9 @@ graph TB
 ## Core Components
 
 ### CapitalDistributorPlugin
+
 The main plugin contract that manages the lifecycle of distribution campaigns. It handles:
+
 - Campaign creation with customizable parameters
 - Claim processing and validation
 - Campaign state management (active, paused, ended)
@@ -56,22 +59,28 @@ The main plugin contract that manages the lifecycle of distribution campaigns. I
 ### Factory Contracts
 
 #### AllocatorStrategyFactory
-Manages the deployment and registration of allocation strategies. Each strategy determines how tokens are allocated to recipients.
+
+Manages the deployment and registration of allocation strategies. Each strategy determines how tokens are allocated to
+recipients.
 
 **Available Strategies:**
+
 - **MerkleDistributorStrategy**: Uses Merkle trees for efficient large-scale distributions (airdrops)
 - **GaugeVoterAllocatorStrategy**: Allocates based on gauge voting weights (incentive programs)
 - **CallBasedAllocatorStrategy**: Delegates allocation logic to external contracts (custom logic)
 
 #### ActionEncoderFactory
+
 Manages payout action encoders that transform distribution amounts into executable DAO actions.
 
 **Available Encoders:**
+
 - **Direct Transfer**: Simple ERC20 token transfers
 - **VaultDepositPayoutActionEncoder**: Deposits tokens into ERC-4626 vaults
 - **SablierLinearPayoutActionEncoder**: Creates token streams for vesting schedules
 
 ### Campaign Structure
+
 ```solidity
 struct Campaign {
     bytes metadataURI;              // Campaign metadata (IPFS)
@@ -98,6 +107,7 @@ struct Campaign {
 ## Installation
 
 ### Prerequisites
+
 - [Foundry](https://getfoundry.sh/) development framework
 - [Bun](https://bun.sh/) or Node.js package manager
 - Git
@@ -115,6 +125,7 @@ bun install # or npm install
 ## Build & Test
 
 ### Build
+
 The project **must** be built with the `--via-ir` flag for optimization:
 
 ```bash
@@ -122,6 +133,7 @@ forge build --via-ir
 ```
 
 ### Test
+
 Run the test suite with verbose output:
 
 ```bash
@@ -129,6 +141,7 @@ forge test --via-ir -vvv
 ```
 
 ### Coverage
+
 Generate test coverage report:
 
 ```bash
@@ -136,6 +149,7 @@ forge coverage --via-ir
 ```
 
 ### Gas Analysis
+
 Generate gas reports for optimization:
 
 ```bash
@@ -151,28 +165,32 @@ forge snapshot --via-ir
 The deployment process follows these steps:
 
 1. **Deploy Factory Contracts**
+
    ```solidity
    AllocatorStrategyFactory allocatorFactory = new AllocatorStrategyFactory();
    ActionEncoderFactory actionFactory = new ActionEncoderFactory();
    ```
 
 2. **Register Strategies and Encoders**
+
    ```solidity
    // Register allocation strategies
    allocatorFactory.registerStrategyType("merkle-distributor", merkleStrategy, ...);
    allocatorFactory.registerStrategyType("gauge-voter", gaugeStrategy, ...);
-   
+
    // Register action encoders
    actionFactory.registerActionEncoder("vault-deposit", vaultEncoder, ...);
    actionFactory.registerActionEncoder("sablier-linear", sablierEncoder, ...);
    ```
 
 3. **Deploy Plugin Setup**
+
    ```solidity
    CapitalDistributorPluginSetup setup = new CapitalDistributorPluginSetup();
    ```
 
 4. **Publish to Aragon Registry**
+
    ```solidity
    PluginRepo repo = repoFactory.createPluginRepoWithFirstVersion(
        "capital-distributor",
@@ -184,11 +202,13 @@ The deployment process follows these steps:
    ```
 
 5. **Install Plugin in DAO**
+
    ```solidity
    DAO.createDao(daoSettings, pluginSettings);
    ```
 
 ### Deployment Script
+
 Deploy using the provided script:
 
 ```bash
@@ -196,6 +216,7 @@ forge script script/Deploy.s.sol --rpc-url <RPC_URL> --broadcast --via-ir
 ```
 
 Required environment variables:
+
 - `PLUGIN_REPO_FACTORY`: Aragon Plugin Repository Factory address
 - `DAO_FACTORY`: Aragon DAO Factory address
 - `ADMIN_REPO`: Admin plugin repository address
@@ -203,14 +224,14 @@ Required environment variables:
 
 ## Deployment Addresses
 
-| Network | Plugin Setup | AllocatorStrategyFactory | ActionEncoderFactory |
-|---------|-------------|-------------------------|---------------------|
-| Ethereum Mainnet | TBD | TBD | TBD |
-| Polygon | TBD | TBD | TBD |
-| Arbitrum One | TBD | TBD | TBD |
-| Optimism | TBD | TBD | TBD |
-| Base | TBD | TBD | TBD |
-| Sepolia Testnet | TBD | TBD | TBD |
+| Network          | Plugin Setup | AllocatorStrategyFactory | ActionEncoderFactory |
+| ---------------- | ------------ | ------------------------ | -------------------- |
+| Ethereum Mainnet | TBD          | TBD                      | TBD                  |
+| Polygon          | TBD          | TBD                      | TBD                  |
+| Arbitrum One     | TBD          | TBD                      | TBD                  |
+| Optimism         | TBD          | TBD                      | TBD                  |
+| Base             | TBD          | TBD                      | TBD                  |
+| Sepolia Testnet  | TBD          | TBD                      | TBD                  |
 
 ## Usage Examples
 
@@ -268,4 +289,5 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 ## License
 
-This project is licensed under the GNU Affero General Public License v3.0 or later - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU Affero General Public License v3.0 or later - see the [LICENSE](LICENSE) file for
+details.
