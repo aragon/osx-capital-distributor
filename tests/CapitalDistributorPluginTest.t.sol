@@ -2651,6 +2651,224 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         vm.stopPrank();
     }
+
+    // ============================================
+    // T11: claimCampaignPayoutToAddress Tests
+    // ============================================
+
+    /// @notice Test basic functionality and security of claimCampaignPayoutToAddress
+    function test_ClaimPayoutToAddress_BasicFunctionality() public {
+        mintTokensToDAO(2 ether);
+        vm.startPrank(address(createdDAO));
+        uint256 campaignId = createBasicCampaign();
+        vm.stopPrank();
+
+        // Alice claims her allocation but sends funds to Bob
+        vm.startPrank(alice);
+        
+        uint256 aliceInitialBalance = token.balanceOf(alice);
+        uint256 bobInitialBalance = token.balanceOf(bob);
+        
+        // Event should show alice as recipient, even though funds go to bob
+        vm.expectEmit(true, true, true, true);
+        emit CapitalDistributorPlugin.PayoutClaimed(campaignId, alice, 1 ether);
+        
+        uint256 amountSent = capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, bob, "", "");
+        
+        // Verify funds went to bob, not alice
+        assertEq(token.balanceOf(alice), aliceInitialBalance, "Alice should not receive funds");
+        assertEq(token.balanceOf(bob), bobInitialBalance + 1 ether, "Bob should receive the funds");
+        assertEq(amountSent, 1 ether, "Should return correct amount sent");
+        
+        // Verify claim is tracked against alice (msg.sender)
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 1 ether, "Alice's claim should be tracked");
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, bob), 0, "Bob's claim should remain zero");
+        
+        vm.stopPrank();
+    }
+
+    /// @notice Test security: only msg.sender can claim their allocation (no proxy claims) 
+    function test_ClaimPayoutToAddress_OnlyMsgSenderCanClaimTheirAllocation() public {
+        mintTokensToDAO(3 ether);
+        vm.startPrank(address(createdDAO));
+        uint256 campaignId = createBasicCampaign();
+        vm.stopPrank();
+
+        // Bob can claim his allocation and redirect funds to Alice
+        // (Mock strategy allows everyone to claim 1 ether)
+        vm.startPrank(bob);
+        uint256 bobAmount = capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, alice, "", "");
+        assertEq(bobAmount, 1 ether, "Bob should claim 1 ether");
+        
+        // Verify funds went to Alice but claim is tracked against Bob
+        assertEq(token.balanceOf(alice), 1 ether, "Alice should receive Bob's redirected funds");
+        assertEq(token.balanceOf(bob), 0, "Bob should not receive funds (redirected to Alice)");
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, bob), 1 ether, "Bob's claim should be tracked");
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 0, "Alice's claim should remain zero");
+        
+        // Bob cannot claim again (multiple claims not allowed)
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.MultipleClaimsNotAllowed.selector, campaignId, bob));
+        capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, alice, "", "");
+        vm.stopPrank();
+
+        // Alice can claim her own allocation and redirect to Bob
+        vm.startPrank(alice);
+        uint256 aliceAmount = capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, bob, "", "");
+        assertEq(aliceAmount, 1 ether, "Alice should claim 1 ether");
+        
+        // Alice cannot claim again
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.MultipleClaimsNotAllowed.selector, campaignId, alice));
+        capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, bob, "", "");
+        vm.stopPrank();
+
+        // Verify final state: funds crossed over but claims tracked to original senders
+        assertEq(token.balanceOf(alice), 1 ether, "Alice final balance (Bob's redirected funds)");
+        assertEq(token.balanceOf(bob), 1 ether, "Bob final balance (Alice's redirected funds)");
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 1 ether, "Alice's claim tracked");
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, bob), 1 ether, "Bob's claim tracked");
+    }
+
+    /// @notice Test fee collection and proper event emission with claimCampaignPayoutToAddress
+    function test_ClaimPayoutToAddress_WithFeesAndEvents() public {
+        mintTokensToDAO(2 ether);
+        
+        // Register a fee-collecting strategy
+        vm.startPrank(address(createdDAO));
+        allocatorStrategyFactory.registerStrategyType(
+            toBytes32("fee-strategy"),
+            address(strategy),
+            "",
+            address(0x1234), // Fee recipient
+            500 // 5% fee
+        );
+        
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "ipfs://test",
+            toBytes32("fee-strategy"), 
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            0,
+            0
+        );
+        vm.stopPrank();
+
+        // Alice claims with fee deduction and redirection to Bob
+        vm.startPrank(alice);
+        
+        uint256 aliceInitialBalance = token.balanceOf(alice);
+        uint256 bobInitialBalance = token.balanceOf(bob);
+        uint256 feeRecipientInitialBalance = token.balanceOf(address(0x1234));
+        
+        // Expect both PayoutClaimed and FeeCollected events
+        vm.expectEmit(true, true, true, true);
+        emit CapitalDistributorPlugin.PayoutClaimed(campaignId, alice, 0.95 ether); // 95% after 5% fee
+        
+        vm.expectEmit(true, true, true, true);
+        emit CapitalDistributorPlugin.FeeCollected(campaignId, address(0x1234), 0.05 ether); // 5% fee
+        
+        uint256 amountSent = capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, bob, "", "");
+        
+        // Verify amounts
+        assertEq(amountSent, 0.95 ether, "Should return amount after fee deduction");
+        assertEq(token.balanceOf(alice), aliceInitialBalance, "Alice should not receive funds");
+        assertEq(token.balanceOf(bob), bobInitialBalance + 0.95 ether, "Bob should receive net amount");
+        assertEq(token.balanceOf(address(0x1234)), feeRecipientInitialBalance + 0.05 ether, "Fee recipient should get fee");
+        
+        // Verify claim tracking (should track full amount before fees against Alice)
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 1 ether, "Alice's full claim should be tracked");
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, bob), 0, "Bob's claim should remain zero");
+        
+        vm.stopPrank();
+    }
+
+    /// @notice Test campaign state validation and time bounds for claimCampaignPayoutToAddress
+    function test_ClaimPayoutToAddress_CampaignStateAndTimeBounds() public {
+        mintTokensToDAO(2 ether);
+        vm.startPrank(address(createdDAO));
+        
+        // Create campaign with time bounds
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "ipfs://test",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            false,
+            block.timestamp + 100, // Start time
+            block.timestamp + 200  // End time
+        );
+        
+        // Claiming before start time should fail
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector, campaignId, block.timestamp, block.timestamp + 100, block.timestamp + 200));
+        capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, bob, "", "");
+        
+        // Advance time to start
+        vm.warp(block.timestamp + 100);
+        
+        // Claiming during active period should work
+        uint256 amount = capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, bob, "", "");
+        assertEq(amount, 1 ether, "Should claim successfully during active period");
+        vm.stopPrank();
+        
+        // Test paused campaign state
+        vm.startPrank(address(createdDAO));
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+        vm.stopPrank();
+        
+        vm.startPrank(alice);
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignNotActive.selector, campaignId, uint8(1))); // PAUSED = 1
+        capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, bob, "", "");
+        vm.stopPrank();
+    }
+
+    /// @notice Test multiple users claiming and redirecting funds to each other
+    function test_ClaimPayoutToAddress_MultipleClaimsAndEdgeCases() public {
+        mintTokensToDAO(3 ether);
+        
+        // Create campaign allowing multiple claims
+        vm.startPrank(address(createdDAO));
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "ipfs://test",
+            toBytes32("mock-strategy"),
+            "",
+            "",
+            IERC20(token),
+            bytes32(0),
+            "",
+            true, // Allow multiple claims
+            0,
+            0
+        );
+        vm.stopPrank();
+
+        // Alice claims her allocation (1 ether) and sends to Bob
+        vm.startPrank(alice);
+        uint256 aliceAmount = capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, bob, "", "");
+        assertEq(aliceAmount, 1 ether, "Alice should claim 1 ether");
+        assertEq(token.balanceOf(bob), 1 ether, "Bob should receive Alice's redirected funds");
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 1 ether, "Alice's claim tracked");
+        vm.stopPrank();
+
+        // Bob claims his own allocation (1 ether) and sends to Alice
+        vm.startPrank(bob);
+        uint256 bobAmount = capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, alice, "", "");
+        assertEq(bobAmount, 1 ether, "Bob should claim 1 ether");
+        assertEq(token.balanceOf(alice), 1 ether, "Alice should receive Bob's redirected funds");
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, bob), 1 ether, "Bob's claim tracked");
+        vm.stopPrank();
+        
+        // Verify final state: each user claimed their own allocation but funds crossed over
+        assertEq(token.balanceOf(alice), 1 ether, "Alice final balance (from Bob's claim)");
+        assertEq(token.balanceOf(bob), 1 ether, "Bob final balance (from Alice's claim)");
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 1 ether, "Alice claimed her allocation");
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, bob), 1 ether, "Bob claimed his allocation");
+    }
 }
 
 // Mock contracts for testing failures
@@ -2727,5 +2945,6 @@ contract MockFailingEncoder is IPayoutActionEncoder {
     function supportsInterface(bytes4) external pure returns (bool) {
         return true;
     }
+
 }
 

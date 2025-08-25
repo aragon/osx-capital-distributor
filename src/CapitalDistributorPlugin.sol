@@ -368,6 +368,61 @@ contract CapitalDistributorPlugin is
         amountToSend = campaign.allocationStrategy.getClaimeableAmount(_campaignId, _recipient, _auxData);
     }
 
+    /// @notice Internal helper to validate campaign claim eligibility
+    /// @dev Checks campaign existence, state, and time bounds
+    /// @param _campaignId The campaign ID to validate
+    /// @return campaign The validated campaign storage reference
+    function _validateCampaignClaimEligibility(uint256 _campaignId) internal view returns (Campaign storage campaign) {
+        _requireCampaignExists(_campaignId);
+        campaign = campaigns[_campaignId];
+
+        // Check if campaign is active
+        if (campaign.state != CampaignState.ACTIVE) {
+            revert CampaignNotActive(_campaignId, campaign.state);
+        }
+
+        // Check if campaign is within time bounds
+        if (!_isCampaignWithinTimeBounds(campaign)) {
+            revert CampaignOutsideTimeBounds(_campaignId, block.timestamp, campaign.startTime, campaign.endTime);
+        }
+    }
+
+    /// @notice Internal helper to execute payout actions through the DAO
+    /// @dev Builds actions and executes them through the DAO
+    /// @param _campaign The campaign being claimed from
+    /// @param _campaignId The campaign ID
+    /// @param _payoutAddress Where to send the funds
+    /// @param _amountToSend The amount to send
+    /// @param _feeRecipient The fee recipient address (if applicable)
+    /// @param _feeAmount The fee amount (if applicable)
+    /// @param _encoderAuxData Auxiliary data for the action encoder
+    function _executePayout(
+        Campaign storage _campaign,
+        uint256 _campaignId,
+        address _payoutAddress,
+        uint256 _amountToSend,
+        address _feeRecipient,
+        uint256 _feeAmount,
+        bytes calldata _encoderAuxData
+    ) internal {
+        Action[] memory actions = _buildPayoutActions(
+            _campaign,
+            _payoutAddress,
+            _amountToSend,
+            _feeRecipient,
+            _feeAmount,
+            _campaignId,
+            _encoderAuxData
+        );
+
+        bytes32 executionId = keccak256(abi.encodePacked(address(this), _campaignId, _payoutAddress, block.timestamp));
+
+        IExecutor(address(dao())).execute(executionId, actions, 0);
+
+        // Note: Event emission will be handled by the calling function
+        // since it knows who the actual recipient is and can control event order
+    }
+
     /**
      * @notice Sends the amount of tokens to the recipient of a campaign
      * @param _campaignId The unique identifier for the campaign.
@@ -382,20 +437,8 @@ contract CapitalDistributorPlugin is
         bytes calldata _strategyAuxData,
         bytes calldata _encoderAuxData
     ) public returns (uint256 amountToSend) {
-        _requireCampaignExists(_campaignId);
-        Campaign storage campaign = campaigns[_campaignId];
+        Campaign storage campaign = _validateCampaignClaimEligibility(_campaignId);
 
-        // Check if campaign is active
-        if (campaign.state != CampaignState.ACTIVE) {
-            revert CampaignNotActive(_campaignId, campaign.state);
-        }
-
-        // Check if campaign is within time bounds
-        if (!_isCampaignWithinTimeBounds(campaign)) {
-            revert CampaignOutsideTimeBounds(_campaignId, block.timestamp, campaign.startTime, campaign.endTime);
-        }
-
-        // Cache claimed amount to avoid repeated storage reads
         uint256 alreadyClaimed = claimed[_campaignId][_recipient];
 
         // Check if multiple claims are allowed first (fastest check)
@@ -409,48 +452,109 @@ contract CapitalDistributorPlugin is
             _strategyAuxData
         );
 
-        // Check if there's anything to claim
         if (totalAmountToSend == 0) {
             revert NoClaimableAmount(_campaignId, _recipient);
         }
 
-        // Check if already claimed maximum amount
+        // Check if already claimed all payout assigned
         if (alreadyClaimed >= totalAmountToSend) {
             revert AlreadyClaimedMaxAmount(_campaignId, _recipient, alreadyClaimed, totalAmountToSend);
         }
 
         // Get fee configuration from the strategy
         (address feeRecipient, uint256 feeBasisPoints) = campaign.allocationStrategy.getFeeConfiguration();
-
-        // Calculate fee amount
         uint256 feeAmount = 0;
         amountToSend = totalAmountToSend - alreadyClaimed;
-
         if (feeBasisPoints > 0 && feeRecipient != address(0)) {
             feeAmount = (amountToSend * feeBasisPoints) / 10000;
             amountToSend = amountToSend - feeAmount;
         }
 
-        // Update state before external calls (checks-effects-interactions pattern)
         claimed[_campaignId][_recipient] = totalAmountToSend;
 
-        // Build all payout actions (handles both direct transfer and encoder cases)
-        Action[] memory actions = _buildPayoutActions(
+        // Execute payout using helper
+        _executePayout(
             campaign,
-            _recipient,
+            _campaignId,
+            _recipient, // Send to recipient address
             amountToSend,
             feeRecipient,
             feeAmount,
-            _campaignId,
             _encoderAuxData
         );
 
-        // Generate dynamic execution ID with more entropy for uniqueness
-        bytes32 executionId = keccak256(abi.encodePacked(address(this), _campaignId, _recipient, block.timestamp));
-        IExecutor(address(dao())).execute(executionId, actions, 0);
-
         emit PayoutClaimed(_campaignId, _recipient, amountToSend);
+        if (feeAmount > 0) {
+            emit FeeCollected(_campaignId, feeRecipient, feeAmount);
+        }
+    }
 
+    /// @notice Claims the caller's campaign payout and sends it to a specified address.
+    /// @dev Security: Only msg.sender can claim their own allocation. This prevents claiming
+    ///      on behalf of others while allowing redirection of one's own payout to a different
+    ///      address (e.g., a savings wallet, vault, or payment processor).
+    /// @param _campaignId The ID of the campaign to claim from.
+    /// @param _payoutAddress The address where the payout will be sent.
+    /// @param _strategyAuxData Auxiliary data for the allocation strategy.
+    /// @param _encoderAuxData Auxiliary data for the action encoder.
+    /// @return amountToSend The amount of tokens sent to the payout address.
+    function claimCampaignPayoutToAddress(
+        uint256 _campaignId,
+        address _payoutAddress,
+        bytes calldata _strategyAuxData,
+        bytes calldata _encoderAuxData
+    ) public returns (uint256 amountToSend) {
+        // Common validation
+        Campaign storage campaign = _validateCampaignClaimEligibility(_campaignId);
+
+        // Important: The recipient is always msg.sender
+        // This ensures only the rightful recipient can claim their allocation
+        address recipient = msg.sender;
+
+        uint256 alreadyClaimed = claimed[_campaignId][recipient];
+
+        if (!campaign.multipleClaimsAllowed && alreadyClaimed > 0) {
+            revert MultipleClaimsNotAllowed(_campaignId, recipient);
+        }
+
+        // Get claimable amount for msg.sender (not the payout address)
+        uint256 totalAmountToSend = campaign.allocationStrategy.getClaimeableAmount(
+            _campaignId,
+            recipient,
+            _strategyAuxData
+        );
+
+        if (totalAmountToSend == 0) {
+            revert NoClaimableAmount(_campaignId, recipient);
+        }
+
+        if (alreadyClaimed >= totalAmountToSend) {
+            revert AlreadyClaimedMaxAmount(_campaignId, recipient, alreadyClaimed, totalAmountToSend);
+        }
+
+        (address feeRecipient, uint256 feeBasisPoints) = campaign.allocationStrategy.getFeeConfiguration();
+        uint256 feeAmount = 0;
+        amountToSend = totalAmountToSend - alreadyClaimed;
+        if (feeBasisPoints > 0 && feeRecipient != address(0)) {
+            feeAmount = (amountToSend * feeBasisPoints) / 10000;
+            amountToSend = amountToSend - feeAmount;
+        }
+
+        // Update claimed for the actual recipient (msg.sender), not the payout address
+        claimed[_campaignId][recipient] = totalAmountToSend;
+
+        // Execute payout using helper - send to specified address
+        _executePayout(
+            campaign,
+            _campaignId,
+            _payoutAddress, // Send to specified address
+            amountToSend,
+            feeRecipient,
+            feeAmount,
+            _encoderAuxData
+        );
+
+        emit PayoutClaimed(_campaignId, recipient, amountToSend);
         if (feeAmount > 0) {
             emit FeeCollected(_campaignId, feeRecipient, feeAmount);
         }
