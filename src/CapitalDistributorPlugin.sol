@@ -479,6 +479,21 @@ contract CapitalDistributorPlugin is
         return campaign.state == CampaignState.ACTIVE && _isCampaignWithinTimeBounds(campaign);
     }
 
+    /// @notice Checks if a campaign is currently paused (both flag and time bounds).
+    /// @param _campaignId The ID of the campaign to check.
+    /// @return active Returns `true` if the campaign is paused and within time bounds.
+    function isCampaignPaused(uint256 _campaignId) public view returns (bool active) {
+        Campaign storage campaign = campaigns[_campaignId];
+
+        // Check if campaign exists
+        if (address(campaign.allocationStrategy) == address(0)) {
+            return false;
+        }
+
+        // Check if campaign is in active state and within time bounds
+        return campaign.state == CampaignState.PAUSED && _isCampaignWithinTimeBounds(campaign);
+    }
+
     /// @notice Pauses a campaign temporarily, preventing further claims.
     /// @dev Can only be called on ACTIVE campaigns. Paused campaigns can be resumed.
     /// @param _campaignId The ID of the campaign to pause.
