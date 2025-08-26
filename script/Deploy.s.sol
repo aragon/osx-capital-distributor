@@ -18,7 +18,6 @@ import {AllocatorStrategyFactory} from "../src/factories/AllocatorStrategyFactor
 import {ActionEncoderFactory} from "../src/factories/ActionEncoderFactory.sol";
 
 // Allocator Strategies
-import {CallBasedAllocatorStrategy} from "../src/allocatorStrategies/CallBasedAllocatorStrategy.sol";
 import {MerkleDistributorStrategy} from "../src/allocatorStrategies/MerkleDistributorStrategy.sol";
 
 // Action Encoders
@@ -58,14 +57,6 @@ contract Deploy is BaseScript {
         allocatorStrategyFactory = new AllocatorStrategyFactory();
         actionEncoderFactory = new ActionEncoderFactory();
         // 2. Add the AllocationStrategies to the Factory registry
-        CallBasedAllocatorStrategy callBasedAllocatorStrategy = new CallBasedAllocatorStrategy();
-        allocatorStrategyFactory.registerStrategyType(
-            toBytes32("call-based-strategy"),
-            address(callBasedAllocatorStrategy),
-            "0x00",
-            address(0),
-            0
-        );
         MerkleDistributorStrategy merkleDistributorStrategy = new MerkleDistributorStrategy();
         allocatorStrategyFactory.registerStrategyType(
             toBytes32("merkle-distributor-strategy"),

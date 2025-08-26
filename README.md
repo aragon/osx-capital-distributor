@@ -65,7 +65,6 @@ recipients.
 
 - **MerkleDistributorStrategy**: Uses Merkle trees for efficient large-scale distributions (airdrops)
 - **GaugeVoterAllocatorStrategy**: Allocates based on gauge voting weights (incentive programs)
-- **CallBasedAllocatorStrategy**: Delegates allocation logic to external contracts (custom logic)
 
 #### ActionEncoderFactory
 
