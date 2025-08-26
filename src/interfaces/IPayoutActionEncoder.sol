@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {Action} from "@aragon/commons/executors/IExecutor.sol";
-import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import { Action } from "@aragon/commons/executors/IExecutor.sol";
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /// @title IPayoutActionEncoder
 /// @notice Interface for contracts that construct the DAO actions required to execute a payout.
@@ -18,7 +18,8 @@ interface IPayoutActionEncoder {
     function getCreationEncodingTypes() external view returns (string memory types);
 
     /// @notice Returns the Solidity types expected for buildActions auxiliary data.
-    /// @return types Comma-separated string of Solidity type strings expected for buildActions _encoderAuxData parameter.
+    /// @return types Comma-separated string of Solidity type strings expected for buildActions _encoderAuxData
+    /// parameter.
     function getClaimEncodingTypes() external view returns (string memory types);
 
     /**
@@ -45,5 +46,8 @@ interface IPayoutActionEncoder {
         address _caller, // Added for context, might be useful for builders
         uint256 _campaignId, // Added for context
         bytes calldata _encoderAuxData
-    ) external view returns (Action[] memory actions);
+    )
+        external
+        view
+        returns (Action[] memory actions);
 }

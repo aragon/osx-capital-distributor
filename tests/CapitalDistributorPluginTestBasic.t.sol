@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.29 <0.9.0;
 
+import { CapitalDistributorPlugin } from "../src/CapitalDistributorPlugin.sol";
+import { AragonTest } from "./helpers/AragonTest.sol";
+import { AllocatorStrategyMock } from "./mocks/AllocatorStrategyMock.sol";
+import { VaultDepositPayoutActionEncoder } from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
 
-import {CapitalDistributorPlugin} from "../src/CapitalDistributorPlugin.sol";
-import {AragonTest} from "./helpers/AragonTest.sol";
-import {AllocatorStrategyMock} from "./mocks/AllocatorStrategyMock.sol";
-import {VaultDepositPayoutActionEncoder} from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
-
-import {MintableERC20} from "./mocks/MintableERC20.sol";
-import {ERC4626Mock} from "./mocks/ERC4626Mock.sol";
-import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import { MintableERC20 } from "./mocks/MintableERC20.sol";
+import { ERC4626Mock } from "./mocks/ERC4626Mock.sol";
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 contract CapitalDistributorPluginTest is AragonTest {
     CapitalDistributorPlugin capitalDistributorPlugin;

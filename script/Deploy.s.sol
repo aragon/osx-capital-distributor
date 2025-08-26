@@ -2,29 +2,28 @@
 pragma solidity >=0.8.29 <0.9.0;
 
 // import { Foo } from "../src/Foo.sol";
-import {console2} from "forge-std/console2.sol";
+import { console2 } from "forge-std/console2.sol";
 
-import {DAO} from "@aragon/osx/core/dao/DAO.sol";
-import {PluginRepoFactory} from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
-import {PluginRepo} from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
-import {DAOFactory} from "@aragon/osx/framework/dao/DAOFactory.sol";
+import { DAO } from "@aragon/osx/core/dao/DAO.sol";
+import { PluginRepoFactory } from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
+import { PluginRepo } from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
+import { DAOFactory } from "@aragon/osx/framework/dao/DAOFactory.sol";
 
-import {IPlugin} from "@aragon/commons/plugin/IPlugin.sol";
-import {PluginSetupRef} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
+import { IPlugin } from "@aragon/commons/plugin/IPlugin.sol";
+import { PluginSetupRef } from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
 
-
-import {CapitalDistributorPluginSetup} from "../src/CapitalDistributorPluginSetup.sol";
-import {AllocatorStrategyFactory} from "../src/factories/AllocatorStrategyFactory.sol";
-import {ActionEncoderFactory} from "../src/factories/ActionEncoderFactory.sol";
+import { CapitalDistributorPluginSetup } from "../src/CapitalDistributorPluginSetup.sol";
+import { AllocatorStrategyFactory } from "../src/factories/AllocatorStrategyFactory.sol";
+import { ActionEncoderFactory } from "../src/factories/ActionEncoderFactory.sol";
 
 // Allocator Strategies
-import {MerkleDistributorStrategy} from "../src/allocatorStrategies/MerkleDistributorStrategy.sol";
+import { MerkleDistributorStrategy } from "../src/allocatorStrategies/MerkleDistributorStrategy.sol";
 
 // Action Encoders
-import {VaultDepositPayoutActionEncoder} from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
-import {SablierLinearPayoutActionEncoder} from "../src/payoutActionEncoders/SablierLinearPayoutActionEncoder.sol";
+import { VaultDepositPayoutActionEncoder } from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
+import { SablierLinearPayoutActionEncoder } from "../src/payoutActionEncoders/SablierLinearPayoutActionEncoder.sol";
 
-import {BaseScript} from "./Base.s.sol";
+import { BaseScript } from "./Base.s.sol";
 
 contract Deploy is BaseScript {
     PluginRepoFactory pluginRepoFactory;
@@ -45,10 +44,8 @@ contract Deploy is BaseScript {
         daoFactory = DAOFactory(vm.envAddress("DAO_FACTORY"));
         adminRepo = PluginRepo(vm.envAddress("ADMIN_REPO"));
         adminOwner = vm.envAddress("ADMIN_OWNER");
-        nameWithEntropy = vm.envOr(
-            "PLUGIN_NAME",
-            string.concat("osx-capital-distributor-", vm.toString(block.timestamp))
-        );
+        nameWithEntropy =
+            vm.envOr("PLUGIN_NAME", string.concat("osx-capital-distributor-", vm.toString(block.timestamp)));
         daoName = vm.envOr("DAO_NAME", string.concat("osx-capital-distributor-", vm.toString(block.timestamp)));
     }
 
@@ -59,25 +56,17 @@ contract Deploy is BaseScript {
         // 2. Add the AllocationStrategies to the Factory registry
         MerkleDistributorStrategy merkleDistributorStrategy = new MerkleDistributorStrategy();
         allocatorStrategyFactory.registerStrategyType(
-            toBytes32("merkle-distributor-strategy"),
-            address(merkleDistributorStrategy),
-            "0x00",
-            address(0),
-            0
+            toBytes32("merkle-distributor-strategy"), address(merkleDistributorStrategy), "0x00", address(0), 0
         );
 
         // 3. Add the ActionEncoders to the Factory registry
         VaultDepositPayoutActionEncoder vaultDepositPayoutActionEncoder = new VaultDepositPayoutActionEncoder();
         actionEncoderFactory.registerActionEncoder(
-            toBytes32("vault-deposit-encoder"),
-            address(vaultDepositPayoutActionEncoder),
-            "0x00"
+            toBytes32("vault-deposit-encoder"), address(vaultDepositPayoutActionEncoder), "0x00"
         );
         SablierLinearPayoutActionEncoder sablierLinearPayoutActionEncoder = new SablierLinearPayoutActionEncoder();
         actionEncoderFactory.registerActionEncoder(
-            toBytes32("sablier-linear-encoder"),
-            address(sablierLinearPayoutActionEncoder),
-            "0x00"
+            toBytes32("sablier-linear-encoder"), address(sablierLinearPayoutActionEncoder), "0x00"
         );
 
         // 4. Deploying the Plugin Setup
@@ -109,22 +98,19 @@ contract Deploy is BaseScript {
     }
 
     function deployPluginRepo(address pluginSetup) public returns (PluginRepo pluginRepo) {
-        pluginRepo = pluginRepoFactory.createPluginRepoWithFirstVersion(
-            nameWithEntropy,
-            pluginSetup,
-            msg.sender,
-            "0x00",
-            "0x00"
-        );
+        pluginRepo =
+            pluginRepoFactory.createPluginRepoWithFirstVersion(nameWithEntropy, pluginSetup, msg.sender, "0x00", "0x00");
     }
 
     function getDAOSettings() internal view returns (DAOFactory.DAOSettings memory) {
         return DAOFactory.DAOSettings(address(0), "", daoName, "");
     }
 
-    function getPluginSettings(
-        PluginRepo pluginRepo
-    ) public view returns (DAOFactory.PluginSettings[] memory pluginSettings) {
+    function getPluginSettings(PluginRepo pluginRepo)
+        public
+        view
+        returns (DAOFactory.PluginSettings[] memory pluginSettings)
+    {
         bytes memory pluginSettingsData = abi.encode(address(allocatorStrategyFactory), address(actionEncoderFactory));
         PluginRepo.Tag memory tag = PluginRepo.Tag(1, 1);
         pluginSettings = new DAOFactory.PluginSettings[](2);

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
-import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {IAllocatorStrategy} from "../interfaces/IAllocatorStrategy.sol";
-import {IAllocatorStrategyFactory} from "../interfaces/IAllocatorStrategyFactory.sol";
-import {FactoryBase} from "./FactoryBase.sol";
+import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
+import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import { IDAO } from "@aragon/commons/dao/IDAO.sol";
+import { IAllocatorStrategy } from "../interfaces/IAllocatorStrategy.sol";
+import { IAllocatorStrategyFactory } from "../interfaces/IAllocatorStrategyFactory.sol";
+import { FactoryBase } from "./FactoryBase.sol";
 
 /// @title AllocatorStrategyFactory
 /// @author AragonX - 2025
@@ -17,8 +17,8 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
 
     /// @notice Fee configuration for a strategy type
     struct FeeConfig {
-        address recipient;      // Where fees are sent
-        uint256 basisPoints;   // Fee percentage (e.g., 250 = 2.5%, max 1000 = 10%)
+        address recipient; // Where fees are sent
+        uint256 basisPoints; // Fee percentage (e.g., 250 = 2.5%, max 1000 = 10%)
     }
 
     /// @notice Maps deployment parameters hash to deployed strategy addresses.
@@ -71,12 +71,14 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
      * @dev Validates that the implementation supports the IAllocatorStrategy interface.
      */
     function registerStrategyType(
-        bytes32 _strategyId, 
-        address _implementation, 
+        bytes32 _strategyId,
+        address _implementation,
         string calldata _metadata,
         address _feeRecipient,
         uint256 _feeBasisPoints
-    ) external {
+    )
+        external
+    {
         // Validate basic requirements first
         if (_strategyId == bytes32(0)) {
             revert EmptyTypeId();
@@ -90,33 +92,33 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         if (_implementation.code.length == 0) {
             revert InvalidImplementation(_implementation, "Implementation must be a deployed contract");
         }
-        
+
         // Validate fee configuration
         if (_feeBasisPoints > 0 && _feeRecipient == address(0)) {
             revert InvalidFeeRecipient();
         }
-        if (_feeBasisPoints > 1000) { // Max 10%
+        if (_feeBasisPoints > 1000) {
+            // Max 10%
             revert ExcessiveFee(_feeBasisPoints, 1000);
         }
-        
+
         // Validate that the implementation supports the IAllocatorStrategy interface
         try IERC165(_implementation).supportsInterface(type(IAllocatorStrategy).interfaceId) returns (bool supported) {
             if (!supported) {
-                revert InvalidImplementation(_implementation, "Implementation must support IAllocatorStrategy interface");
+                revert InvalidImplementation(
+                    _implementation, "Implementation must support IAllocatorStrategy interface"
+                );
             }
         } catch {
             revert InvalidImplementation(_implementation, "Implementation must support IAllocatorStrategy interface");
         }
-        
+
         // Register the type
-        registeredTypes[_strategyId] = RegisteredType({implementation: _implementation, metadata: _metadata});
-        
+        registeredTypes[_strategyId] = RegisteredType({ implementation: _implementation, metadata: _metadata });
+
         // Store fee configuration
-        strategyFees[_strategyId] = FeeConfig({
-            recipient: _feeRecipient,
-            basisPoints: _feeBasisPoints
-        });
-        
+        strategyFees[_strategyId] = FeeConfig({ recipient: _feeRecipient, basisPoints: _feeBasisPoints });
+
         emit TypeRegistered(_strategyId, _implementation, _metadata, msg.sender);
         emit StrategyTypeRegistered(_strategyId, _implementation, _metadata);
         emit StrategyFeeConfigured(_strategyId, _feeRecipient, _feeBasisPoints);
@@ -133,7 +135,10 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         bytes32 _strategyTypeId,
         IDAO _dao,
         bytes calldata _auxData
-    ) public returns (address strategy) {
+    )
+        public
+        returns (address strategy)
+    {
         bytes32 deploymentId = _computeParamsHash(_strategyTypeId, _dao, _auxData);
 
         // Check if strategy with these parameters already exists
@@ -156,7 +161,10 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         bytes32 _strategyTypeId,
         IDAO _dao,
         bytes calldata _auxData
-    ) external returns (address strategy) {
+    )
+        external
+        returns (address strategy)
+    {
         bytes32 deploymentId = _computeParamsHash(_strategyTypeId, _dao, _auxData);
 
         strategy = deployedInstances[deploymentId];
@@ -180,7 +188,11 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         bytes32 _strategyTypeId,
         IDAO _dao,
         bytes calldata _auxData
-    ) external view returns (bool exists, address strategy) {
+    )
+        external
+        view
+        returns (bool exists, address strategy)
+    {
         bytes32 deploymentId = _computeParamsHash(_strategyTypeId, _dao, _auxData);
         strategy = deployedInstances[deploymentId];
         // Avoid redundant comparison by using inline assembly for gas optimization
@@ -195,7 +207,11 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
      * @return recipient The address where fees are sent.
      * @return basisPoints The fee percentage in basis points.
      */
-    function getStrategyFeeByInstance(address _strategyInstance) external view returns (address recipient, uint256 basisPoints) {
+    function getStrategyFeeByInstance(address _strategyInstance)
+        external
+        view
+        returns (address recipient, uint256 basisPoints)
+    {
         bytes32 typeId = instanceToType[_strategyInstance];
         if (typeId == bytes32(0)) {
             return (address(0), 0); // Strategy not found or not deployed by this factory
@@ -217,7 +233,10 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         IDAO _dao,
         bytes calldata _auxData,
         bytes32 _deploymentId
-    ) internal returns (address strategy) {
+    )
+        internal
+        returns (address strategy)
+    {
         RegisteredType storage strategyType = registeredTypes[_strategyTypeId];
         address implementation = strategyType.implementation; // Cache storage read
 
@@ -227,11 +246,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
 
         // Initialize the strategy
         bytes memory initCalldata = abi.encodeWithSignature(
-            "initialize(bytes32,address,address,bytes)",
-            _strategyTypeId,
-            address(_dao),
-            msg.sender,
-            _auxData
+            "initialize(bytes32,address,address,bytes)", _strategyTypeId, address(_dao), msg.sender, _auxData
         );
 
         // Deploy and initialize using base class utility

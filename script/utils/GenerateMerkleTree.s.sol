@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.19;
 
-import {Script, console} from "forge-std/Script.sol";
-import {stdJson} from "forge-std/StdJson.sol";
+import { Script, console } from "forge-std/Script.sol";
+import { stdJson } from "forge-std/StdJson.sol";
 
 /**
  * @title GenerateMerkleTree
  * @notice Foundry script to generate merkle trees from JSON recipient files
- * @dev Usage: forge script scripts/merkleDistributor/GenerateMerkleTree.s.sol --sig "generate(string)" "path/to/recipients.json"
+ * @dev Usage: forge script scripts/merkleDistributor/GenerateMerkleTree.s.sol --sig "generate(string)"
+ * "path/to/recipients.json"
  */
 contract GenerateMerkleTree is Script {
     using stdJson for string;
@@ -24,27 +25,27 @@ contract GenerateMerkleTree is Script {
     function generate(string memory recipientsFilePath) external {
         // Read the recipients file
         string memory json = vm.readFile(recipientsFilePath);
-        
+
         // Parse recipients from JSON
         Recipient[] memory recipients = parseRecipients(json);
-        
+
         // Generate merkle tree
         bytes32[] memory leaves = generateLeaves(recipients);
         bytes32 merkleRoot = buildMerkleTree(leaves);
-        
+
         // Calculate total amount
         uint256 totalAmount = 0;
         for (uint256 i = 0; i < recipients.length; i++) {
             totalAmount += recipients[i].amount;
         }
-        
+
         // Create output JSON
         string memory output = createOutputJson(merkleRoot, recipients, leaves, totalAmount);
-        
+
         // Write output file to test data directory
         string memory outputPath = "./tests/data/merkle-tree.json";
         vm.writeFile(outputPath, output);
-        
+
         // Log results
         console.log("Merkle Tree Generated Successfully!");
         console.log("Root:", vm.toString(merkleRoot));
@@ -62,7 +63,7 @@ contract GenerateMerkleTree is Script {
         // Try to parse elements up to a reasonable limit
         Recipient[] memory tempRecipients = new Recipient[](1000); // Max 1000 recipients
         uint256 count = 0;
-        
+
         // Parse each recipient individually until we hit an error
         for (uint256 i = 0; i < 1000; i++) {
             try this.parseRecipientAtIndex(json, i) returns (Recipient memory recipient) {
@@ -72,22 +73,22 @@ contract GenerateMerkleTree is Script {
                 break; // No more recipients
             }
         }
-        
+
         require(count > 0, "No recipients found");
-        
+
         // Create properly sized array
         Recipient[] memory recipients = new Recipient[](count);
         for (uint256 i = 0; i < count; i++) {
             recipients[i] = tempRecipients[i];
         }
-        
+
         // Check for duplicates
         for (uint256 i = 0; i < recipients.length; i++) {
             for (uint256 j = i + 1; j < recipients.length; j++) {
                 require(recipients[i].account != recipients[j].account, "Duplicate address found");
             }
         }
-        
+
         return recipients;
     }
 
@@ -100,17 +101,14 @@ contract GenerateMerkleTree is Script {
     function parseRecipientAtIndex(string memory json, uint256 index) external view returns (Recipient memory) {
         string memory accountPath = string.concat("$[", vm.toString(index), "].account");
         string memory amountPath = string.concat("$[", vm.toString(index), "].amount");
-        
+
         address account = json.readAddress(accountPath);
         uint256 amount = json.readUint(amountPath);
-        
+
         require(account != address(0), "Invalid address");
         require(amount > 0, "Amount must be greater than 0");
-        
-        return Recipient({
-            account: account,
-            amount: amount
-        });
+
+        return Recipient({ account: account, amount: amount });
     }
 
     /**
@@ -120,11 +118,11 @@ contract GenerateMerkleTree is Script {
      */
     function generateLeaves(Recipient[] memory recipients) internal pure returns (bytes32[] memory) {
         bytes32[] memory leaves = new bytes32[](recipients.length);
-        
+
         for (uint256 i = 0; i < recipients.length; i++) {
             leaves[i] = keccak256(abi.encodePacked(recipients[i].account, recipients[i].amount));
         }
-        
+
         return leaves;
     }
 
@@ -135,17 +133,17 @@ contract GenerateMerkleTree is Script {
      */
     function buildMerkleTree(bytes32[] memory leaves) internal pure returns (bytes32) {
         require(leaves.length > 0, "No leaves provided");
-        
+
         if (leaves.length == 1) {
             return leaves[0];
         }
-        
+
         bytes32[] memory currentLevel = leaves;
-        
+
         while (currentLevel.length > 1) {
             currentLevel = buildNextLevel(currentLevel);
         }
-        
+
         return currentLevel[0];
     }
 
@@ -157,20 +155,19 @@ contract GenerateMerkleTree is Script {
     function buildNextLevel(bytes32[] memory currentLevel) internal pure returns (bytes32[] memory) {
         uint256 nextLevelLength = (currentLevel.length + 1) / 2;
         bytes32[] memory nextLevel = new bytes32[](nextLevelLength);
-        
+
         for (uint256 i = 0; i < nextLevelLength; i++) {
             bytes32 left = currentLevel[i * 2];
-            
+
             if (i * 2 + 1 < currentLevel.length) {
                 bytes32 right = currentLevel[i * 2 + 1];
-                nextLevel[i] = left < right ? 
-                    keccak256(abi.encodePacked(left, right)) : 
-                    keccak256(abi.encodePacked(right, left));
+                nextLevel[i] =
+                    left < right ? keccak256(abi.encodePacked(left, right)) : keccak256(abi.encodePacked(right, left));
             } else {
                 nextLevel[i] = left;
             }
         }
-        
+
         return nextLevel;
     }
 
@@ -187,30 +184,34 @@ contract GenerateMerkleTree is Script {
         Recipient[] memory recipients,
         bytes32[] memory leaves,
         uint256 totalAmount
-    ) internal pure returns (string memory) {
+    )
+        internal
+        pure
+        returns (string memory)
+    {
         string memory output = "{";
-        
+
         // Add merkle root
         output = string.concat(output, '"merkleRoot":"', vm.toString(merkleRoot), '",');
-        
+
         // Add metadata
-        output = string.concat(output, '"totalRecipients":', vm.toString(recipients.length), ',');
+        output = string.concat(output, '"totalRecipients":', vm.toString(recipients.length), ",");
         output = string.concat(output, '"totalAmount":"', vm.toString(totalAmount), '",');
-        
+
         // Add recipients array
         output = string.concat(output, '"recipients":[');
         for (uint256 i = 0; i < recipients.length; i++) {
             if (i > 0) output = string.concat(output, ",");
-            output = string.concat(output, '{');
+            output = string.concat(output, "{");
             output = string.concat(output, '"address":"', vm.toString(recipients[i].account), '",');
             output = string.concat(output, '"amount":"', vm.toString(recipients[i].amount), '",');
             output = string.concat(output, '"leaf":"', vm.toString(leaves[i]), '"');
-            output = string.concat(output, '}');
+            output = string.concat(output, "}");
         }
-        output = string.concat(output, ']');
-        
+        output = string.concat(output, "]");
+
         output = string.concat(output, "}");
-        
+
         return output;
     }
 
@@ -221,7 +222,7 @@ contract GenerateMerkleTree is Script {
      */
     function getBasePath(string memory filePath) internal pure returns (string memory) {
         bytes memory fileBytes = bytes(filePath);
-        
+
         // Find last slash
         int256 lastSlash = -1;
         for (uint256 i = fileBytes.length; i > 0; i--) {
@@ -230,16 +231,16 @@ contract GenerateMerkleTree is Script {
                 break;
             }
         }
-        
+
         if (lastSlash == -1) {
             return ".";
         }
-        
+
         bytes memory basePath = new bytes(uint256(lastSlash));
         for (uint256 i = 0; i < uint256(lastSlash); i++) {
             basePath[i] = fileBytes[i];
         }
-        
+
         return string(basePath);
     }
 }

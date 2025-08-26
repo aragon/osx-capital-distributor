@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {IPayoutActionEncoder} from "./IPayoutActionEncoder.sol";
+import { IDAO } from "@aragon/commons/dao/IDAO.sol";
+import { IPayoutActionEncoder } from "./IPayoutActionEncoder.sol";
 
 /// @title IActionEncoderFactory
 /// @notice Interface for the ActionEncoderFactory contract.
@@ -35,5 +35,7 @@ interface IActionEncoderFactory {
         bytes32 _encoderId,
         IDAO _dao,
         bytes calldata _params
-    ) external returns (IPayoutActionEncoder actionEncoder);
+    )
+        external
+        returns (IPayoutActionEncoder actionEncoder);
 }

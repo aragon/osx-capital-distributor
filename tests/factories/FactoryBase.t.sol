@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {FactoryBase} from "../../src/factories/FactoryBase.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {DAO} from "@aragon/osx/core/dao/DAO.sol";
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
+import { FactoryBase } from "../../src/factories/FactoryBase.sol";
+import { IDAO } from "@aragon/commons/dao/IDAO.sol";
+import { DAO } from "@aragon/osx/core/dao/DAO.sol";
 
 /// @title FactoryBase Test Suite
 /// @author AragonX - 2025
@@ -28,23 +28,17 @@ contract FactoryBaseTest is Test {
     string constant METADATA_2 = "Test Implementation 2";
 
     event TypeRegistered(
-        bytes32 indexed typeId,
-        address indexed implementation,
-        string metadata,
-        address indexed registrar
+        bytes32 indexed typeId, address indexed implementation, string metadata, address indexed registrar
     );
 
     event InstanceDeployed(
-        bytes32 indexed typeId,
-        address indexed instance,
-        bytes32 indexed deploymentId,
-        address deployer
+        bytes32 indexed typeId, address indexed instance, bytes32 indexed deploymentId, address deployer
     );
 
     function setUp() public {
         factory = new ConcreteFactoryBase();
         dao = DAO(payable(makeAddr("dao")));
-        
+
         // Deploy mock implementations
         implementation1 = address(new MockImplementation());
         implementation2 = address(new MockImplementation());
@@ -82,13 +76,21 @@ contract FactoryBaseTest is Test {
 
     /// @notice Test registration with zero implementation address
     function test_RegisterType_RevertZeroImplementation() public {
-        vm.expectRevert(abi.encodeWithSelector(FactoryBase.InvalidImplementation.selector, address(0), "Implementation address cannot be zero"));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                FactoryBase.InvalidImplementation.selector, address(0), "Implementation address cannot be zero"
+            )
+        );
         factory.registerType(TYPE_ID_1, address(0), METADATA_1);
     }
 
     /// @notice Test registration with non-contract address
     function test_RegisterType_RevertNonContract() public {
-        vm.expectRevert(abi.encodeWithSelector(FactoryBase.InvalidImplementation.selector, alice, "Implementation must be a deployed contract"));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                FactoryBase.InvalidImplementation.selector, alice, "Implementation must be a deployed contract"
+            )
+        );
         factory.registerType(TYPE_ID_1, alice, METADATA_1);
     }
 
@@ -122,7 +124,11 @@ contract FactoryBaseTest is Test {
         vm.expectRevert(FactoryBase.EmptyTypeId.selector);
         factory.exposedValidateRegistration(EMPTY_TYPE_ID, implementation1, address(0));
 
-        vm.expectRevert(abi.encodeWithSelector(FactoryBase.InvalidImplementation.selector, address(0), "Implementation address cannot be zero"));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                FactoryBase.InvalidImplementation.selector, address(0), "Implementation address cannot be zero"
+            )
+        );
         factory.exposedValidateRegistration(TYPE_ID_1, address(0), address(0));
 
         vm.expectRevert(abi.encodeWithSelector(FactoryBase.AlreadyRegistered.selector, TYPE_ID_1));
@@ -194,13 +200,13 @@ contract FactoryBaseTest is Test {
         factory.registerType(TYPE_ID_1, implementation1, METADATA_1);
         uint256 gasUsed = gasStart - gasleft();
         console2.log("Gas used for registration:", gasUsed);
-        assertTrue(gasUsed < 100000);
+        assertTrue(gasUsed < 100_000);
 
         gasStart = gasleft();
         factory.getRegisteredType(TYPE_ID_1);
         gasUsed = gasStart - gasleft();
         console2.log("Gas used for getRegisteredType:", gasUsed);
-        assertTrue(gasUsed < 10000);
+        assertTrue(gasUsed < 10_000);
 
         gasStart = gasleft();
         factory.isTypeRegistered(TYPE_ID_1);
@@ -215,10 +221,20 @@ contract FactoryBaseTest is Test {
             vm.expectRevert(FactoryBase.EmptyTypeId.selector);
             factory.registerType(typeId, implementation, metadata);
         } else if (implementation == address(0)) {
-            vm.expectRevert(abi.encodeWithSelector(FactoryBase.InvalidImplementation.selector, address(0), "Implementation address cannot be zero"));
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    FactoryBase.InvalidImplementation.selector, address(0), "Implementation address cannot be zero"
+                )
+            );
             factory.registerType(typeId, implementation, metadata);
         } else if (implementation.code.length == 0) {
-            vm.expectRevert(abi.encodeWithSelector(FactoryBase.InvalidImplementation.selector, implementation, "Implementation must be a deployed contract"));
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    FactoryBase.InvalidImplementation.selector,
+                    implementation,
+                    "Implementation must be a deployed contract"
+                )
+            );
             factory.registerType(typeId, implementation, metadata);
         } else {
             factory.registerType(typeId, implementation, metadata);
@@ -257,8 +273,8 @@ contract FactoryBaseTest is Test {
         MockImplementation mockImpl = new MockImplementation();
         factory.registerType(TYPE_ID_1, address(mockImpl), METADATA_1);
 
-        bytes memory largeData = new bytes(10000);
-        for (uint i = 0; i < largeData.length; i++) {
+        bytes memory largeData = new bytes(10_000);
+        for (uint256 i = 0; i < largeData.length; i++) {
             largeData[i] = bytes1(uint8(i % 256));
         }
 
@@ -279,7 +295,10 @@ contract ConcreteFactoryBase is FactoryBase {
         bytes32 _typeId,
         address _implementation,
         address _existingImplementation
-    ) external pure {
+    )
+        external
+        pure
+    {
         _validateRegistration(_typeId, _implementation, _existingImplementation);
     }
 
@@ -287,7 +306,10 @@ contract ConcreteFactoryBase is FactoryBase {
         bytes32 _typeId,
         address _implementation,
         bytes memory _initCalldata
-    ) external returns (address) {
+    )
+        external
+        returns (address)
+    {
         return _deployAndInitialize(_typeId, _implementation, _initCalldata);
     }
 
@@ -295,7 +317,11 @@ contract ConcreteFactoryBase is FactoryBase {
         bytes32 _typeId,
         IDAO _dao,
         bytes memory _auxData
-    ) external pure returns (bytes32) {
+    )
+        external
+        pure
+        returns (bytes32)
+    {
         return _computeParamsHash(_typeId, _dao, _auxData);
     }
 }
@@ -322,4 +348,3 @@ contract ReentrantImplementation {
         ConcreteFactoryBase(factory).exposedDeployAndInitialize(bytes32("REENTRANT"), address(this), "");
     }
 }
-

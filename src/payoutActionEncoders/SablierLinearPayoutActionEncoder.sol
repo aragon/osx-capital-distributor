@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {PayoutActionEncoderBase} from "./PayoutActionEncoderBase.sol";
-import {Action} from "@aragon/commons/executors/IExecutor.sol";
-import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import { PayoutActionEncoderBase } from "./PayoutActionEncoderBase.sol";
+import { Action } from "@aragon/commons/executors/IExecutor.sol";
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 // Sablier imports
 
@@ -14,7 +14,9 @@ interface ISablierLockup {
         address lockup,
         address token,
         CreateWithDurationsLL[] calldata params
-    ) external returns (uint256 streamId);
+    )
+        external
+        returns (uint256 streamId);
 
     function nextStreamId() external view returns (uint256);
 
@@ -119,11 +121,7 @@ contract SablierLinearPayoutActionEncoder is PayoutActionEncoderBase {
         campaignStreamConfigs[_campaignId] = config;
 
         emit CampaignStreamConfigSet(
-            _campaignId,
-            config.sablierContract,
-            config.streamDuration,
-            config.cliffDuration,
-            msg.sender
+            _campaignId, config.sablierContract, config.streamDuration, config.cliffDuration, msg.sender
         );
     }
 
@@ -138,7 +136,12 @@ contract SablierLinearPayoutActionEncoder is PayoutActionEncoderBase {
         address, // _caller - not used in this implementation
         uint256 _campaignId,
         bytes memory
-    ) external view override returns (Action[] memory actions) {
+    )
+        external
+        view
+        override
+        returns (Action[] memory actions)
+    {
         if (_amount == 0) {
             revert AmountCannotBeZero();
         }
@@ -178,15 +181,17 @@ contract SablierLinearPayoutActionEncoder is PayoutActionEncoderBase {
         address _recipient,
         uint256 _amount,
         StreamConfig memory _config
-    ) internal view returns (bytes memory) {
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
         // Create the durations struct
-        Durations memory durations = Durations({cliff: _config.cliffDuration, total: _config.streamDuration});
+        Durations memory durations = Durations({ cliff: _config.cliffDuration, total: _config.streamDuration });
 
         // Create the unlock amounts struct
-        UnlockAmounts memory unlockAmounts = UnlockAmounts({
-            start: _config.unlockAmountAtStart,
-            cliff: _config.unlockAmountAtCliff
-        });
+        UnlockAmounts memory unlockAmounts =
+            UnlockAmounts({ start: _config.unlockAmountAtStart, cliff: _config.unlockAmountAtCliff });
         // Create the parameters struct
         CreateWithDurationsLL[] memory params = new CreateWithDurationsLL[](1);
         params[0] = CreateWithDurationsLL({
@@ -198,7 +203,7 @@ contract SablierLinearPayoutActionEncoder is PayoutActionEncoderBase {
             durations: durations,
             unlockAmounts: unlockAmounts,
             shape: "linear",
-            broker: Broker({account: _config.brokerAccount, fee: _config.brokerFee})
+            broker: Broker({ account: _config.brokerAccount, fee: _config.brokerFee })
         });
 
         return abi.encodeCall(ISablierLockup.createWithDurationsLL, (SABLIER_V2_LOCKUP, address(_token), params));
@@ -232,7 +237,11 @@ contract SablierLinearPayoutActionEncoder is PayoutActionEncoderBase {
         bool _transferable,
         address _brokerAccount,
         uint256 _brokerFee
-    ) external pure returns (bytes memory encodedConfig) {
+    )
+        external
+        pure
+        returns (bytes memory encodedConfig)
+    {
         StreamConfig memory config = StreamConfig({
             sablierContract: _sablierContract,
             streamDuration: _streamDuration,
@@ -261,7 +270,7 @@ contract SablierLinearPayoutActionEncoder is PayoutActionEncoderBase {
     // =========================================================================
     // Storage Gap
     // =========================================================================
-    
+
     /// @dev Storage gap to allow for future upgrades without storage collision.
     /// This contract adds 1 storage slot: campaignStreamConfigs mapping.
     /// Note: SABLIER_V2_LOCKUP is a constant and doesn't use storage.

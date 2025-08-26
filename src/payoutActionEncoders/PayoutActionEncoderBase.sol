@@ -1,19 +1,24 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {IPayoutActionEncoder} from "../interfaces/IPayoutActionEncoder.sol";
-import {DaoAuthorizableUpgradeable} from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
-import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {Action} from "@aragon/commons/executors/IExecutor.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
+import { IPayoutActionEncoder } from "../interfaces/IPayoutActionEncoder.sol";
+import { DaoAuthorizableUpgradeable } from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { ERC165Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import { Action } from "@aragon/commons/executors/IExecutor.sol";
+import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 
 /// @title PayoutActionEncoderBase
 /// @notice Base contract implementing the IPayoutActionEncoder interface.
 /// @dev Provides common functionality for action encoders. Implementing contracts should override
 /// abstract functions to define specific allocation logic.
-abstract contract PayoutActionEncoderBase is IPayoutActionEncoder, DaoAuthorizableUpgradeable, OwnableUpgradeable, ERC165Upgradeable {
+abstract contract PayoutActionEncoderBase is
+    IPayoutActionEncoder,
+    DaoAuthorizableUpgradeable,
+    OwnableUpgradeable,
+    ERC165Upgradeable
+{
     bytes32 public encoderId;
 
     // =========================================================================
@@ -61,7 +66,12 @@ abstract contract PayoutActionEncoderBase is IPayoutActionEncoder, DaoAuthorizab
         address _caller, // Added for context, might be useful for builders
         uint256 _campaignId, // Added for context
         bytes calldata _encoderAuxData
-    ) external view virtual override returns (Action[] memory actions);
+    )
+        external
+        view
+        virtual
+        override
+        returns (Action[] memory actions);
 
     /// @notice Returns whether the contract supports a given interface
     /// @param interfaceId The interface identifier
@@ -73,7 +83,7 @@ abstract contract PayoutActionEncoderBase is IPayoutActionEncoder, DaoAuthorizab
     // =========================================================================
     // Storage Gap
     // =========================================================================
-    
+
     /// @dev Storage gap to allow for future upgrades without storage collision.
     /// This contract uses 1 storage slot: encoderId.
     uint256[49] private __gap;

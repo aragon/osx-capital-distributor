@@ -2,21 +2,21 @@
 
 pragma solidity ^0.8.29;
 
-import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import { ERC165Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { SafeCastUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
-import {Action, IExecutor} from "@aragon/commons/executors/IExecutor.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {DAO} from "@aragon/osx/core/dao/DAO.sol";
-import {PluginUUPSUpgradeable} from "@aragon/commons/plugin/PluginUUPSUpgradeable.sol";
-import {MetadataExtensionUpgradeable} from "@aragon/commons/utils/metadata/MetadataExtensionUpgradeable.sol";
+import { Action, IExecutor } from "@aragon/commons/executors/IExecutor.sol";
+import { IDAO } from "@aragon/commons/dao/IDAO.sol";
+import { DAO } from "@aragon/osx/core/dao/DAO.sol";
+import { PluginUUPSUpgradeable } from "@aragon/commons/plugin/PluginUUPSUpgradeable.sol";
+import { MetadataExtensionUpgradeable } from "@aragon/commons/utils/metadata/MetadataExtensionUpgradeable.sol";
 
-import {IAllocatorStrategy} from "./interfaces/IAllocatorStrategy.sol";
-import {IPayoutActionEncoder} from "./interfaces/IPayoutActionEncoder.sol";
-import {AllocatorStrategyFactory} from "./factories/AllocatorStrategyFactory.sol";
-import {ActionEncoderFactory} from "./factories/ActionEncoderFactory.sol";
+import { IAllocatorStrategy } from "./interfaces/IAllocatorStrategy.sol";
+import { IPayoutActionEncoder } from "./interfaces/IPayoutActionEncoder.sol";
+import { AllocatorStrategyFactory } from "./factories/AllocatorStrategyFactory.sol";
+import { ActionEncoderFactory } from "./factories/ActionEncoderFactory.sol";
 
 /// @title CapitalDistributorPlugin
 /// @author AragonX - 2025
@@ -39,6 +39,7 @@ contract CapitalDistributorPlugin is
         ACTIVE, // Normal operation, claims allowed
         PAUSED, // Temporarily paused (for updates), can be resumed
         ENDED // Permanently ended, cannot be resumed
+
     }
 
     /// @notice The AllocatorStrategyFactory instance used to deploy strategies.
@@ -81,10 +82,10 @@ contract CapitalDistributorPlugin is
     /**
      * @notice Stores all campaign configurations, mapping a campaign ID to its Campaign struct.
      * The public visibility automatically creates a getter function:
-     * `function campaigns(uint256 _campaignId) external view returns (bytes memory metadataURI, address allocationStrategy, address token, address actionEncoder, bool multipleClaimsAllowed, CampaignState state)`
+     * `function campaigns(uint256 _campaignId) external view returns (bytes memory metadataURI, address
+     * allocationStrategy, address token, address actionEncoder, bool multipleClaimsAllowed, CampaignState state)`
      */
     mapping(uint256 campaignId => Campaign) public campaigns;
-
 
     /**
      * @notice Emitted when a campaign's details are created.
@@ -205,7 +206,10 @@ contract CapitalDistributorPlugin is
         IDAO _dao,
         AllocatorStrategyFactory _allocatorStrategyFactory,
         ActionEncoderFactory _actionEncoderFactory
-    ) external initializer {
+    )
+        external
+        initializer
+    {
         __PluginUUPSUpgradeable_init(_dao);
         allocatorStrategyFactory = _allocatorStrategyFactory;
         actionEncoderFactory = _actionEncoderFactory;
@@ -236,7 +240,11 @@ contract CapitalDistributorPlugin is
         bool _multipleClaimsAllowed,
         uint256 _startTime,
         uint256 _endTime
-    ) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) returns (uint256 id) {
+    )
+        external
+        auth(CAMPAIGN_CREATOR_PERMISSION_ID)
+        returns (uint256 id)
+    {
         // Input validation in isolated scope
         {
             if (address(_token) == address(0)) {
@@ -276,9 +284,7 @@ contract CapitalDistributorPlugin is
         {
             if (_actionEncoder != bytes32(0)) {
                 IPayoutActionEncoder actionEncoder = actionEncoderFactory.getOrDeployActionEncoder(
-                    _actionEncoder,
-                    dao(),
-                    _actionEncoderInitializationAuxData
+                    _actionEncoder, dao(), _actionEncoderInitializationAuxData
                 );
                 campaigns[id].actionEncoder = actionEncoder;
 
@@ -354,7 +360,11 @@ contract CapitalDistributorPlugin is
         uint256 _campaignId,
         address _recipient,
         bytes calldata _auxData
-    ) public view returns (uint256 amountToSend) {
+    )
+        public
+        view
+        returns (uint256 amountToSend)
+    {
         _requireCampaignExists(_campaignId);
         Campaign storage campaign = campaigns[_campaignId];
 
@@ -397,15 +407,11 @@ contract CapitalDistributorPlugin is
         address _feeRecipient,
         uint256 _feeAmount,
         bytes calldata _encoderAuxData
-    ) internal {
+    )
+        internal
+    {
         Action[] memory actions = _buildPayoutActions(
-            _campaign,
-            _payoutAddress,
-            _amountToSend,
-            _feeRecipient,
-            _feeAmount,
-            _campaignId,
-            _encoderAuxData
+            _campaign, _payoutAddress, _amountToSend, _feeRecipient, _feeAmount, _campaignId, _encoderAuxData
         );
 
         bytes32 executionId = keccak256(abi.encodePacked(address(this), _campaignId, _payoutAddress, block.timestamp));
@@ -429,7 +435,10 @@ contract CapitalDistributorPlugin is
         address _recipient,
         bytes calldata _strategyAuxData,
         bytes calldata _encoderAuxData
-    ) public returns (uint256 amountToSend) {
+    )
+        public
+        returns (uint256 amountToSend)
+    {
         Campaign storage campaign = _validateCampaignClaimEligibility(_campaignId);
 
         uint256 alreadyClaimed = claimed[_campaignId][_recipient];
@@ -439,11 +448,8 @@ contract CapitalDistributorPlugin is
             revert MultipleClaimsNotAllowed(_campaignId, _recipient);
         }
 
-        uint256 totalAmountToSend = campaign.allocationStrategy.getClaimeableAmount(
-            _campaignId,
-            _recipient,
-            _strategyAuxData
-        );
+        uint256 totalAmountToSend =
+            campaign.allocationStrategy.getClaimeableAmount(_campaignId, _recipient, _strategyAuxData);
 
         if (totalAmountToSend == 0) {
             revert NoClaimableAmount(_campaignId, _recipient);
@@ -459,7 +465,7 @@ contract CapitalDistributorPlugin is
         uint256 feeAmount = 0;
         amountToSend = totalAmountToSend - alreadyClaimed;
         if (feeBasisPoints > 0 && feeRecipient != address(0)) {
-            feeAmount = (amountToSend * feeBasisPoints) / 10000;
+            feeAmount = (amountToSend * feeBasisPoints) / 10_000;
             amountToSend = amountToSend - feeAmount;
         }
 
@@ -496,7 +502,10 @@ contract CapitalDistributorPlugin is
         address _payoutAddress,
         bytes calldata _strategyAuxData,
         bytes calldata _encoderAuxData
-    ) public returns (uint256 amountToSend) {
+    )
+        public
+        returns (uint256 amountToSend)
+    {
         // Common validation
         Campaign storage campaign = _validateCampaignClaimEligibility(_campaignId);
 
@@ -511,11 +520,8 @@ contract CapitalDistributorPlugin is
         }
 
         // Get claimable amount for msg.sender (not the payout address)
-        uint256 totalAmountToSend = campaign.allocationStrategy.getClaimeableAmount(
-            _campaignId,
-            recipient,
-            _strategyAuxData
-        );
+        uint256 totalAmountToSend =
+            campaign.allocationStrategy.getClaimeableAmount(_campaignId, recipient, _strategyAuxData);
 
         if (totalAmountToSend == 0) {
             revert NoClaimableAmount(_campaignId, recipient);
@@ -529,7 +535,7 @@ contract CapitalDistributorPlugin is
         uint256 feeAmount = 0;
         amountToSend = totalAmountToSend - alreadyClaimed;
         if (feeBasisPoints > 0 && feeRecipient != address(0)) {
-            feeAmount = (amountToSend * feeBasisPoints) / 10000;
+            feeAmount = (amountToSend * feeBasisPoints) / 10_000;
             amountToSend = amountToSend - feeAmount;
         }
 
@@ -647,7 +653,10 @@ contract CapitalDistributorPlugin is
         address[] calldata _recipients,
         bytes[] calldata _strategiesAuxData,
         bytes[] calldata _encodersAuxData
-    ) external returns (uint256[] memory amounts) {
+    )
+        external
+        returns (uint256[] memory amounts)
+    {
         uint256 length = _campaignIds.length;
         if (length != _recipients.length || length != _strategiesAuxData.length || length != _encodersAuxData.length) {
             revert ArrayLengthMismatch();
@@ -656,12 +665,8 @@ contract CapitalDistributorPlugin is
         amounts = new uint256[](length);
 
         for (uint256 i = 0; i < length; ++i) {
-            amounts[i] = claimCampaignPayout(
-                _campaignIds[i],
-                _recipients[i],
-                _strategiesAuxData[i],
-                _encodersAuxData[i]
-            );
+            amounts[i] =
+                claimCampaignPayout(_campaignIds[i], _recipients[i], _strategiesAuxData[i], _encodersAuxData[i]);
         }
 
         return amounts;
@@ -689,11 +694,13 @@ contract CapitalDistributorPlugin is
     /// @notice Gets the strategy initialization encoding types for a strategy type
     /// @param _strategyTypeId The strategy type ID
     /// @return types Comma-separated string of Solidity type strings expected for strategy initialization
-    function getStrategyInitializationEncodingTypes(
-        bytes32 _strategyTypeId
-    ) external view returns (string memory types) {
+    function getStrategyInitializationEncodingTypes(bytes32 _strategyTypeId)
+        external
+        view
+        returns (string memory types)
+    {
         // Get the implementation address from the factory's registeredTypes mapping
-        (address implementation, ) = allocatorStrategyFactory.registeredTypes(_strategyTypeId);
+        (address implementation,) = allocatorStrategyFactory.registeredTypes(_strategyTypeId);
         require(implementation != address(0), "Strategy type not found");
 
         // Query the implementation directly for encoding types
@@ -735,9 +742,7 @@ contract CapitalDistributorPlugin is
     /// @notice Checks if this or the parent contract supports an interface by its ID.
     /// @param _interfaceId The ID of the interface.
     /// @return Returns `true` if the interface is supported.
-    function supportsInterface(
-        bytes4 _interfaceId
-    )
+    function supportsInterface(bytes4 _interfaceId)
         public
         view
         virtual
@@ -772,19 +777,18 @@ contract CapitalDistributorPlugin is
         uint256 _feeAmount,
         uint256 _campaignId,
         bytes calldata _encoderAuxData
-    ) internal view returns (Action[] memory actions) {
+    )
+        internal
+        view
+        returns (Action[] memory actions)
+    {
         bool hasEncoder = address(_campaign.actionEncoder) != address(0);
         bool hasFee = _feeAmount > 0;
 
         if (hasEncoder) {
             // Get base actions from encoder
             Action[] memory baseActions = _campaign.actionEncoder.buildActions(
-                _campaign.token,
-                _recipient,
-                _recipientAmount,
-                msg.sender,
-                _campaignId,
-                _encoderAuxData
+                _campaign.token, _recipient, _recipientAmount, msg.sender, _campaignId, _encoderAuxData
             );
 
             if (hasFee) {
@@ -823,6 +827,8 @@ contract CapitalDistributorPlugin is
         }
     }
 
-    /// @notice This empty reserved space is put in place to allow future versions to add new variables without shifting down storage in the inheritance chain (see [OpenZeppelin's guide about storage gaps](https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps)).
+    /// @notice This empty reserved space is put in place to allow future versions to add new variables without shifting
+    /// down storage in the inheritance chain (see [OpenZeppelin's guide about storage
+    /// gaps](https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps)).
     uint256[44] private __gap;
 }

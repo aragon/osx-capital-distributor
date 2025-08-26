@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.29 <0.9.0;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {stdJson} from "forge-std/StdJson.sol";
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
+import { stdJson } from "forge-std/StdJson.sol";
 
-import {DAO} from "@aragon/osx/core/dao/DAO.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
+import { DAO } from "@aragon/osx/core/dao/DAO.sol";
+import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 
-import {IPayoutActionEncoder} from "../../src/interfaces/IPayoutActionEncoder.sol";
-import {CapitalDistributorPlugin} from "../../src/CapitalDistributorPlugin.sol";
-import {AragonTest} from "../helpers/AragonTest.sol";
-import {IAllocatorStrategy} from "../../src/interfaces/IAllocatorStrategy.sol";
-import {IAllocatorStrategyFactory} from "../../src/interfaces/IAllocatorStrategyFactory.sol";
-import {MerkleDistributorStrategy} from "../../src/allocatorStrategies/MerkleDistributorStrategy.sol";
+import { IPayoutActionEncoder } from "../../src/interfaces/IPayoutActionEncoder.sol";
+import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
+import { AragonTest } from "../helpers/AragonTest.sol";
+import { IAllocatorStrategy } from "../../src/interfaces/IAllocatorStrategy.sol";
+import { IAllocatorStrategyFactory } from "../../src/interfaces/IAllocatorStrategyFactory.sol";
+import { MerkleDistributorStrategy } from "../../src/allocatorStrategies/MerkleDistributorStrategy.sol";
 
-import {MintableERC20} from "../mocks/MintableERC20.sol";
-import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {CreateExampleRecipients} from "../../script/utils/CreateExampleRecipients.s.sol";
-import {GenerateMerkleTree} from "../../script/utils/GenerateMerkleTree.s.sol";
-import {GenerateProof} from "../../script/utils/GenerateProof.s.sol";
+import { MintableERC20 } from "../mocks/MintableERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import { CreateExampleRecipients } from "../../script/utils/CreateExampleRecipients.s.sol";
+import { GenerateMerkleTree } from "../../script/utils/GenerateMerkleTree.s.sol";
+import { GenerateProof } from "../../script/utils/GenerateProof.s.sol";
 
 contract MerkleDistributorStrategyTest is AragonTest {
     using stdJson for string;
@@ -57,11 +57,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         vm.startPrank(address(createdDAO));
         allocatorStrategyFactory.registerStrategyType(
-            toBytes32("merkle-strategy"),
-            address(strategy),
-            "",
-            address(0),
-            0
+            toBytes32("merkle-strategy"), address(strategy), "", address(0), 0
         );
 
         // Set up merkle tree test data (keep legacy for existing tests)
@@ -438,17 +434,13 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Claim for recipient 1
         capitalDistributorPlugin.claimCampaignPayout(campaignId, testRecipient1, claimData1, "");
         assertEq(
-            token.balanceOf(testRecipient1),
-            initialBalance1 + amount1,
-            "Recipient 1 should receive correct amount"
+            token.balanceOf(testRecipient1), initialBalance1 + amount1, "Recipient 1 should receive correct amount"
         );
 
         // Claim for recipient 2
         capitalDistributorPlugin.claimCampaignPayout(campaignId, testRecipient2, claimData2, "");
         assertEq(
-            token.balanceOf(testRecipient2),
-            initialBalance2 + amount2,
-            "Recipient 2 should receive correct amount"
+            token.balanceOf(testRecipient2), initialBalance2 + amount2, "Recipient 2 should receive correct amount"
         );
     }
 
@@ -580,9 +572,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Verify campaign is paused
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
         assertEq(
-            uint8(campaign.state),
-            uint8(CapitalDistributorPlugin.CampaignState.PAUSED),
-            "Campaign should be paused"
+            uint8(campaign.state), uint8(CapitalDistributorPlugin.CampaignState.PAUSED), "Campaign should be paused"
         );
 
         // Update merkle root on paused campaign should succeed
@@ -597,14 +587,12 @@ contract MerkleDistributorStrategyTest is AragonTest {
         vm.stopPrank();
         vm.prank(address(capitalDistributorPlugin));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
-            campaignId,
-            newRootData
+            campaignId, newRootData
         );
 
         // Verify the merkle root was updated
-        bytes32 updatedRoot = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getCampaignMerkleRoot(
-            campaignId
-        );
+        bytes32 updatedRoot =
+            MerkleDistributorStrategy(address(campaign.allocationStrategy)).getCampaignMerkleRoot(campaignId);
         assertEq(updatedRoot, newRoot, "Merkle root should be updated on paused campaign");
     }
 
@@ -635,11 +623,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         // Verify campaign is ended
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        assertEq(
-            uint8(campaign.state),
-            uint8(CapitalDistributorPlugin.CampaignState.ENDED),
-            "Campaign should be ended"
-        );
+        assertEq(uint8(campaign.state), uint8(CapitalDistributorPlugin.CampaignState.ENDED), "Campaign should be ended");
 
         // Try to update merkle root on ended campaign
         bytes32 newRoot = keccak256("new-merkle-root");
@@ -651,8 +635,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         vm.stopPrank();
         vm.prank(address(capitalDistributorPlugin));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
-            campaignId,
-            newRootData
+            campaignId, newRootData
         );
     }
 
@@ -681,9 +664,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Verify campaign is active
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
         assertEq(
-            uint8(campaign.state),
-            uint8(CapitalDistributorPlugin.CampaignState.ACTIVE),
-            "Campaign should be active"
+            uint8(campaign.state), uint8(CapitalDistributorPlugin.CampaignState.ACTIVE), "Campaign should be active"
         );
         assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be active");
 
@@ -698,8 +679,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         vm.stopPrank();
         vm.prank(address(capitalDistributorPlugin));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
-            campaignId,
-            newRootData
+            campaignId, newRootData
         );
     }
 
@@ -740,8 +720,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         vm.stopPrank();
         vm.prank(address(capitalDistributorPlugin));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
-            campaignId,
-            newRootData
+            campaignId, newRootData
         );
 
         // Step 2: Pause campaign to allow updates
@@ -752,17 +731,15 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Step 3: Update merkle root should succeed on paused campaign
         vm.expectEmit(true, true, false, true);
         emit MerkleDistributorStrategy.MerkleCampaignUpdated(campaignId, initialRoot, newRoot);
-        
+
         vm.prank(address(capitalDistributorPlugin));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
-            campaignId,
-            newRootData
+            campaignId, newRootData
         );
 
         // Verify the update succeeded
-        bytes32 updatedRoot = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getCampaignMerkleRoot(
-            campaignId
-        );
+        bytes32 updatedRoot =
+            MerkleDistributorStrategy(address(campaign.allocationStrategy)).getCampaignMerkleRoot(campaignId);
         assertEq(updatedRoot, newRoot, "Merkle root should be updated when paused");
 
         // Step 4: Resume campaign and verify we can't update again
@@ -775,11 +752,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes memory anotherRootData = abi.encode(anotherRoot);
 
         vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, campaignId));
-        
+
         vm.prank(address(capitalDistributorPlugin));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
-            campaignId,
-            anotherRootData
+            campaignId, anotherRootData
         );
     }
 
@@ -860,8 +836,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         vm.prank(address(capitalDistributorPlugin));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
-            campaignId,
-            invalidRootData
+            campaignId, invalidRootData
         );
     }
 
@@ -900,10 +875,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Direct call to setAllocationCampaign on the strategy to test the specific error
         vm.stopPrank();
         vm.prank(address(capitalDistributorPlugin));
-        MerkleDistributorStrategy(address(campaign.allocationStrategy)).setAllocationCampaign(
-            campaignId,
-            secondAuxData
-        );
+        MerkleDistributorStrategy(address(campaign.allocationStrategy)).setAllocationCampaign(campaignId, secondAuxData);
     }
 
     function test_UpdateCampaignMerkleRootRevertOnDuplicateRoot() public {
@@ -941,8 +913,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         vm.prank(address(capitalDistributorPlugin));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
-            campaignId,
-            duplicateRootData
+            campaignId, duplicateRootData
         );
     }
 
@@ -984,8 +955,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         vm.prank(address(capitalDistributorPlugin));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
-            nonExistentCampaignId,
-            newRootData
+            nonExistentCampaignId, newRootData
         );
     }
 
@@ -1060,9 +1030,8 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         // Get merkle root for non-existent campaign should return zero
         uint256 nonExistentCampaignId = 999;
-        bytes32 retrievedRoot = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getCampaignMerkleRoot(
-            nonExistentCampaignId
-        );
+        bytes32 retrievedRoot =
+            MerkleDistributorStrategy(address(campaign.allocationStrategy)).getCampaignMerkleRoot(nonExistentCampaignId);
 
         assertEq(retrievedRoot, bytes32(0), "Non-existent campaign should return zero merkle root");
     }
@@ -1121,7 +1090,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        
+
         // Verify campaign starts active
         assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be active initially");
 
@@ -1130,18 +1099,17 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes memory newRootData = abi.encode(newRoot);
 
         vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, campaignId));
-        
+
         vm.stopPrank();
         vm.prank(address(capitalDistributorPlugin));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
-            campaignId,
-            newRootData
+            campaignId, newRootData
         );
 
         // Now pause the campaign to allow updates
         vm.prank(address(createdDAO));
         capitalDistributorPlugin.pauseCampaign(campaignId);
-        
+
         // Verify campaign is paused
         assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be paused");
 
@@ -1151,14 +1119,12 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         vm.prank(address(capitalDistributorPlugin));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
-            campaignId,
-            newRootData
+            campaignId, newRootData
         );
 
         // Verify the merkle root was actually updated
-        bytes32 updatedRoot = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getCampaignMerkleRoot(
-            campaignId
-        );
+        bytes32 updatedRoot =
+            MerkleDistributorStrategy(address(campaign.allocationStrategy)).getCampaignMerkleRoot(campaignId);
         assertEq(updatedRoot, newRoot, "Merkle root should be updated");
     }
 
@@ -1219,9 +1185,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes memory fullClaimData = abi.encode(aliceProof, fullAmount);
         vm.prank(address(capitalDistributorPlugin));
         uint256 claimableAmount = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getClaimeableAmount(
-            campaignId,
-            alice,
-            fullClaimData
+            campaignId, alice, fullClaimData
         );
         assertEq(claimableAmount, fullAmount, "Should return full amount initially");
 
@@ -1229,8 +1193,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 excessiveAmount = fullAmount * 2;
         bytes memory excessiveClaimData = abi.encode(aliceProof, excessiveAmount);
         vm.prank(address(capitalDistributorPlugin));
-        uint256 excessiveClaimable = MerkleDistributorStrategy(address(campaign.allocationStrategy))
-            .getClaimeableAmount(campaignId, alice, excessiveClaimData);
+        uint256 excessiveClaimable = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getClaimeableAmount(
+            campaignId, alice, excessiveClaimData
+        );
         assertEq(excessiveClaimable, 0, "Should return 0 for excessive claim amount");
     }
 

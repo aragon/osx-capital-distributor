@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import {IAllocatorStrategy} from "../interfaces/IAllocatorStrategy.sol";
-import {AllocatorStrategyBase} from "./AllocatorStrategyBase.sol";
-import {CapitalDistributorPlugin} from "../CapitalDistributorPlugin.sol";
+import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import { IAllocatorStrategy } from "../interfaces/IAllocatorStrategy.sol";
+import { AllocatorStrategyBase } from "./AllocatorStrategyBase.sol";
+import { CapitalDistributorPlugin } from "../CapitalDistributorPlugin.sol";
 
 /// @title MerkleDistributorStrategy
 /// @notice A merkle tree-based allocation strategy that allows recipients to claim tokens
@@ -23,7 +23,6 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
 
     /// @notice Emitted when a new merkle campaign is set up
     event MerkleCampaignSet(uint256 indexed campaignId, bytes32 merkleRoot);
-
 
     /// @notice Emitted when a merkle campaign root is updated
     event MerkleCampaignUpdated(uint256 indexed campaignId, bytes32 oldMerkleRoot, bytes32 newMerkleRoot);
@@ -60,9 +59,11 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     /// @param _auxData The encoded data containing the merkle proof and claimed amount
     /// @return merkleProof The merkle proof for the claim
     /// @return amount The amount being claimed
-    function decodeClaimData(
-        bytes calldata _auxData
-    ) internal pure returns (bytes32[] memory merkleProof, uint256 amount) {
+    function decodeClaimData(bytes calldata _auxData)
+        internal
+        pure
+        returns (bytes32[] memory merkleProof, uint256 amount)
+    {
         return abi.decode(_auxData, (bytes32[], uint256));
     }
 
@@ -110,7 +111,12 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
         uint256 _campaignId,
         address _account,
         bytes calldata _auxData
-    ) public view override returns (uint256 amount) {
+    )
+        public
+        view
+        override
+        returns (uint256 amount)
+    {
         bytes32 merkleRoot = merkleCampaigns[_campaignId].merkleRoot;
 
         if (merkleRoot == bytes32(0)) {

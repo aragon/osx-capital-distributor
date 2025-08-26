@@ -1,33 +1,38 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.29 <0.9.0;
 
-import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {stdJson} from "forge-std/StdJson.sol";
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import { IDAO } from "@aragon/commons/dao/IDAO.sol";
+import { stdJson } from "forge-std/StdJson.sol";
 
-import {PluginRepoFactory} from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
-import {DAOFactory} from "@aragon/osx/framework/dao/DAOFactory.sol";
-import {CapitalDistributorPlugin} from "../../src/CapitalDistributorPlugin.sol";
+import { PluginRepoFactory } from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
+import { DAOFactory } from "@aragon/osx/framework/dao/DAOFactory.sol";
+import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
 
-import {AragonE2EBase} from "../helpers/AragonE2EBase.sol";
-import {MerkleDistributorStrategy} from "../../src/allocatorStrategies/MerkleDistributorStrategy.sol";
-import {IAllocatorStrategyFactory} from "../../src/interfaces/IAllocatorStrategyFactory.sol";
-import {IPayoutActionEncoder} from "../../src/interfaces/IPayoutActionEncoder.sol";
-import {ISablierLockup, SablierLinearPayoutActionEncoder} from "../../src/payoutActionEncoders/SablierLinearPayoutActionEncoder.sol";
-import {CreateExampleRecipients} from "../../script/utils/CreateExampleRecipients.s.sol";
-import {GenerateMerkleTree} from "../../script/utils/GenerateMerkleTree.s.sol";
-import {GenerateProof} from "../../script/utils/GenerateProof.s.sol";
+import { AragonE2EBase } from "../helpers/AragonE2EBase.sol";
+import { MerkleDistributorStrategy } from "../../src/allocatorStrategies/MerkleDistributorStrategy.sol";
+import { IAllocatorStrategyFactory } from "../../src/interfaces/IAllocatorStrategyFactory.sol";
+import { IPayoutActionEncoder } from "../../src/interfaces/IPayoutActionEncoder.sol";
+import {
+    ISablierLockup,
+    SablierLinearPayoutActionEncoder
+} from "../../src/payoutActionEncoders/SablierLinearPayoutActionEncoder.sol";
+import { CreateExampleRecipients } from "../../script/utils/CreateExampleRecipients.s.sol";
+import { GenerateMerkleTree } from "../../script/utils/GenerateMerkleTree.s.sol";
+import { GenerateProof } from "../../script/utils/GenerateProof.s.sol";
 
 /// @title SablierEncodedMerkleDistributorTest
 /// @notice E2E test for Merkle distributor with Sablier stream encoding on mainnet fork
 /// @dev This test forks mainnet to test real Sablier protocol integration
 contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
     using stdJson for string;
-    
+
     // Mainnet addresses
     address constant USDC_MAINNET = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48; // Replace with actual USDC address
-    address constant SABLIER_V2_LOCKUP_LINEAR = 0x3F6E8a8Cffe377c4649aCeB01e6F20c60fAA356c; // Replace with actual Sablier address
-    address constant SABLIER_V2_LOCKUP = 0x7C01AA3783577E15fD7e272443D44B92d5b21056; // Replace with actual Sablier address
+    address constant SABLIER_V2_LOCKUP_LINEAR = 0x3F6E8a8Cffe377c4649aCeB01e6F20c60fAA356c; // Replace with actual
+        // Sablier address
+    address constant SABLIER_V2_LOCKUP = 0x7C01AA3783577E15fD7e272443D44B92d5b21056; // Replace with actual Sablier
+        // address
 
     // Test-specific contracts
     MerkleDistributorStrategy public merkleStrategy;
@@ -45,7 +50,7 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
     bytes32 merkleRoot;
     mapping(address => uint256) recipientAmounts;
     mapping(address => bytes32[]) recipientProofs;
-    
+
     // Script-generated test data
     string constant E2E_RECIPIENTS_FILE = "./tests/data/e2e-test-recipients.json";
     string constant E2E_TREE_FILE = "./tests/data/merkle-tree.json";
@@ -69,18 +74,18 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
 
         // Register merkle strategy
         strategy = new MerkleDistributorStrategy();
-        allocatorStrategyFactory.registerStrategyType(toBytes32("merkle-strategy"), address(strategy), "", address(0), 0);
+        allocatorStrategyFactory.registerStrategyType(
+            toBytes32("merkle-strategy"), address(strategy), "", address(0), 0
+        );
 
         // Register Sablier action encoder
         SablierLinearPayoutActionEncoder sablierLinearPayoutActionEncoder = new SablierLinearPayoutActionEncoder();
         actionEncoderFactory.registerActionEncoder(
-            toBytes32("sablier-linear-encoder"),
-            address(sablierLinearPayoutActionEncoder),
-            ""
+            toBytes32("sablier-linear-encoder"), address(sablierLinearPayoutActionEncoder), ""
         );
 
         vm.stopPrank();
-        
+
         // Deploy merkle tree scripts
         createExampleScript = new CreateExampleRecipients();
         generateTreeScript = new GenerateMerkleTree();
@@ -111,10 +116,10 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
     // =============================================================================
 
     function setupTestRecipients() internal {
-        recipientAmounts[alice] = 2_500e6; // 2,500 USDC
-        recipientAmounts[bob] = 3_000e6; // 3,000 USDC
-        recipientAmounts[carol] = 2_000e6; // 2,000 USDC
-        recipientAmounts[david] = 2_500e6; // 2,500 USDC
+        recipientAmounts[alice] = 2500e6; // 2,500 USDC
+        recipientAmounts[bob] = 3000e6; // 3,000 USDC
+        recipientAmounts[carol] = 2000e6; // 2,000 USDC
+        recipientAmounts[david] = 2500e6; // 2,500 USDC
     }
 
     function setupMerkleTree() internal {
@@ -287,14 +292,14 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
     }
 
     // =============================================================================
-    // Script-based E2E Tests  
+    // Script-based E2E Tests
     // =============================================================================
 
     function setupScriptGeneratedE2EData() internal {
         // Create recipients using script - customize for E2E test with realistic amounts
         string memory customRecipients = createCustomE2ERecipients();
         vm.writeFile(E2E_RECIPIENTS_FILE, customRecipients);
-        
+
         // Generate merkle tree
         generateTreeScript.generate(E2E_RECIPIENTS_FILE);
     }
@@ -303,10 +308,18 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
         // Create realistic recipients for E2E testing with USDC amounts
         return string.concat(
             "[\n",
-            "  {\"account\": \"", vm.toString(alice), "\", \"amount\": \"2500000000\"},\n", // 2,500 USDC (6 decimals)
-            "  {\"account\": \"", vm.toString(bob), "\", \"amount\": \"3000000000\"},\n",   // 3,000 USDC
-            "  {\"account\": \"", vm.toString(carol), "\", \"amount\": \"2000000000\"},\n", // 2,000 USDC
-            "  {\"account\": \"", vm.toString(david), "\", \"amount\": \"2500000000\"}\n",  // 2,500 USDC
+            "  {\"account\": \"",
+            vm.toString(alice),
+            "\", \"amount\": \"2500000000\"},\n", // 2,500 USDC (6 decimals)
+            "  {\"account\": \"",
+            vm.toString(bob),
+            "\", \"amount\": \"3000000000\"},\n", // 3,000 USDC
+            "  {\"account\": \"",
+            vm.toString(carol),
+            "\", \"amount\": \"2000000000\"},\n", // 2,000 USDC
+            "  {\"account\": \"",
+            vm.toString(david),
+            "\", \"amount\": \"2500000000\"}\n", // 2,500 USDC
             "]"
         );
     }
@@ -319,16 +332,16 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
     function getScriptGeneratedE2EProof(address recipient) internal returns (bytes32[] memory, uint256) {
         // Generate proof using script
         generateProofScript.generateProof(E2E_TREE_FILE, recipient);
-        
+
         // Read the generated proof file
         string memory proofFile = string.concat("./tests/data/proof-", vm.toString(recipient), ".json");
         string memory proofJson = vm.readFile(proofFile);
-        
+
         // Parse proof data
         bytes memory proofData = proofJson.parseRaw(".proof");
         bytes32[] memory proof = abi.decode(proofData, (bytes32[]));
         uint256 amount = proofJson.readUint(".amount");
-        
+
         return (proof, amount);
     }
 
@@ -370,8 +383,8 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
         (bytes32[] memory bobProof, uint256 bobAmount) = getScriptGeneratedE2EProof(bob);
 
         // Verify amounts match expected USDC amounts (6 decimals)
-        assertEq(aliceAmount, 2_500e6, "Alice amount should be 2,500 USDC");
-        assertEq(bobAmount, 3_000e6, "Bob amount should be 3,000 USDC");
+        assertEq(aliceAmount, 2500e6, "Alice amount should be 2,500 USDC");
+        assertEq(bobAmount, 3000e6, "Bob amount should be 3,000 USDC");
 
         // Test payout calculations
         bytes memory aliceClaimData = abi.encode(aliceProof, aliceAmount);
