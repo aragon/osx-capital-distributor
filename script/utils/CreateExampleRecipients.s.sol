@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.19;
 
-import {Script, console} from "forge-std/Script.sol";
+import { Script, console } from "forge-std/Script.sol";
 
 /**
  * @title CreateExampleRecipients
  * @notice Foundry script to create example recipients JSON files
- * @dev Usage: forge script scripts/merkleDistributor/CreateExampleRecipients.s.sol --sig "createExample(string)" "path/to/recipients.json"
+ * @dev Usage: forge script scripts/merkleDistributor/CreateExampleRecipients.s.sol --sig "createExample(string)"
+ * "path/to/recipients.json"
  */
 contract CreateExampleRecipients is Script {
     /**
@@ -16,7 +17,7 @@ contract CreateExampleRecipients is Script {
     function createExample(string memory outputPath) external {
         string memory json = createExampleJson();
         vm.writeFile(outputPath, json);
-        
+
         console.log("Example recipients file created!");
         console.log("Path:", outputPath);
         console.log("Recipients: 4");
@@ -30,7 +31,7 @@ contract CreateExampleRecipients is Script {
     function createSmallExample(string memory outputPath) external {
         string memory json = createSmallExampleJson();
         vm.writeFile(outputPath, json);
-        
+
         console.log("Small example recipients file created!");
         console.log("Path:", outputPath);
         console.log("Recipients: 3");
@@ -43,7 +44,7 @@ contract CreateExampleRecipients is Script {
     function createLargeExample(string memory outputPath) external {
         string memory json = createLargeExampleJson();
         vm.writeFile(outputPath, json);
-        
+
         console.log("Large example recipients file created!");
         console.log("Path:", outputPath);
         console.log("Recipients: 100");
@@ -105,25 +106,29 @@ contract CreateExampleRecipients is Script {
      */
     function createLargeExampleJson() internal pure returns (string memory) {
         string memory json = "[\n";
-        
+
         for (uint256 i = 0; i < 100; i++) {
             if (i > 0) {
                 json = string.concat(json, ",\n");
             }
-            
+
             // Generate pseudo-random address and amount
             address addr = address(uint160(uint256(keccak256(abi.encodePacked("recipient", i)))));
             uint256 amount = (i + 1) * 1e18; // 1 ETH, 2 ETH, 3 ETH, etc.
-            
+
             json = string.concat(
                 json,
                 "  {\n",
-                "    \"account\": \"", vm.toString(addr), "\",\n",
-                "    \"amount\": \"", vm.toString(amount), "\"\n",
+                "    \"account\": \"",
+                vm.toString(addr),
+                "\",\n",
+                "    \"amount\": \"",
+                vm.toString(amount),
+                "\"\n",
                 "  }"
             );
         }
-        
+
         json = string.concat(json, "\n]");
         return json;
     }
@@ -135,7 +140,7 @@ contract CreateExampleRecipients is Script {
     function createTestnetExample(string memory outputPath) external {
         string memory json = createTestnetExampleJson();
         vm.writeFile(outputPath, json);
-        
+
         console.log("Testnet example recipients file created!");
         console.log("Path:", outputPath);
         console.log("Recipients: 10");
@@ -169,7 +174,7 @@ contract CreateExampleRecipients is Script {
      */
     function validateFile(string memory filePath) external view {
         console.log("Validating recipients file:", filePath);
-        
+
         // This would require parsing the JSON and validating structure
         // For now, just check if file exists
         string memory content;
@@ -181,18 +186,18 @@ contract CreateExampleRecipients is Script {
             console.log("File not found or not readable");
             return;
         }
-        
+
         // Basic format checks
         bytes memory contentBytes = bytes(content);
-        bool startsWithBracket = contentBytes.length > 0 && contentBytes[0] == '[';
-        bool endsWithBracket = contentBytes.length > 0 && contentBytes[contentBytes.length - 1] == ']';
-        
+        bool startsWithBracket = contentBytes.length > 0 && contentBytes[0] == "[";
+        bool endsWithBracket = contentBytes.length > 0 && contentBytes[contentBytes.length - 1] == "]";
+
         if (startsWithBracket && endsWithBracket) {
             console.log("Basic JSON array format looks correct");
         } else {
             console.log("File doesn't appear to be a JSON array");
         }
-        
+
         console.log("Use GenerateMerkleTree script to fully validate and process the file");
     }
 }

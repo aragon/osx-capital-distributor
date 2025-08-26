@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
+import { IDAO } from "@aragon/commons/dao/IDAO.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @title FactoryBase
 /// @author AragonX - 2025
@@ -29,10 +29,7 @@ abstract contract FactoryBase is ReentrancyGuard {
     /// @param metadata The metadata associated with the type
     /// @param registrar The address that registered the type
     event TypeRegistered(
-        bytes32 indexed typeId,
-        address indexed implementation,
-        string metadata,
-        address indexed registrar
+        bytes32 indexed typeId, address indexed implementation, string metadata, address indexed registrar
     );
 
     /// @notice Emitted when an instance is deployed
@@ -41,10 +38,7 @@ abstract contract FactoryBase is ReentrancyGuard {
     /// @param deploymentId The unique deployment identifier
     /// @param deployer The address that deployed the instance
     event InstanceDeployed(
-        bytes32 indexed typeId,
-        address indexed instance,
-        bytes32 indexed deploymentId,
-        address deployer
+        bytes32 indexed typeId, address indexed instance, bytes32 indexed deploymentId, address deployer
     );
 
     /// @notice Thrown when attempting to register a type ID that already exists
@@ -87,7 +81,7 @@ abstract contract FactoryBase is ReentrancyGuard {
             revert InvalidImplementation(_implementation, "Implementation must be a deployed contract");
         }
 
-        registeredTypes[_typeId] = RegisteredType({implementation: _implementation, metadata: _metadata});
+        registeredTypes[_typeId] = RegisteredType({ implementation: _implementation, metadata: _metadata });
 
         emit TypeRegistered(_typeId, _implementation, _metadata, msg.sender);
     }
@@ -100,7 +94,10 @@ abstract contract FactoryBase is ReentrancyGuard {
         bytes32 _typeId,
         address _implementation,
         address _existingImplementation
-    ) internal pure {
+    )
+        internal
+        pure
+    {
         if (_typeId == bytes32(0)) {
             revert EmptyTypeId();
         }
@@ -121,14 +118,16 @@ abstract contract FactoryBase is ReentrancyGuard {
         bytes32 _typeId,
         address _implementation,
         bytes memory _initCalldata
-    ) internal nonReentrant returns (address instance) {
+    )
+        internal
+        nonReentrant
+        returns (address instance)
+    {
         instance = _implementation.clone();
 
         (bool success, bytes memory returnData) = instance.call(_initCalldata);
         if (!success) {
-            string memory reason = returnData.length > 0 
-                ? string(returnData) 
-                : "Initialization failed";
+            string memory reason = returnData.length > 0 ? string(returnData) : "Initialization failed";
             revert DeploymentFailed(_typeId, _implementation, reason);
         }
     }
@@ -142,7 +141,11 @@ abstract contract FactoryBase is ReentrancyGuard {
         bytes32 _typeId,
         IDAO _dao,
         bytes memory _auxData
-    ) internal pure returns (bytes32 paramsHash) {
+    )
+        internal
+        pure
+        returns (bytes32 paramsHash)
+    {
         return keccak256(abi.encode(_typeId, address(_dao), _auxData));
     }
 

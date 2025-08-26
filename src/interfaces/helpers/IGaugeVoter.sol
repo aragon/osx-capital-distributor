@@ -7,8 +7,8 @@ interface IGauge {
         bool active;
         uint256 created; // timestamp or epoch
         string metadataUri;
-        // more space for data as this is a struct in a mapping
     }
+    // more space for data as this is a struct in a mapping
 }
 
 /*///////////////////////////////////////////////////////////////

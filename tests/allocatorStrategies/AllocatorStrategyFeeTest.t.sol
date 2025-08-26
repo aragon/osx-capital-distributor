@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {AllocatorStrategyFactory} from "../../src/factories/AllocatorStrategyFactory.sol";
-import {CapitalDistributorPlugin} from "../../src/CapitalDistributorPlugin.sol";
-import {ActionEncoderFactory} from "../../src/factories/ActionEncoderFactory.sol";
-import {IAllocatorStrategy} from "../../src/interfaces/IAllocatorStrategy.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {Action, IExecutor} from "@aragon/commons/executors/IExecutor.sol";
-import {DAO} from "@aragon/osx/core/dao/DAO.sol";
-import {MerkleDistributorStrategy} from "../../src/allocatorStrategies/MerkleDistributorStrategy.sol";
-import {MintableERC20} from "../mocks/MintableERC20.sol";
-import {AragonTest} from "../helpers/AragonTest.sol";
+import { Test } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
+import { AllocatorStrategyFactory } from "../../src/factories/AllocatorStrategyFactory.sol";
+import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
+import { ActionEncoderFactory } from "../../src/factories/ActionEncoderFactory.sol";
+import { IAllocatorStrategy } from "../../src/interfaces/IAllocatorStrategy.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IDAO } from "@aragon/commons/dao/IDAO.sol";
+import { Action, IExecutor } from "@aragon/commons/executors/IExecutor.sol";
+import { DAO } from "@aragon/osx/core/dao/DAO.sol";
+import { MerkleDistributorStrategy } from "../../src/allocatorStrategies/MerkleDistributorStrategy.sol";
+import { MintableERC20 } from "../mocks/MintableERC20.sol";
+import { AragonTest } from "../helpers/AragonTest.sol";
 
 /// @title AllocatorStrategyFeeTest
 /// @notice Test suite for the fee functionality in allocator strategies
@@ -39,7 +39,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
 
         // Deploy test token
         token = new MintableERC20();
-        token.mint(address(createdDAO), 1000000 ether);
+        token.mint(address(createdDAO), 1_000_000 ether);
 
         // Deploy strategy implementation
         merkleImplementation = new MerkleDistributorStrategy();
@@ -53,11 +53,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
         emit StrategyFeeConfigured(MERKLE_STRATEGY_ID, feeCollector, feeBasisPoints);
 
         allocatorStrategyFactory.registerStrategyType(
-            MERKLE_STRATEGY_ID,
-            address(merkleImplementation),
-            MERKLE_METADATA,
-            feeCollector,
-            feeBasisPoints
+            MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, feeCollector, feeBasisPoints
         );
 
         // Verify fee configuration
@@ -69,11 +65,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
     /// @notice Test registering a strategy with zero fee
     function test_RegisterStrategyWithZeroFee() public {
         allocatorStrategyFactory.registerStrategyType(
-            MERKLE_STRATEGY_ID,
-            address(merkleImplementation),
-            MERKLE_METADATA,
-            address(0),
-            0
+            MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0
         );
 
         // Verify fee configuration
@@ -111,19 +103,12 @@ contract AllocatorStrategyFeeTest is AragonTest {
 
         // Register strategy with fee
         allocatorStrategyFactory.registerStrategyType(
-            MERKLE_STRATEGY_ID,
-            address(merkleImplementation),
-            MERKLE_METADATA,
-            feeCollector,
-            feeBasisPoints
+            MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, feeCollector, feeBasisPoints
         );
 
         // Deploy strategy instance
-        address strategy = allocatorStrategyFactory.deployStrategy(
-            MERKLE_STRATEGY_ID,
-            createdDAO,
-            abi.encode(bytes32(0))
-        );
+        address strategy =
+            allocatorStrategyFactory.deployStrategy(MERKLE_STRATEGY_ID, createdDAO, abi.encode(bytes32(0)));
 
         // Get fee configuration by instance
         (address recipient, uint256 basisPoints) = allocatorStrategyFactory.getStrategyFeeByInstance(strategy);
@@ -140,16 +125,12 @@ contract AllocatorStrategyFeeTest is AragonTest {
     function test_ClaimWithFees() public {
         uint256 feeBasisPoints = 500; // 5%
         uint256 claimAmount = 1000 ether;
-        uint256 expectedFee = (claimAmount * feeBasisPoints) / 10000;
+        uint256 expectedFee = (claimAmount * feeBasisPoints) / 10_000;
         uint256 expectedRecipientAmount = claimAmount - expectedFee;
 
         // Register strategy with fee
         allocatorStrategyFactory.registerStrategyType(
-            MERKLE_STRATEGY_ID,
-            address(merkleImplementation),
-            MERKLE_METADATA,
-            feeCollector,
-            feeBasisPoints
+            MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, feeCollector, feeBasisPoints
         );
 
         // Create campaign with merkle strategy
@@ -197,11 +178,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
 
         // Register strategy with zero fee
         allocatorStrategyFactory.registerStrategyType(
-            MERKLE_STRATEGY_ID,
-            address(merkleImplementation),
-            MERKLE_METADATA,
-            address(0),
-            0
+            MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0
         );
 
         // Create campaign
@@ -243,21 +220,20 @@ contract AllocatorStrategyFeeTest is AragonTest {
     function test_FeeCalculationAccuracy() public {
         // Test various fee percentages
         uint256[5] memory feeBasisPoints = [uint256(1), 50, 250, 500, 1000]; // 0.01%, 0.5%, 2.5%, 5%, 10%
-        uint256[5] memory claimAmounts = [uint256(100), 1000, 10000, 100000, 1000000]; // Various amounts
+        uint256[5] memory claimAmounts = [uint256(100), 1000, 10_000, 100_000, 1_000_000]; // Various amounts
 
-        for (uint i = 0; i < feeBasisPoints.length; i++) {
-            for (uint j = 0; j < claimAmounts.length; j++) {
+        for (uint256 i = 0; i < feeBasisPoints.length; i++) {
+            for (uint256 j = 0; j < claimAmounts.length; j++) {
                 uint256 fee = feeBasisPoints[i];
                 uint256 amount = claimAmounts[j] * 1 ether;
 
-                uint256 expectedFee = (amount * fee) / 10000;
+                uint256 expectedFee = (amount * fee) / 10_000;
                 uint256 expectedRecipient = amount - expectedFee;
 
                 // Verify calculation precision
                 assertEq(expectedFee + expectedRecipient, amount, "Fee calculation should not lose wei");
-                assertLe(expectedFee, (amount * fee) / 10000, "Fee should not exceed expected percentage");
+                assertLe(expectedFee, (amount * fee) / 10_000, "Fee should not exceed expected percentage");
             }
         }
     }
 }
-

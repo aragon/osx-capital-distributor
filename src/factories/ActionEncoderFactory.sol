@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
-import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {IPayoutActionEncoder} from "../interfaces/IPayoutActionEncoder.sol";
-import {IActionEncoderFactory} from "../interfaces/IActionEncoderFactory.sol";
-import {FactoryBase} from "./FactoryBase.sol";
+import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
+import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import { IDAO } from "@aragon/commons/dao/IDAO.sol";
+import { IPayoutActionEncoder } from "../interfaces/IPayoutActionEncoder.sol";
+import { IActionEncoderFactory } from "../interfaces/IActionEncoderFactory.sol";
+import { FactoryBase } from "./FactoryBase.sol";
 
 /// @title ActionEncoderFactory
 /// @author AragonX - 2025
@@ -44,18 +44,21 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
         if (_implementation.code.length == 0) {
             revert InvalidImplementation(_implementation, "Implementation must be a deployed contract");
         }
-        
+
         // Validate that the implementation supports the IPayoutActionEncoder interface
-        try IERC165(_implementation).supportsInterface(type(IPayoutActionEncoder).interfaceId) returns (bool supported) {
+        try IERC165(_implementation).supportsInterface(type(IPayoutActionEncoder).interfaceId) returns (bool supported)
+        {
             if (!supported) {
-                revert InvalidImplementation(_implementation, "Implementation must support IPayoutActionEncoder interface");
+                revert InvalidImplementation(
+                    _implementation, "Implementation must support IPayoutActionEncoder interface"
+                );
             }
         } catch {
             revert InvalidImplementation(_implementation, "Implementation must support IPayoutActionEncoder interface");
         }
-        
+
         // Register the type
-        registeredTypes[_encoderId] = RegisteredType({implementation: _implementation, metadata: _metadata});
+        registeredTypes[_encoderId] = RegisteredType({ implementation: _implementation, metadata: _metadata });
         emit TypeRegistered(_encoderId, _implementation, _metadata, msg.sender);
         emit ActionEncoderTypeRegistered(_encoderId, _implementation, _metadata);
     }
@@ -69,7 +72,10 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
         bytes32 _encoderId,
         IDAO _dao,
         bytes calldata _auxData
-    ) public returns (IPayoutActionEncoder encoder) {
+    )
+        public
+        returns (IPayoutActionEncoder encoder)
+    {
         bytes32 deploymentId = _computeParamsHash(_encoderId, _dao, _auxData);
 
         // Check if encoder with these parameters already exists
@@ -90,7 +96,10 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
         bytes32 _encoderId,
         IDAO _dao,
         bytes calldata _auxData
-    ) external returns (IPayoutActionEncoder encoder) {
+    )
+        external
+        returns (IPayoutActionEncoder encoder)
+    {
         bytes32 deploymentId = _computeParamsHash(_encoderId, _dao, _auxData);
 
         encoder = deployedInstances[deploymentId];
@@ -111,7 +120,11 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
         bytes32 _encoderId,
         IDAO _dao,
         bytes calldata _auxData
-    ) external view returns (bool exists, IPayoutActionEncoder encoder) {
+    )
+        external
+        view
+        returns (bool exists, IPayoutActionEncoder encoder)
+    {
         bytes32 deploymentId = _computeParamsHash(_encoderId, _dao, _auxData);
         encoder = deployedInstances[deploymentId];
         exists = address(encoder) != address(0);
@@ -128,7 +141,10 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
         IDAO _dao,
         bytes calldata _auxData,
         bytes32 _deploymentId
-    ) internal returns (IPayoutActionEncoder encoder) {
+    )
+        internal
+        returns (IPayoutActionEncoder encoder)
+    {
         RegisteredType storage encoderType = registeredTypes[_encoderId];
 
         if (encoderType.implementation == address(0)) {
@@ -136,11 +152,7 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
         }
 
         bytes memory initCalldata = abi.encodeWithSignature(
-            "initialize(bytes32,address,address,bytes)",
-            _encoderId,
-            address(_dao),
-            msg.sender,
-            _auxData
+            "initialize(bytes32,address,address,bytes)", _encoderId, address(_dao), msg.sender, _auxData
         );
 
         address instance = _deployAndInitialize(_encoderId, encoderType.implementation, initCalldata);

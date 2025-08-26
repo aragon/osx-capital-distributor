@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {IAllocatorStrategy} from "../../src/interfaces/IAllocatorStrategy.sol";
-import {AllocatorStrategyBase} from "../../src/allocatorStrategies/AllocatorStrategyBase.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
+import { IAllocatorStrategy } from "../../src/interfaces/IAllocatorStrategy.sol";
+import { AllocatorStrategyBase } from "../../src/allocatorStrategies/AllocatorStrategyBase.sol";
+import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 
 /// @title ConfigurableAllocatorStrategyMock
 /// @notice A configurable mock implementation of AllocatorStrategyBase for testing.
@@ -23,7 +23,7 @@ contract ConfigurableAllocatorStrategyMock is AllocatorStrategyBase {
     }
 
     /// @inheritdoc IAllocatorStrategy
-    function setAllocationCampaign(uint256 /* _campaignId */, bytes calldata) public pure override {
+    function setAllocationCampaign(uint256, /* _campaignId */ bytes calldata) public pure override {
         // Mock implementation - do nothing
         return;
     }
@@ -33,15 +33,20 @@ contract ConfigurableAllocatorStrategyMock is AllocatorStrategyBase {
         uint256 _campaignId,
         address _recipient,
         bytes calldata
-    ) public view override returns (uint256 amount) {
+    )
+        public
+        view
+        override
+        returns (uint256 amount)
+    {
         // First check if there's a specific amount set for this recipient
         amount = claimableAmounts[_campaignId][_recipient];
-        
+
         // If no specific amount, use the default for the campaign
         if (amount == 0) {
             amount = defaultClaimableAmounts[_campaignId];
         }
-        
+
         return amount;
     }
 

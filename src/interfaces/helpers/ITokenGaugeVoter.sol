@@ -31,7 +31,8 @@ interface ITokenGaugeVote {
 interface ITokenGaugeVoterEvents {
     /// @param votingPowerCastForGauge votes cast by this token for this gauge in this vote
     /// @param totalVotingPowerInGauge total voting power in the gauge at the time of the vote, after applying the vote
-    /// @param totalVotingPowerInContract total voting power in the contract at the time of the vote, after applying the vote
+    /// @param totalVotingPowerInContract total voting power in the contract at the time of the vote, after applying the
+    /// vote
     event Voted(
         address indexed voter,
         address indexed gauge,
@@ -44,8 +45,10 @@ interface ITokenGaugeVoterEvents {
     );
 
     /// @param votingPowerRemovedFromGauge votes removed by this token for this gauge, at the time of this rest
-    /// @param totalVotingPowerInGauge total voting power in the gauge at the time of the reset, after applying the reset
-    /// @param totalVotingPowerInContract total voting power in the contract at the time of the reset, after applying the reset
+    /// @param totalVotingPowerInGauge total voting power in the gauge at the time of the reset, after applying the
+    /// reset
+    /// @param totalVotingPowerInContract total voting power in the contract at the time of the reset, after applying
+    /// the reset
     event Reset(
         address indexed voter,
         address indexed gauge,
@@ -93,6 +96,4 @@ interface ITokenGaugeVoterStorageEventsErrors is
     IGaugeManagerErrors,
     ITokenGaugeVoterEvents,
     ITokenGaugeVoterErrors
-{
-
-}
+{ }

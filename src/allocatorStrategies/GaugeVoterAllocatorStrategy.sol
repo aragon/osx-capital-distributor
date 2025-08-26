@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {IAllocatorStrategy} from "../interfaces/IAllocatorStrategy.sol";
-import {AllocatorStrategyBase} from "./AllocatorStrategyBase.sol";
-import {IAddressGaugeVoter} from "../interfaces/helpers/IAddressGaugeVoter.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
+import { IAllocatorStrategy } from "../interfaces/IAllocatorStrategy.sol";
+import { AllocatorStrategyBase } from "./AllocatorStrategyBase.sol";
+import { IAddressGaugeVoter } from "../interfaces/helpers/IAddressGaugeVoter.sol";
+import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 
 /// @title GaugeVoterAllocatorStrategy
-/// @notice Allocator strategy that distributes tokens proportionally to users based on their voting participation and power in Aragon OSx Gauge voting plugin
-/// @dev Users receive allocations based on how much voting power they contributed to the gauge relative to the total voting power cast
+/// @notice Allocator strategy that distributes tokens proportionally to users based on their voting participation and
+/// power in Aragon OSx Gauge voting plugin
+/// @dev Users receive allocations based on how much voting power they contributed to the gauge relative to the total
+/// voting power cast
 contract GaugeVoterAllocatorStrategy is AllocatorStrategyBase {
     // =========================================================================
     // Errors
@@ -45,12 +47,7 @@ contract GaugeVoterAllocatorStrategy is AllocatorStrategyBase {
     /// @param _dao DAO instance
     /// @param _plugin Capital distributor plugin address
     /// @param _auxData Encoded (IAddressGaugeVoter gaugeVoter)
-    function initialize(
-        bytes32 _strategyTypeId,
-        IDAO _dao,
-        address _plugin,
-        bytes calldata _auxData
-    ) public override {
+    function initialize(bytes32 _strategyTypeId, IDAO _dao, address _plugin, bytes calldata _auxData) public override {
         super.initialize(_strategyTypeId, _dao, _plugin, _auxData);
 
         IAddressGaugeVoter _gaugeVoter = abi.decode(_auxData, (IAddressGaugeVoter));
@@ -84,7 +81,12 @@ contract GaugeVoterAllocatorStrategy is AllocatorStrategyBase {
         uint256 _campaignId,
         address _account,
         bytes calldata
-    ) public view override returns (uint256 amount) {
+    )
+        public
+        view
+        override
+        returns (uint256 amount)
+    {
         GaugeAllocationCampaign storage campaign = campaigns[_campaignId];
 
         // Validate campaign exists
@@ -110,7 +112,6 @@ contract GaugeVoterAllocatorStrategy is AllocatorStrategyBase {
         // Calculate proportional allocation
         return (userVotingPower * campaign.totalDistributionAmount) / totalVotingPowerCast;
     }
-
 
     /// @notice Checks if user is eligible for allocation in the campaign
     /// @param _campaignId Campaign identifier
@@ -156,10 +157,8 @@ contract GaugeVoterAllocatorStrategy is AllocatorStrategyBase {
         if (totalDistributionAmount == 0) revert InvalidDistributionAmount();
 
         // Create new campaign
-        campaigns[_campaignId] = GaugeAllocationCampaign({
-            epochId: gaugeVoter.epochId(),
-            totalDistributionAmount: totalDistributionAmount
-        });
+        campaigns[_campaignId] =
+            GaugeAllocationCampaign({ epochId: gaugeVoter.epochId(), totalDistributionAmount: totalDistributionAmount });
 
         emit AllocationCampaignCreated(plugin, _campaignId);
     }
@@ -167,9 +166,8 @@ contract GaugeVoterAllocatorStrategy is AllocatorStrategyBase {
     // =========================================================================
     // Storage Gap
     // =========================================================================
-    
+
     /// @dev Storage gap to allow for future upgrades without storage collision.
     /// This contract adds 2 storage slots: gaugeVoter address and campaigns mapping.
     uint256[48] private __gap;
 }
-

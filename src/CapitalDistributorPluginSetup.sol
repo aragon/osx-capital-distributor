@@ -2,18 +2,16 @@
 
 pragma solidity ^0.8.29;
 
+import { IDAO } from "@aragon/commons/dao/IDAO.sol";
+import { PermissionLib } from "@aragon/commons/permission/PermissionLib.sol";
+import { ProxyLib } from "@aragon/commons/utils/deployment/ProxyLib.sol";
 
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {PermissionLib} from "@aragon/commons/permission/PermissionLib.sol";
-import {ProxyLib} from "@aragon/commons/utils/deployment/ProxyLib.sol";
+import { PluginUpgradeableSetup } from "@aragon/commons/plugin/setup/PluginUpgradeableSetup.sol";
+import { IPluginSetup } from "@aragon/commons/plugin/setup/IPluginSetup.sol";
 
-import {PluginUpgradeableSetup} from "@aragon/commons/plugin/setup/PluginUpgradeableSetup.sol";
-import {IPluginSetup} from "@aragon/commons/plugin/setup/IPluginSetup.sol";
-
-import {CapitalDistributorPlugin} from "./CapitalDistributorPlugin.sol";
-import {AllocatorStrategyFactory} from "./factories/AllocatorStrategyFactory.sol";
-import {ActionEncoderFactory} from "./factories/ActionEncoderFactory.sol";
-
+import { CapitalDistributorPlugin } from "./CapitalDistributorPlugin.sol";
+import { AllocatorStrategyFactory } from "./factories/AllocatorStrategyFactory.sol";
+import { ActionEncoderFactory } from "./factories/ActionEncoderFactory.sol";
 
 /// @title CapitalDistributorPlugin
 /// @author Aragon Association - 2025
@@ -44,15 +42,18 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
     function prepareInstallation(
         address _dao,
         bytes calldata _installParameters
-    ) external returns (address plugin, PreparedSetupData memory preparedSetupData) {
-        // Decode `_installParameters` to extract the params needed for deploying and initializing `CapitalDistributorPlugin` plugin,
+    )
+        external
+        returns (address plugin, PreparedSetupData memory preparedSetupData)
+    {
+        // Decode `_installParameters` to extract the params needed for deploying and initializing
+        // `CapitalDistributorPlugin` plugin,
         // and the required helpers
-        (
-            AllocatorStrategyFactory allocatorStrategyFactory,
-            ActionEncoderFactory encodersFactory
-        ) = decodeInstallationParams(_installParameters);
-        if (address(allocatorStrategyFactory) == address(0) || address(encodersFactory) == address(0))
+        (AllocatorStrategyFactory allocatorStrategyFactory, ActionEncoderFactory encodersFactory) =
+            decodeInstallationParams(_installParameters);
+        if (address(allocatorStrategyFactory) == address(0) || address(encodersFactory) == address(0)) {
             revert ZeroAddress();
+        }
 
         // Prepare helpers.
         address[] memory helpers = new address[](0);
@@ -110,11 +111,15 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
     function prepareUninstallation(
         address _dao,
         SetupPayload calldata _payload
-    ) external pure returns (PermissionLib.MultiTargetPermission[] memory permissions) {
+    )
+        external
+        pure
+        returns (PermissionLib.MultiTargetPermission[] memory permissions)
+    {
         // Prepare permissions.
         uint256 helperLength = _payload.currentHelpers.length;
         if (helperLength != 1) {
-            revert WrongHelpersArrayLength({length: helperLength});
+            revert WrongHelpersArrayLength({ length: helperLength });
         }
 
         // Set permissions to be Revoked.
@@ -159,14 +164,20 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
         address _dao,
         uint16 _fromBuild,
         SetupPayload calldata _payload
-    ) external override returns (bytes memory initData, PreparedSetupData memory preparedSetupData) {
+    )
+        external
+        override
+        returns (bytes memory initData, PreparedSetupData memory preparedSetupData)
+    {
         // No update here
     }
 
     /// @notice Decodes the given byte array into the original installation parameters
-    function decodeInstallationParams(
-        bytes memory _data
-    ) public pure returns (AllocatorStrategyFactory strategiesFactory, ActionEncoderFactory actionEncoderFactory) {
+    function decodeInstallationParams(bytes memory _data)
+        public
+        pure
+        returns (AllocatorStrategyFactory strategiesFactory, ActionEncoderFactory actionEncoderFactory)
+    {
         (address _strategiesFactory, address _actionEncoderFactory) = abi.decode(_data, (address, address));
         return (AllocatorStrategyFactory(_strategiesFactory), ActionEncoderFactory(_actionEncoderFactory));
     }

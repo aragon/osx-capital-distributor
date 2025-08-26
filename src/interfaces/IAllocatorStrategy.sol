@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /// @title IAllocatorStrategy
 /// @author Your Name/Project
@@ -36,11 +36,13 @@ interface IAllocatorStrategy is IERC165 {
     function getInitializationEncodingTypes() external view returns (string memory types);
 
     /// @notice Returns the Solidity types expected for campaign creation auxiliary data.
-    /// @return types Comma-separated string of Solidity type strings expected for setAllocationCampaign _auxData parameter.
+    /// @return types Comma-separated string of Solidity type strings expected for setAllocationCampaign _auxData
+    /// parameter.
     function getCreationEncodingTypes() external view returns (string memory types);
 
     /// @notice Returns the Solidity types expected for claim auxiliary data.
-    /// @return types Comma-separated string of Solidity type strings expected for getClaimeableAmount _auxData parameter.
+    /// @return types Comma-separated string of Solidity type strings expected for getClaimeableAmount _auxData
+    /// parameter.
     function getClaimEncodingTypes() external view returns (string memory types);
 
     /// @notice Called by the plugin only when creating a new campaign
@@ -60,7 +62,10 @@ interface IAllocatorStrategy is IERC165 {
         uint256 _campaignId,
         address _account,
         bytes calldata _auxData
-    ) external view returns (uint256 amount);
+    )
+        external
+        view
+        returns (uint256 amount);
 
     /// @notice Retrieves the fee configuration for this strategy instance.
     /// @dev This should return the fee recipient and basis points configured for this strategy type.

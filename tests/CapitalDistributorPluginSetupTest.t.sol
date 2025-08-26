@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {Test} from "forge-std/Test.sol";
-import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
+import { Test } from "forge-std/Test.sol";
+import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 
-import {CapitalDistributorPluginSetup} from "../src/CapitalDistributorPluginSetup.sol";
-import {CapitalDistributorPlugin} from "../src/CapitalDistributorPlugin.sol";
-import {AllocatorStrategyFactory} from "../src/factories/AllocatorStrategyFactory.sol";
-import {ActionEncoderFactory} from "../src/factories/ActionEncoderFactory.sol";
+import { CapitalDistributorPluginSetup } from "../src/CapitalDistributorPluginSetup.sol";
+import { CapitalDistributorPlugin } from "../src/CapitalDistributorPlugin.sol";
+import { AllocatorStrategyFactory } from "../src/factories/AllocatorStrategyFactory.sol";
+import { ActionEncoderFactory } from "../src/factories/ActionEncoderFactory.sol";
 
-import {DAO} from "@aragon/osx/core/dao/DAO.sol";
-import {PermissionLib} from "@aragon/commons/permission/PermissionLib.sol";
-import {IPluginSetup} from "@aragon/commons/plugin/setup/IPluginSetup.sol";
-import {IPlugin} from "@aragon/commons/plugin/IPlugin.sol";
+import { DAO } from "@aragon/osx/core/dao/DAO.sol";
+import { PermissionLib } from "@aragon/commons/permission/PermissionLib.sol";
+import { IPluginSetup } from "@aragon/commons/plugin/setup/IPluginSetup.sol";
+import { IPlugin } from "@aragon/commons/plugin/IPlugin.sol";
 
 /// @title CapitalDistributorPluginSetupTest
 /// @notice Comprehensive test suite for the CapitalDistributorPluginSetup contract
@@ -52,8 +52,7 @@ contract CapitalDistributorPluginSetupTest is Test {
         dao = DAO(
             payable(
                 createProxyAndCall(
-                    DAO_BASE,
-                    abi.encodeCall(DAO.initialize, ("Test DAO", address(this), address(0x0), ""))
+                    DAO_BASE, abi.encodeCall(DAO.initialize, ("Test DAO", address(this), address(0x0), ""))
                 )
             )
         );
@@ -177,16 +176,11 @@ contract CapitalDistributorPluginSetupTest is Test {
         address[] memory helpers = new address[](1);
         helpers[0] = address(0x1234); // Dummy helper address
 
-        IPluginSetup.SetupPayload memory payload = IPluginSetup.SetupPayload({
-            plugin: pluginAddr,
-            currentHelpers: helpers,
-            data: ""
-        });
+        IPluginSetup.SetupPayload memory payload =
+            IPluginSetup.SetupPayload({ plugin: pluginAddr, currentHelpers: helpers, data: "" });
 
-        PermissionLib.MultiTargetPermission[] memory revokePermissions = setup.prepareUninstallation(
-            address(dao),
-            payload
-        );
+        PermissionLib.MultiTargetPermission[] memory revokePermissions =
+            setup.prepareUninstallation(address(dao), payload);
 
         assertEq(revokePermissions.length, 4, "uninstallation permissions length mismatch");
 
@@ -236,11 +230,8 @@ contract CapitalDistributorPluginSetupTest is Test {
 
         // Case 1: Empty helpers array
         address[] memory wrongHelpers1 = new address[](0);
-        IPluginSetup.SetupPayload memory payload1 = IPluginSetup.SetupPayload({
-            plugin: pluginAddr,
-            currentHelpers: wrongHelpers1,
-            data: ""
-        });
+        IPluginSetup.SetupPayload memory payload1 =
+            IPluginSetup.SetupPayload({ plugin: pluginAddr, currentHelpers: wrongHelpers1, data: "" });
 
         vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.WrongHelpersArrayLength.selector, 0));
         setup.prepareUninstallation(address(dao), payload1);
@@ -253,22 +244,16 @@ contract CapitalDistributorPluginSetupTest is Test {
         address[] memory wrongHelpers2 = new address[](2);
         wrongHelpers2[0] = address(0x1);
         wrongHelpers2[1] = address(0x2);
-        IPluginSetup.SetupPayload memory payload2 = IPluginSetup.SetupPayload({
-            plugin: pluginAddr,
-            currentHelpers: wrongHelpers2,
-            data: ""
-        });
+        IPluginSetup.SetupPayload memory payload2 =
+            IPluginSetup.SetupPayload({ plugin: pluginAddr, currentHelpers: wrongHelpers2, data: "" });
 
         vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.WrongHelpersArrayLength.selector, 2));
         setup.prepareUninstallation(address(dao), payload2);
 
         // Case 3: Three helpers
         address[] memory wrongHelpers3 = new address[](3);
-        IPluginSetup.SetupPayload memory payload3 = IPluginSetup.SetupPayload({
-            plugin: pluginAddr,
-            currentHelpers: wrongHelpers3,
-            data: ""
-        });
+        IPluginSetup.SetupPayload memory payload3 =
+            IPluginSetup.SetupPayload({ plugin: pluginAddr, currentHelpers: wrongHelpers3, data: "" });
 
         vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.WrongHelpersArrayLength.selector, 3));
         setup.prepareUninstallation(address(dao), payload3);
@@ -285,11 +270,8 @@ contract CapitalDistributorPluginSetupTest is Test {
             data: ""
         });
 
-        (bytes memory initData, IPluginSetup.PreparedSetupData memory preparedSetupData) = setup.prepareUpdate(
-            address(dao),
-            1,
-            payload
-        );
+        (bytes memory initData, IPluginSetup.PreparedSetupData memory preparedSetupData) =
+            setup.prepareUpdate(address(dao), 1, payload);
 
         // Verify empty returns
         assertEq(initData.length, 0, "initData should be empty");
@@ -304,8 +286,8 @@ contract CapitalDistributorPluginSetupTest is Test {
 
         bytes memory params = abi.encode(testStrategyFactory, testEncoderFactory);
 
-        (AllocatorStrategyFactory decodedStrategy, ActionEncoderFactory decodedEncoder) = setup
-            .decodeInstallationParams(params);
+        (AllocatorStrategyFactory decodedStrategy, ActionEncoderFactory decodedEncoder) =
+            setup.decodeInstallationParams(params);
 
         assertEq(address(decodedStrategy), testStrategyFactory);
         assertEq(address(decodedEncoder), testEncoderFactory);
@@ -354,8 +336,8 @@ contract CapitalDistributorPluginSetupTest is Test {
         // Fuzz test encoding/decoding
         bytes memory params = abi.encode(_strategyFactory, _encoderFactory);
 
-        (AllocatorStrategyFactory decodedStrategy, ActionEncoderFactory decodedEncoder) = setup
-            .decodeInstallationParams(params);
+        (AllocatorStrategyFactory decodedStrategy, ActionEncoderFactory decodedEncoder) =
+            setup.decodeInstallationParams(params);
 
         assertEq(address(decodedStrategy), _strategyFactory);
         assertEq(address(decodedEncoder), _encoderFactory);
@@ -373,7 +355,10 @@ contract CapitalDistributorPluginSetupTest is Test {
         address who,
         address condition,
         bytes32 permissionId
-    ) internal pure {
+    )
+        internal
+        pure
+    {
         assertEq(uint8(actual.operation), uint8(op), "operation mismatch");
         assertEq(actual.where, where, "permission where");
         assertEq(actual.who, who, "permission who");
@@ -399,7 +384,7 @@ contract CapitalDistributorPluginSetupTest is Test {
     function createProxyAndCall(address _logic, bytes memory _data) internal returns (address) {
         // Deploy minimal proxy and call initialize
         address proxy = Clones.clone(_logic);
-        (bool success, ) = proxy.call(_data);
+        (bool success,) = proxy.call(_data);
         require(success, "Proxy initialization failed");
         return proxy;
     }
