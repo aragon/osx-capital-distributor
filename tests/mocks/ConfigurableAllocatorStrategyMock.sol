@@ -23,7 +23,7 @@ contract ConfigurableAllocatorStrategyMock is AllocatorStrategyBase {
     }
 
     /// @inheritdoc IAllocatorStrategy
-    function setAllocationCampaign(uint256 _campaignId, bytes calldata) public pure override {
+    function setAllocationCampaign(uint256 /* _campaignId */, bytes calldata) public pure override {
         // Mock implementation - do nothing
         return;
     }

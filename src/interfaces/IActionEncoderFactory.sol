@@ -3,7 +3,6 @@ pragma solidity ^0.8.29;
 
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {IPayoutActionEncoder} from "./IPayoutActionEncoder.sol";
-import {FactoryBase} from "../factories/FactoryBase.sol";
 
 /// @title IActionEncoderFactory
 /// @notice Interface for the ActionEncoderFactory contract.

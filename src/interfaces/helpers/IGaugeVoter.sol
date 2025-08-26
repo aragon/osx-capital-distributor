@@ -6,7 +6,7 @@ interface IGauge {
     struct Gauge {
         bool active;
         uint256 created; // timestamp or epoch
-        string metadataURI;
+        string metadataUri;
         // more space for data as this is a struct in a mapping
     }
 }
@@ -16,10 +16,10 @@ interface IGauge {
 //////////////////////////////////////////////////////////////*/
 
 interface IGaugeManagerEvents {
-    event GaugeCreated(address indexed gauge, address indexed creator, string metadataURI);
+    event GaugeCreated(address indexed gauge, address indexed creator, string metadataUri);
     event GaugeDeactivated(address indexed gauge);
     event GaugeActivated(address indexed gauge);
-    event GaugeMetadataUpdated(address indexed gauge, string metadataURI);
+    event GaugeMetadataUpdated(address indexed gauge, string metadataUri);
 }
 
 interface IGaugeManagerErrors {

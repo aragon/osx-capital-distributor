@@ -3,9 +3,6 @@ pragma solidity ^0.8.29;
 
 import {IAllocatorStrategy} from "../interfaces/IAllocatorStrategy.sol";
 import {AllocatorStrategyBase} from "./AllocatorStrategyBase.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {Action} from "@aragon/commons/executors/IExecutor.sol";
-import {DaoAuthorizableUpgradeable} from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
 
 /// @title AllocatorStrategyMock
 /// @notice A mock implementation of AllocatorStrategyBase for testing purposes.

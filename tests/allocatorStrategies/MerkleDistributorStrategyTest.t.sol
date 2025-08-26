@@ -175,7 +175,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
 
-        assertEq(campaign.metadataURI, metadata, "Metadata not equal");
+        assertEq(campaign.metadataUri, metadata, "Metadata not equal");
         assertTrue(address(campaign.allocationStrategy) != address(0), "Allocation strategy not set");
     }
 
@@ -1213,7 +1213,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Simulate a partial claim scenario by directly testing the strategy
         bytes32[] memory aliceProof = getMerkleProof(0);
         uint256 fullAmount = amounts[0]; // Alice's full allocation
-        uint256 partialAmount = fullAmount / 2; // Alice tries to claim less
+        // uint256 partialAmount = fullAmount / 2; // Alice tries to claim less (unused)
 
         // Test 1: Full amount should be claimable initially
         bytes memory fullClaimData = abi.encode(aliceProof, fullAmount);

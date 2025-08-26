@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {Action, IExecutor} from "@aragon/commons/executors/IExecutor.sol";
+import {Action} from "@aragon/commons/executors/IExecutor.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /// @title IPayoutActionEncoder

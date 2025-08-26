@@ -3,8 +3,6 @@ pragma solidity ^0.8.29;
 
 import {Action} from "@aragon/commons/executors/IExecutor.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {DaoAuthorizableUpgradeable} from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
 import {PayoutActionEncoderBase} from "./PayoutActionEncoderBase.sol";
 
 /// @title IVault

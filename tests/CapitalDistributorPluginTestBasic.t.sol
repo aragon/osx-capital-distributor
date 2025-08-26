@@ -1,18 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.29 <0.9.0;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
 
-import {DAO} from "@aragon/osx/core/dao/DAO.sol";
-
-import {IPayoutActionEncoder} from "../src/interfaces/IPayoutActionEncoder.sol";
 import {CapitalDistributorPlugin} from "../src/CapitalDistributorPlugin.sol";
 import {AragonTest} from "./helpers/AragonTest.sol";
-import {IAllocatorStrategy} from "../src/interfaces/IAllocatorStrategy.sol";
 import {AllocatorStrategyMock} from "./mocks/AllocatorStrategyMock.sol";
 import {VaultDepositPayoutActionEncoder} from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
-import {IAllocatorStrategyFactory} from "../src/interfaces/IAllocatorStrategyFactory.sol";
 
 import {MintableERC20} from "./mocks/MintableERC20.sol";
 import {ERC4626Mock} from "./mocks/ERC4626Mock.sol";
@@ -57,7 +50,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
 
-        assertEq(campaign.metadataURI, metadata, "Metadata not equal");
+        assertEq(campaign.metadataUri, metadata, "Metadata not equal");
         assertTrue(address(campaign.allocationStrategy) != address(0), "Allocation strategy not set");
     }
 

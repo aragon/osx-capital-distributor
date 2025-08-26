@@ -2,14 +2,8 @@
 
 pragma solidity ^0.8.29;
 
-import {console2} from "forge-std/console2.sol";
-
-import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
-import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 import {PermissionLib} from "@aragon/commons/permission/PermissionLib.sol";
 import {ProxyLib} from "@aragon/commons/utils/deployment/ProxyLib.sol";
 
@@ -20,7 +14,6 @@ import {CapitalDistributorPlugin} from "./CapitalDistributorPlugin.sol";
 import {AllocatorStrategyFactory} from "./factories/AllocatorStrategyFactory.sol";
 import {ActionEncoderFactory} from "./factories/ActionEncoderFactory.sol";
 
-import {MetadataExtensionUpgradeable} from "@aragon/commons/utils/metadata/MetadataExtensionUpgradeable.sol";
 
 /// @title CapitalDistributorPlugin
 /// @author Aragon Association - 2025
@@ -35,7 +28,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
     bytes32 public constant SET_METADATA_PERMISSION_ID = keccak256("SET_METADATA_PERMISSION");
 
     /// @notice The address of the `CapitalDistributorPlugin` base contract.
-    CapitalDistributorPlugin private immutable capitalDistributorPluginBase;
+    CapitalDistributorPlugin private immutable CAPITAL_DISTRIBUTOR_PLUGIN_BASE;
 
     /// @notice Thrown if passed helpers array is of wrong length.
     /// @param length The array length of passed helpers.
@@ -43,7 +36,9 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
     error ZeroAddress();
 
     /// @notice The contract constructor deploying the plugin implementation contract
-    constructor() PluginUpgradeableSetup(address(new CapitalDistributorPlugin())) {}
+    constructor() PluginUpgradeableSetup(address(new CapitalDistributorPlugin())) {
+        CAPITAL_DISTRIBUTOR_PLUGIN_BASE = CapitalDistributorPlugin(implementation());
+    }
 
     /// @inheritdoc IPluginSetup
     function prepareInstallation(
@@ -63,7 +58,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
         address[] memory helpers = new address[](0);
 
         // Prepare and deploy plugin proxy.
-        plugin = IMPLEMENTATION.deployUUPSProxy(
+        plugin = address(CAPITAL_DISTRIBUTOR_PLUGIN_BASE).deployUUPSProxy(
             abi.encodeCall(CapitalDistributorPlugin.initialize, (IDAO(_dao), allocatorStrategyFactory, encodersFactory))
         );
 

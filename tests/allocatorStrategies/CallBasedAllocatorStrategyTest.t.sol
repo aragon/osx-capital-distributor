@@ -55,7 +55,7 @@ contract CallBasedAllocatorStrategyTest is AragonTest {
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
 
-        assertEq(campaign.metadataURI, metadata, "Metadata not equal");
+        assertEq(campaign.metadataUri, metadata, "Metadata not equal");
         assertTrue(address(campaign.allocationStrategy) != address(0), "Allocation strategy not set");
     }
 

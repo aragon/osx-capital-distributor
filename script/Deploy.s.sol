@@ -2,19 +2,16 @@
 pragma solidity >=0.8.29 <0.9.0;
 
 // import { Foo } from "../src/Foo.sol";
-import {Vm} from "forge-std/Vm.sol";
 import {console2} from "forge-std/console2.sol";
 
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
 import {PluginRepoFactory} from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
 import {PluginRepo} from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
 import {DAOFactory} from "@aragon/osx/framework/dao/DAOFactory.sol";
-import {hashHelpers, PluginSetupRef} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
 
 import {IPlugin} from "@aragon/commons/plugin/IPlugin.sol";
+import {PluginSetupRef} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
 
-import {Admin} from "@aragon/admin-plugin/Admin.sol";
-import {AdminSetup} from "@aragon/admin-plugin/AdminSetup.sol";
 
 import {CapitalDistributorPluginSetup} from "../src/CapitalDistributorPluginSetup.sol";
 import {AllocatorStrategyFactory} from "../src/factories/AllocatorStrategyFactory.sol";

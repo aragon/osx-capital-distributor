@@ -2,7 +2,6 @@
 pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
 import {CapitalDistributorPluginSetup} from "../src/CapitalDistributorPluginSetup.sol";
@@ -11,10 +10,8 @@ import {AllocatorStrategyFactory} from "../src/factories/AllocatorStrategyFactor
 import {ActionEncoderFactory} from "../src/factories/ActionEncoderFactory.sol";
 
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {PermissionLib} from "@aragon/commons/permission/PermissionLib.sol";
 import {IPluginSetup} from "@aragon/commons/plugin/setup/IPluginSetup.sol";
-import {PluginUpgradeableSetup} from "@aragon/commons/plugin/setup/PluginUpgradeableSetup.sol";
 import {IPlugin} from "@aragon/commons/plugin/IPlugin.sol";
 
 /// @title CapitalDistributorPluginSetupTest

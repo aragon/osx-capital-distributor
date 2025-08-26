@@ -1,13 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {console2} from "forge-std/console2.sol";
-
-import {DaoAuthorizableUpgradeable} from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import {IAllocatorStrategy} from "../interfaces/IAllocatorStrategy.sol";
 import {AllocatorStrategyBase} from "./AllocatorStrategyBase.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 import {CapitalDistributorPlugin} from "../CapitalDistributorPlugin.sol";
 
 /// @title MerkleDistributorStrategy
@@ -28,8 +24,6 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     /// @notice Emitted when a new merkle campaign is set up
     event MerkleCampaignSet(uint256 indexed campaignId, bytes32 merkleRoot);
 
-    /// @notice Emitted when a recipient claims their allocation
-    event AllocationClaimed(uint256 indexed campaignId, address indexed recipient, uint256 amount);
 
     /// @notice Emitted when a merkle campaign root is updated
     event MerkleCampaignUpdated(uint256 indexed campaignId, bytes32 oldMerkleRoot, bytes32 newMerkleRoot);

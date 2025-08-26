@@ -150,7 +150,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
 
-        assertEq(campaign.metadataURI, metadata, "Metadata not equal");
+        assertEq(campaign.metadataUri, metadata, "Metadata not equal");
         assertTrue(address(campaign.allocationStrategy) != address(0), "Allocation strategy not set");
         assertEq(address(campaign.token), address(token), "Token not equal");
         assertEq(address(campaign.actionEncoder), address(0), "Action encoder should be zero");
@@ -184,7 +184,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
 
-        assertEq(campaign.metadataURI, metadata, "Metadata not equal");
+        assertEq(campaign.metadataUri, metadata, "Metadata not equal");
         assertTrue(address(campaign.allocationStrategy) != address(0), "Allocation strategy not set");
         assertEq(address(campaign.token), address(token), "Token not equal");
         assertEq(campaign.multipleClaimsAllowed, true, "Multiple claims should be true");
@@ -357,7 +357,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        assertEq(campaign.metadataURI, maxMetadata, "Max metadata not equal");
+        assertEq(campaign.metadataUri, maxMetadata, "Max metadata not equal");
 
         vm.stopPrank();
     }
@@ -544,7 +544,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
 
-        assertEq(campaign.metadataURI, metadata, "Metadata not stored correctly");
+        assertEq(campaign.metadataUri, metadata, "Metadata not stored correctly");
         assertTrue(address(campaign.allocationStrategy) != address(0), "Strategy not stored correctly");
         assertEq(address(campaign.token), address(token), "Token not stored correctly");
         assertEq(address(campaign.actionEncoder), address(0), "Action encoder not stored correctly");

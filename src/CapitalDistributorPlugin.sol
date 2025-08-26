@@ -63,7 +63,7 @@ contract CapitalDistributorPlugin is
      * @param endTime The timestamp when the campaign ends (0 means no end time restriction)
      */
     struct Campaign {
-        bytes metadataURI;
+        bytes metadataUri;
         IAllocatorStrategy allocationStrategy;
         IERC20 token;
         IPayoutActionEncoder actionEncoder;
@@ -85,18 +85,11 @@ contract CapitalDistributorPlugin is
      */
     mapping(uint256 campaignId => Campaign) public campaigns;
 
-    /**
-     * @notice Stores all campaign recipient payout encoders, mapping a campaign ID to its recipient payout encoders.
-     * The public visibility automatically creates a getter function:
-     * `function campaignRecipientPayoutEncoder(uint256 _campaignId, address _recipient) external view returns (IPayoutActionEncoder)`
-     */
-    mapping(uint256 campaignId => mapping(address recipient => IPayoutActionEncoder actionEncoder))
-        public campaignRecipientPayoutEncoder;
 
     /**
      * @notice Emitted when a campaign's details are created.
      * @param campaignId The unique identifier of the campaign that was created.
-     * @param metadataURI The metadata URI for the campaign.
+     * @param metadataUri The metadata URI for the campaign.
      * @param allocationStrategy The allocation strategy address for the campaign.
      * @param token The token address for the campaign.
      * @param actionEncoder The default payout action encoder for the campaign.
@@ -104,7 +97,7 @@ contract CapitalDistributorPlugin is
      */
     event CampaignCreated(
         uint256 indexed campaignId,
-        bytes metadataURI,
+        bytes metadataUri,
         address indexed allocationStrategy,
         IERC20 token,
         IPayoutActionEncoder actionEncoder,
@@ -299,7 +292,7 @@ contract CapitalDistributorPlugin is
 
         // Set campaign fields
         {
-            campaigns[id].metadataURI = _metadataURI;
+            campaigns[id].metadataUri = _metadataURI;
             campaigns[id].token = _token;
             campaigns[id].multipleClaimsAllowed = _multipleClaimsAllowed;
             campaigns[id].state = CampaignState.ACTIVE;
@@ -312,7 +305,7 @@ contract CapitalDistributorPlugin is
             Campaign storage newCampaign = campaigns[id];
             emit CampaignCreated(
                 id,
-                newCampaign.metadataURI,
+                newCampaign.metadataUri,
                 address(newCampaign.allocationStrategy),
                 _token,
                 newCampaign.actionEncoder,

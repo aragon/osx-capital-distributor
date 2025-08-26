@@ -2,7 +2,6 @@
 pragma solidity ^0.8.29;
 
 import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {FactoryBase} from "../factories/FactoryBase.sol";
 
 /// @title IAllocatorStrategyFactory
 /// @notice Interface for the AllocatorStrategyFactory contract.
@@ -35,8 +34,6 @@ interface IAllocatorStrategyFactory {
     /// @notice Thrown when strategy deployment fails.
     error StrategyDeploymentFailed(bytes32 strategyTypeId);
 
-    /// @notice Thrown when provided strategy name is empty.
-    error EmptyStrategyName();
 
     /**
      * @notice Deploys a new instance of a registered strategy type.

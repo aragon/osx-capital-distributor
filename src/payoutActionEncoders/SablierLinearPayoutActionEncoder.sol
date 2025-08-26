@@ -4,10 +4,8 @@ pragma solidity ^0.8.29;
 import {PayoutActionEncoderBase} from "./PayoutActionEncoderBase.sol";
 import {Action} from "@aragon/commons/executors/IExecutor.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
 
 // Sablier imports
-import {ud60x18} from "@prb/math/src/UD60x18.sol";
 
 /// @title ISablierLockup
 /// @notice Interface for Sablier V2 Lockup contracts

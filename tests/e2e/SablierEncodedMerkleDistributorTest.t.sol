@@ -216,7 +216,7 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
 
         // Record initial balances
         uint256 initialDAOBalance = usdc.balanceOf(address(dao));
-        uint256 initialAliceBalance = usdc.balanceOf(alice);
+        // uint256 initialAliceBalance = usdc.balanceOf(alice); // unused
 
         // Claim payout (this should create Sablier stream instead of direct transfer)
         vm.startPrank(address(alice));

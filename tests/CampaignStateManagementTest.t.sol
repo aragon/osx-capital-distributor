@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.29 <0.9.0;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
 
 import {CapitalDistributorPlugin} from "../src/CapitalDistributorPlugin.sol";
 import {AragonTest} from "./helpers/AragonTest.sol";

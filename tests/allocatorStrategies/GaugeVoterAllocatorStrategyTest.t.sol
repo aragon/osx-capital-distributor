@@ -83,10 +83,9 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     }
     
     /// @notice Create a test campaign with specified parameters
-    /// @param _campaignId Campaign ID to create (not used, auto-generated)
     /// @param _distributionAmount Amount to distribute
     /// @return campaignId The created campaign ID
-    function createTestCampaign(uint256 _campaignId, uint256 _distributionAmount) internal returns (uint256 campaignId) {
+    function createTestCampaign(uint256 /* _campaignId */, uint256 _distributionAmount) internal returns (uint256 campaignId) {
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = abi.encode(address(mockGaugeVoter));
