@@ -270,8 +270,10 @@ contract MultiEpochGaugeVoterAllocatorStrategy is AllocatorStrategyBase {
             revert EpochNotInCampaign(_epochId, campaign.startEpoch, campaign.endEpoch);
         }
 
-        // Can only set distribution for unsnapshotted epochs (future or current)
-        if (snapshotter.isEpochSnapshotted(_epochId)) {
+        uint256 currentEpoch = _getCurrentEpoch();
+
+        // Prevent setting distribution for past epochs with no snapshot
+        if (!snapshotter.isEpochSnapshotted(_epochId) && _epochId < currentEpoch) {
             revert EpochNotSnapshotted(_epochId);
         }
 
@@ -314,9 +316,9 @@ contract MultiEpochGaugeVoterAllocatorStrategy is AllocatorStrategyBase {
                 revert EpochNotInCampaign(epochId, campaign.startEpoch, campaign.endEpoch);
             }
 
-            // Can only set distribution for unsnapshotted epochs
-            if (snapshotter.isEpochSnapshotted(epochId)) {
-                revert EpochNotSnapshotted(epochId);
+            // Prevent setting distribution for past epochs with no snapshot
+            if (!snapshotter.isEpochSnapshotted(_epochId) && _epochId < currentEpoch) {
+                revert EpochNotSnapshotted(_epochId);
             }
 
             campaign.epochDistributions[epochId] = amount;
