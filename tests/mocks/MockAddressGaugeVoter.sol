@@ -33,6 +33,9 @@ contract MockAddressGaugeVoter is IAddressGaugeVoter {
     /// @notice Mapping of gauge addresses to their vote counts
     mapping(address => uint256) private _gaugeVotes;
 
+    /// @notice Array of all gauge addresses for getAllGauges
+    address[] private _allGauges;
+
     // =========================================================================
     // Constructor
     // =========================================================================
@@ -84,6 +87,10 @@ contract MockAddressGaugeVoter is IAddressGaugeVoter {
     /// @param active_ Whether gauge is active
     function setGaugeActive(address gauge_, bool active_) external {
         _gaugeIsActive[gauge_] = active_;
+        // Automatically add to gauges list if activating
+        if (active_) {
+            _addGaugeIfNotExists(gauge_);
+        }
     }
 
     /// @notice Set a gauge's vote count for testing
@@ -91,6 +98,8 @@ contract MockAddressGaugeVoter is IAddressGaugeVoter {
     /// @param votes_ Number of votes for the gauge
     function setGaugeVotes(address gauge_, uint256 votes_) external {
         _gaugeVotes[gauge_] = votes_;
+        // Automatically add to gauges list
+        _addGaugeIfNotExists(gauge_);
     }
 
     // =========================================================================
@@ -198,5 +207,32 @@ contract MockAddressGaugeVoter is IAddressGaugeVoter {
     /// @return Total votes for the gauge
     function gaugeVotes(address gauge_) external view returns (uint256) {
         return _gaugeVotes[gauge_];
+    }
+
+    /// @inheritdoc IAddressGaugeVoter
+    function getAllGauges() external view override returns (address[] memory) {
+        return _allGauges;
+    }
+
+    /// @notice Add gauge to the list for testing
+    /// @param gauge_ Gauge address to add
+    function addGauge(address gauge_) external {
+        _addGaugeIfNotExists(gauge_);
+    }
+
+    // =========================================================================
+    // Internal Functions
+    // =========================================================================
+
+    /// @notice Internal helper to add gauge if it doesn't exist
+    /// @param gauge_ Gauge address to add
+    function _addGaugeIfNotExists(address gauge_) internal {
+        // Check if gauge already exists
+        for (uint256 i = 0; i < _allGauges.length; i++) {
+            if (_allGauges[i] == gauge_) {
+                return; // Already exists
+            }
+        }
+        _allGauges.push(gauge_);
     }
 }
