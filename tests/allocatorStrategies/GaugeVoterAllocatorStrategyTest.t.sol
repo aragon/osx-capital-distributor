@@ -14,7 +14,7 @@ import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /// @title GaugeVoterAllocatorStrategyTest
-/// @notice Test suite for GaugeVoterAllocatorStrategy contract
+/// @notice Test suite for GaugeVoterAllocatorStrategy contract (gauge-based distribution)
 contract GaugeVoterAllocatorStrategyTest is AragonTest {
     // =========================================================================
     // State Variables
@@ -108,28 +108,28 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         return campaignId;
     }
 
-    /// @notice Setup a voting scenario with specified parameters
+    /// @notice Setup a voting scenario with specified parameters for gauges
     /// @param _totalVotingPower Total voting power cast in the epoch
-    /// @param _userPowers Array of user voting powers
-    function setupVotingScenario(uint256 _totalVotingPower, uint256[] memory _userPowers) internal {
-        address[4] memory users = [alice, bob, carol, david];
+    /// @param _gaugeVotes Array of gauge vote amounts
+    function setupGaugeVotingScenario(uint256 _totalVotingPower, uint256[] memory _gaugeVotes) internal {
+        address[4] memory gauges = [alice, bob, carol, david]; // Using alice, bob, etc. as gauge addresses for testing
 
         // Set total voting power
         mockGaugeVoter.setTotalVotingPowerCast(_totalVotingPower);
 
-        // Set individual user voting powers
-        for (uint256 i = 0; i < _userPowers.length && i < users.length; i++) {
-            mockGaugeVoter.setUserVotingPower(users[i], _userPowers[i]);
+        // Set individual gauge votes
+        for (uint256 i = 0; i < _gaugeVotes.length && i < gauges.length; i++) {
+            mockGaugeVoter.setGaugeVotes(gauges[i], _gaugeVotes[i]);
         }
     }
 
-    /// @notice Assert proportional allocation calculation
-    /// @param _userVotingPower User's voting power
+    /// @notice Assert proportional allocation calculation for gauges
+    /// @param _gaugeVotes Gauge's vote count
     /// @param _totalVotingPower Total voting power cast
     /// @param _distributionAmount Total distribution amount
     /// @param _actualAmount Actual amount returned by contract
     function assertProportionalAllocation(
-        uint256 _userVotingPower,
+        uint256 _gaugeVotes,
         uint256 _totalVotingPower,
         uint256 _distributionAmount,
         uint256 _actualAmount
@@ -137,7 +137,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         internal
         pure
     {
-        uint256 expectedAmount = (_userVotingPower * _distributionAmount) / _totalVotingPower;
+        uint256 expectedAmount = (_gaugeVotes * _distributionAmount) / _totalVotingPower;
         assertEq(_actualAmount, expectedAmount, "Proportional allocation calculation incorrect");
     }
 
@@ -209,28 +209,28 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         assertEq(distributionAmount, DEFAULT_DISTRIBUTION_AMOUNT, "Distribution amount not set correctly");
     }
 
-    /// @notice Test successful claim with proportional allocation
+    /// @notice Test successful claim with proportional allocation for gauges
     function testSuccessfulClaim() public {
-        // Setup voting scenario: Alice has 30% of total voting power
-        uint256[] memory userPowers = new uint256[](1);
-        userPowers[0] = 300; // Alice's voting power
-        setupVotingScenario(1000, userPowers); // Total voting power: 1000
+        // Setup voting scenario: Gauge (alice address) has 30% of total votes
+        uint256[] memory gaugeVotes = new uint256[](1);
+        gaugeVotes[0] = 300; // Gauge's vote count
+        setupGaugeVotingScenario(1000, gaugeVotes); // Total voting power: 1000
 
         // Create campaign and get the actual campaign ID
         uint256 campaignId = createTestCampaign();
 
-        // Calculate expected amount for Alice
+        // Calculate expected amount for gauge (alice)
         uint256 expectedAmount = (300 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000; // 30% of distribution
 
         // Get the deployed strategy instance
         GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
-        // Check claimable amount
+        // Check claimable amount for gauge
         uint256 claimableAmount = deployedStrategy.getClaimeableAmount(campaignId, alice, "");
         assertEq(claimableAmount, expectedAmount, "Claimable amount calculation incorrect");
 
-        // Verify user eligibility
-        assertTrue(deployedStrategy.isUserEligible(campaignId, alice), "Alice should be eligible");
+        // Verify gauge eligibility
+        assertTrue(deployedStrategy.isGaugeEligible(campaignId, alice), "Gauge (alice) should be eligible");
     }
 
     /// @notice Test all encoding type functions return correct values
@@ -246,27 +246,27 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         assertEq(deployedStrategy.getClaimEncodingTypes(), "", "Claim encoding types should be empty");
     }
 
-    /// @notice Test end-to-end plugin integration workflow
+    /// @notice Test end-to-end plugin integration workflow for gauge distribution
     function testPluginIntegration() public {
-        // Setup voting scenario
-        uint256[] memory userPowers = new uint256[](2);
-        userPowers[0] = 400; // Alice: 40%
-        userPowers[1] = 600; // Bob: 60%
-        setupVotingScenario(1000, userPowers);
+        // Setup voting scenario for gauges
+        uint256[] memory gaugeVotes = new uint256[](2);
+        gaugeVotes[0] = 400; // Gauge alice: 40%
+        gaugeVotes[1] = 600; // Gauge bob: 60%
+        setupGaugeVotingScenario(1000, gaugeVotes);
 
         // Create campaign through plugin
         uint256 campaignId = createTestCampaign();
 
-        // Test claiming through plugin
+        // Test claiming through plugin for gauges
         uint256 aliceExpected = (400 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000;
         uint256 bobExpected = (600 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000;
 
-        // Check amounts through plugin
+        // Check amounts through plugin for gauges
         uint256 aliceAmount = capitalDistributorPlugin.getCampaignPayout(campaignId, alice, "");
         uint256 bobAmount = capitalDistributorPlugin.getCampaignPayout(campaignId, bob, "");
 
-        assertEq(aliceAmount, aliceExpected, "Alice's payout through plugin incorrect");
-        assertEq(bobAmount, bobExpected, "Bob's payout through plugin incorrect");
+        assertEq(aliceAmount, aliceExpected, "Gauge alice's payout through plugin incorrect");
+        assertEq(bobAmount, bobExpected, "Gauge bob's payout through plugin incorrect");
     }
 
     // =========================================================================
@@ -279,10 +279,10 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Test scenario 1: Equal voting power
-        uint256[] memory userPowers = new uint256[](2);
-        userPowers[0] = 500; // Alice: 50%
-        userPowers[1] = 500; // Bob: 50%
-        setupVotingScenario(1000, userPowers);
+        uint256[] memory gaugeVotes = new uint256[](2);
+        gaugeVotes[0] = 500; // Alice: 50%
+        gaugeVotes[1] = 500; // Bob: 50%
+        setupGaugeVotingScenario(1000, gaugeVotes);
 
         uint256 aliceAmount = deployedStrategy.getClaimeableAmount(campaignId, alice, "");
         uint256 bobAmount = deployedStrategy.getClaimeableAmount(campaignId, bob, "");
@@ -291,9 +291,9 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         assertProportionalAllocation(500, 1000, DEFAULT_DISTRIBUTION_AMOUNT, bobAmount);
 
         // Test scenario 2: Unequal voting power
-        userPowers[0] = 750; // Alice: 75%
-        userPowers[1] = 250; // Bob: 25%
-        setupVotingScenario(1000, userPowers);
+        gaugeVotes[0] = 750; // Alice: 75%
+        gaugeVotes[1] = 250; // Bob: 25%
+        setupGaugeVotingScenario(1000, gaugeVotes);
 
         aliceAmount = deployedStrategy.getClaimeableAmount(campaignId, alice, "");
         bobAmount = deployedStrategy.getClaimeableAmount(campaignId, bob, "");
@@ -302,26 +302,26 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         assertProportionalAllocation(250, 1000, DEFAULT_DISTRIBUTION_AMOUNT, bobAmount);
     }
 
-    /// @notice Test user with zero voting power gets zero allocation
+    /// @notice Test gauge with zero votes gets zero allocation
     function testZeroVotingPower() public {
         uint256 campaignId = createTestCampaign();
         GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
-        // Setup: Alice has voting power, Bob has none
-        uint256[] memory userPowers = new uint256[](2);
-        userPowers[0] = 1000; // Alice: 100%
-        userPowers[1] = 0; // Bob: 0%
-        setupVotingScenario(1000, userPowers);
+        // Setup: Gauge alice has votes, gauge bob has none
+        uint256[] memory gaugeVotes = new uint256[](2);
+        gaugeVotes[0] = 1000; // Gauge alice: 100%
+        gaugeVotes[1] = 0; // Gauge bob: 0%
+        setupGaugeVotingScenario(1000, gaugeVotes);
 
         uint256 aliceAmount = deployedStrategy.getClaimeableAmount(campaignId, alice, "");
         uint256 bobAmount = deployedStrategy.getClaimeableAmount(campaignId, bob, "");
 
-        assertEq(aliceAmount, DEFAULT_DISTRIBUTION_AMOUNT, "Alice should get full amount");
-        assertEq(bobAmount, 0, "Bob should get zero with no voting power");
+        assertEq(aliceAmount, DEFAULT_DISTRIBUTION_AMOUNT, "Gauge alice should get full amount");
+        assertEq(bobAmount, 0, "Gauge bob should get zero with no votes");
 
         // Verify eligibility
-        assertTrue(deployedStrategy.isUserEligible(campaignId, alice), "Alice should be eligible");
-        assertFalse(deployedStrategy.isUserEligible(campaignId, bob), "Bob should not be eligible");
+        assertTrue(deployedStrategy.isGaugeEligible(campaignId, alice), "Gauge alice should be eligible");
+        assertFalse(deployedStrategy.isGaugeEligible(campaignId, bob), "Gauge bob should not be eligible");
     }
 
     /// @notice Test handling of zero total voting power
@@ -330,10 +330,10 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup: No one has voted (total voting power is 0)
-        uint256[] memory userPowers = new uint256[](2);
-        userPowers[0] = 0; // Alice: 0
-        userPowers[1] = 0; // Bob: 0
-        setupVotingScenario(0, userPowers); // Total: 0
+        uint256[] memory gaugeVotes = new uint256[](2);
+        gaugeVotes[0] = 0; // Alice: 0
+        gaugeVotes[1] = 0; // Bob: 0
+        setupGaugeVotingScenario(0, gaugeVotes); // Total: 0
 
         uint256 aliceAmount = deployedStrategy.getClaimeableAmount(campaignId, alice, "");
         uint256 bobAmount = deployedStrategy.getClaimeableAmount(campaignId, bob, "");
@@ -342,103 +342,103 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         assertEq(bobAmount, 0, "Bob should get zero when total voting power is zero");
 
         // Verify eligibility
-        assertFalse(deployedStrategy.isUserEligible(campaignId, alice), "Alice should not be eligible");
-        assertFalse(deployedStrategy.isUserEligible(campaignId, bob), "Bob should not be eligible");
+        assertFalse(deployedStrategy.isGaugeEligible(campaignId, alice), "Alice should not be eligible");
+        assertFalse(deployedStrategy.isGaugeEligible(campaignId, bob), "Bob should not be eligible");
     }
 
-    /// @notice Test multiple users claiming from same campaign
+    /// @notice Test multiple gauges receiving from same campaign
     function testMultipleUsers() public {
         uint256 campaignId = createTestCampaign();
         GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
-        // Setup: Four users with different voting powers
-        uint256[] memory userPowers = new uint256[](4);
-        userPowers[0] = 100; // Alice: 10%
-        userPowers[1] = 200; // Bob: 20%
-        userPowers[2] = 300; // Carol: 30%
-        userPowers[3] = 400; // David: 40%
-        setupVotingScenario(1000, userPowers);
+        // Setup: Four gauges with different vote counts
+        uint256[] memory gaugeVotes = new uint256[](4);
+        gaugeVotes[0] = 100; // Gauge alice: 10%
+        gaugeVotes[1] = 200; // Gauge bob: 20%
+        gaugeVotes[2] = 300; // Gauge carol: 30%
+        gaugeVotes[3] = 400; // Gauge david: 40%
+        setupGaugeVotingScenario(1000, gaugeVotes);
 
-        address[4] memory users = [alice, bob, carol, david];
+        address[4] memory gauges = [alice, bob, carol, david];
         uint256[4] memory expectedAmounts = [
-            (100 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000, // Alice: 10%
-            (200 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000, // Bob: 20%
-            (300 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000, // Carol: 30%
-            (400 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000 // David: 40%
+            (100 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000, // Gauge alice: 10%
+            (200 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000, // Gauge bob: 20%
+            (300 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000, // Gauge carol: 30%
+            (400 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000 // Gauge david: 40%
         ];
 
-        // Verify all users get correct proportional amounts
+        // Verify all gauges get correct proportional amounts
         uint256 totalClaimed = 0;
-        for (uint256 i = 0; i < users.length; i++) {
-            uint256 userAmount = deployedStrategy.getClaimeableAmount(campaignId, users[i], "");
-            assertEq(userAmount, expectedAmounts[i], "User amount calculation incorrect");
-            assertTrue(deployedStrategy.isUserEligible(campaignId, users[i]), "User should be eligible");
-            totalClaimed += userAmount;
+        for (uint256 i = 0; i < gauges.length; i++) {
+            uint256 gaugeAmount = deployedStrategy.getClaimeableAmount(campaignId, gauges[i], "");
+            assertEq(gaugeAmount, expectedAmounts[i], "Gauge amount calculation incorrect");
+            assertTrue(deployedStrategy.isGaugeEligible(campaignId, gauges[i]), "Gauge should be eligible");
+            totalClaimed += gaugeAmount;
         }
 
         // Verify total claimed equals distribution amount (no rounding errors)
         assertEq(totalClaimed, DEFAULT_DISTRIBUTION_AMOUNT, "Total claimed should equal distribution amount");
     }
 
-    /// @notice Test users with partial voting power participation
+    /// @notice Test gauges with different vote counts
     function testPartialVotingPower() public {
         uint256 campaignId = createTestCampaign();
         GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
-        // Setup: Users used partial voting power (didn't vote with full power)
-        uint256[] memory userPowers = new uint256[](3);
-        userPowers[0] = 150; // Alice used 150 out of potential higher power
-        userPowers[1] = 350; // Bob used 350 out of potential higher power
-        userPowers[2] = 500; // Carol used 500 out of potential higher power
-        setupVotingScenario(1000, userPowers);
+        // Setup: Gauges received different amounts of votes
+        uint256[] memory gaugeVotes = new uint256[](3);
+        gaugeVotes[0] = 150; // Gauge alice received 150 votes
+        gaugeVotes[1] = 350; // Gauge bob received 350 votes
+        gaugeVotes[2] = 500; // Gauge carol received 500 votes
+        setupGaugeVotingScenario(1000, gaugeVotes);
 
         uint256 aliceAmount = deployedStrategy.getClaimeableAmount(campaignId, alice, "");
         uint256 bobAmount = deployedStrategy.getClaimeableAmount(campaignId, bob, "");
         uint256 carolAmount = deployedStrategy.getClaimeableAmount(campaignId, carol, "");
 
-        // Verify proportional allocation based on actual used power
+        // Verify proportional allocation based on votes received
         assertProportionalAllocation(150, 1000, DEFAULT_DISTRIBUTION_AMOUNT, aliceAmount);
         assertProportionalAllocation(350, 1000, DEFAULT_DISTRIBUTION_AMOUNT, bobAmount);
         assertProportionalAllocation(500, 1000, DEFAULT_DISTRIBUTION_AMOUNT, carolAmount);
 
-        // Verify all are eligible since they have voting power > 0
-        assertTrue(deployedStrategy.isUserEligible(campaignId, alice), "Alice should be eligible");
-        assertTrue(deployedStrategy.isUserEligible(campaignId, bob), "Bob should be eligible");
-        assertTrue(deployedStrategy.isUserEligible(campaignId, carol), "Carol should be eligible");
+        // Verify all are eligible since they have votes > 0
+        assertTrue(deployedStrategy.isGaugeEligible(campaignId, alice), "Gauge alice should be eligible");
+        assertTrue(deployedStrategy.isGaugeEligible(campaignId, bob), "Gauge bob should be eligible");
+        assertTrue(deployedStrategy.isGaugeEligible(campaignId, carol), "Gauge carol should be eligible");
     }
 
-    /// @notice Test isUserEligible function validation
+    /// @notice Test isGaugeEligible function validation
     function testEligibilityChecks() public {
         uint256 campaignId = createTestCampaign();
         GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
-        // Setup voting scenario
-        uint256[] memory userPowers = new uint256[](2);
-        userPowers[0] = 500; // Alice has voting power
-        userPowers[1] = 0; // Bob has no voting power
-        setupVotingScenario(1000, userPowers);
+        // Setup voting scenario for gauges
+        uint256[] memory gaugeVotes = new uint256[](2);
+        gaugeVotes[0] = 500; // Gauge alice has votes
+        gaugeVotes[1] = 0; // Gauge bob has no votes
+        setupGaugeVotingScenario(1000, gaugeVotes);
 
         // Test eligibility with correct conditions
-        assertTrue(deployedStrategy.isUserEligible(campaignId, alice), "Alice should be eligible");
-        assertFalse(deployedStrategy.isUserEligible(campaignId, bob), "Bob should not be eligible");
+        assertTrue(deployedStrategy.isGaugeEligible(campaignId, alice), "Gauge alice should be eligible");
+        assertFalse(deployedStrategy.isGaugeEligible(campaignId, bob), "Gauge bob should not be eligible");
 
         // Test eligibility when voting is active (should be false)
         mockGaugeVoter.setVotingActive(true);
         assertFalse(
-            deployedStrategy.isUserEligible(campaignId, alice), "Alice should not be eligible during active voting"
+            deployedStrategy.isGaugeEligible(campaignId, alice), "Gauge alice should not be eligible during active voting"
         );
-        assertFalse(deployedStrategy.isUserEligible(campaignId, bob), "Bob should not be eligible during active voting");
+        assertFalse(deployedStrategy.isGaugeEligible(campaignId, bob), "Gauge bob should not be eligible during active voting");
 
         // Test eligibility when epoch changes (should be false)
         mockGaugeVoter.setVotingActive(false);
         mockGaugeVoter.setEpoch(2); // Change epoch
         assertFalse(
-            deployedStrategy.isUserEligible(campaignId, alice), "Alice should not be eligible in different epoch"
+            deployedStrategy.isGaugeEligible(campaignId, alice), "Gauge alice should not be eligible in different epoch"
         );
-        assertFalse(deployedStrategy.isUserEligible(campaignId, bob), "Bob should not be eligible in different epoch");
+        assertFalse(deployedStrategy.isGaugeEligible(campaignId, bob), "Gauge bob should not be eligible in different epoch");
 
         // Test eligibility for non-existent campaign
-        assertFalse(deployedStrategy.isUserEligible(999, alice), "Should not be eligible for non-existent campaign");
+        assertFalse(deployedStrategy.isGaugeEligible(999, alice), "Should not be eligible for non-existent campaign");
     }
 
     // =========================================================================
@@ -452,9 +452,9 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup voting scenario
-        uint256[] memory userPowers = new uint256[](1);
-        userPowers[0] = 500;
-        setupVotingScenario(1000, userPowers);
+        uint256[] memory gaugeVotes = new uint256[](1);
+        gaugeVotes[0] = 500;
+        setupGaugeVotingScenario(1000, gaugeVotes);
 
         // Verify claim works in correct epoch
         uint256 expectedAmount = (500 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000;
@@ -480,9 +480,9 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup voting scenario
-        uint256[] memory userPowers = new uint256[](1);
-        userPowers[0] = 500;
-        setupVotingScenario(1000, userPowers);
+        uint256[] memory gaugeVotes = new uint256[](1);
+        gaugeVotes[0] = 500;
+        setupGaugeVotingScenario(1000, gaugeVotes);
 
         // Verify claim works when voting is inactive
         uint256 expectedAmount = (500 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000;
@@ -505,16 +505,16 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup voting scenario (doesn't matter for this test)
-        uint256[] memory userPowers = new uint256[](1);
-        userPowers[0] = 500;
-        setupVotingScenario(1000, userPowers);
+        uint256[] memory gaugeVotes = new uint256[](1);
+        gaugeVotes[0] = 500;
+        setupGaugeVotingScenario(1000, gaugeVotes);
 
         // Try to get claimable amount for non-existent campaign
         vm.expectRevert(abi.encodeWithSelector(GaugeVoterAllocatorStrategy.CampaignNotFound.selector, 999));
         deployedStrategy.getClaimeableAmount(999, alice, "");
 
         // Verify eligibility check also handles non-existent campaigns
-        assertFalse(deployedStrategy.isUserEligible(999, alice), "Should not be eligible for non-existent campaign");
+        assertFalse(deployedStrategy.isGaugeEligible(999, alice), "Should not be eligible for non-existent campaign");
     }
 
     /// @notice Test campaigns can be created anytime (no voting status restriction)
@@ -556,9 +556,9 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup voting scenario in epoch 1
-        uint256[] memory userPowers = new uint256[](1);
-        userPowers[0] = 500;
-        setupVotingScenario(1000, userPowers);
+        uint256[] memory gaugeVotes = new uint256[](1);
+        gaugeVotes[0] = 500;
+        setupGaugeVotingScenario(1000, gaugeVotes);
 
         // Verify claim works in epoch 1
         uint256 expectedAmount = (500 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000;
@@ -578,7 +578,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         deployedStrategy.getClaimeableAmount(campaignId, alice, "");
 
         // Verify eligibility also fails
-        assertFalse(deployedStrategy.isUserEligible(campaignId, alice), "Should not be eligible in different epoch");
+        assertFalse(deployedStrategy.isGaugeEligible(campaignId, alice), "Should not be eligible in different epoch");
     }
 
     /// @notice Test claims work when voting transitions from active to inactive
@@ -587,9 +587,9 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup voting scenario
-        uint256[] memory userPowers = new uint256[](1);
-        userPowers[0] = 500;
-        setupVotingScenario(1000, userPowers);
+        uint256[] memory gaugeVotes = new uint256[](1);
+        gaugeVotes[0] = 500;
+        setupGaugeVotingScenario(1000, gaugeVotes);
 
         // Start with active voting - claims should fail
         mockGaugeVoter.setVotingActive(true);
@@ -606,10 +606,10 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         );
 
         // Verify eligibility also follows voting status
-        assertTrue(deployedStrategy.isUserEligible(campaignId, alice), "Should be eligible when voting inactive");
+        assertTrue(deployedStrategy.isGaugeEligible(campaignId, alice), "Should be eligible when voting inactive");
 
         mockGaugeVoter.setVotingActive(true);
-        assertFalse(deployedStrategy.isUserEligible(campaignId, alice), "Should not be eligible when voting active");
+        assertFalse(deployedStrategy.isGaugeEligible(campaignId, alice), "Should not be eligible when voting active");
     }
 
     /// @notice Test cannot recreate existing campaigns
@@ -636,9 +636,9 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         GaugeVoterAllocatorStrategy deployedStrategy3 = getDeployedStrategy(campaignId3);
 
         // Setup voting scenario
-        uint256[] memory userPowers = new uint256[](1);
-        userPowers[0] = 500; // Alice has 50% voting power
-        setupVotingScenario(1000, userPowers);
+        uint256[] memory gaugeVotes = new uint256[](1);
+        gaugeVotes[0] = 500; // Alice has 50% voting power
+        setupGaugeVotingScenario(1000, gaugeVotes);
 
         // Verify all campaigns work independently with correct amounts
         uint256 amount1 = deployedStrategy1.getClaimeableAmount(campaignId1, alice, "");
@@ -650,13 +650,13 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         assertEq(amount3, 1500 ether, "Campaign 3 should give 50% of 3000"); // 50% of 3000
 
         // Verify eligibility for all campaigns
-        assertTrue(deployedStrategy1.isUserEligible(campaignId1, alice), "Should be eligible for campaign 1");
-        assertTrue(deployedStrategy2.isUserEligible(campaignId2, alice), "Should be eligible for campaign 2");
-        assertTrue(deployedStrategy3.isUserEligible(campaignId3, alice), "Should be eligible for campaign 3");
+        assertTrue(deployedStrategy1.isGaugeEligible(campaignId1, alice), "Should be eligible for campaign 1");
+        assertTrue(deployedStrategy2.isGaugeEligible(campaignId2, alice), "Should be eligible for campaign 2");
+        assertTrue(deployedStrategy3.isGaugeEligible(campaignId3, alice), "Should be eligible for campaign 3");
 
         // Verify campaigns are independent - changing voting power affects all equally
-        userPowers[0] = 250; // Alice now has 25% voting power
-        setupVotingScenario(1000, userPowers);
+        gaugeVotes[0] = 250; // Alice now has 25% voting power
+        setupGaugeVotingScenario(1000, gaugeVotes);
 
         amount1 = deployedStrategy1.getClaimeableAmount(campaignId1, alice, "");
         amount2 = deployedStrategy2.getClaimeableAmount(campaignId2, alice, "");
@@ -731,9 +731,9 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup voting scenario
-        uint256[] memory userPowers = new uint256[](1);
-        userPowers[0] = 500;
-        setupVotingScenario(1000, userPowers);
+        uint256[] memory gaugeVotes = new uint256[](1);
+        gaugeVotes[0] = 500;
+        setupGaugeVotingScenario(1000, gaugeVotes);
 
         // Verify claim works in correct epoch
         assertGt(deployedStrategy.getClaimeableAmount(campaignId, alice, ""), 0, "Should work in correct epoch");
@@ -751,8 +751,8 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         );
         deployedStrategy.getClaimeableAmount(campaignId, alice, "");
 
-        // Test isUserEligible returns false (no error thrown)
-        assertFalse(deployedStrategy.isUserEligible(campaignId, alice), "Should not be eligible in wrong epoch");
+        // Test isGaugeEligible returns false (no error thrown)
+        assertFalse(deployedStrategy.isGaugeEligible(campaignId, alice), "Should not be eligible in wrong epoch");
     }
 
     /// @notice Test claims during active voting (VotingCurrentlyActive error)
@@ -761,9 +761,9 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup voting scenario with inactive voting
-        uint256[] memory userPowers = new uint256[](1);
-        userPowers[0] = 500;
-        setupVotingScenario(1000, userPowers);
+        uint256[] memory gaugeVotes = new uint256[](1);
+        gaugeVotes[0] = 500;
+        setupGaugeVotingScenario(1000, gaugeVotes);
         mockGaugeVoter.setVotingActive(false);
 
         // Verify claim works when voting inactive
@@ -776,8 +776,8 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         expectStrategyError(GaugeVoterAllocatorStrategy.VotingCurrentlyActive.selector);
         deployedStrategy.getClaimeableAmount(campaignId, alice, "");
 
-        // Test isUserEligible returns false (no error thrown)
-        assertFalse(deployedStrategy.isUserEligible(campaignId, alice), "Should not be eligible during active voting");
+        // Test isGaugeEligible returns false (no error thrown)
+        assertFalse(deployedStrategy.isGaugeEligible(campaignId, alice), "Should not be eligible during active voting");
     }
 
     /// @notice Test operations on non-existent campaigns (CampaignNotFound error)
@@ -787,9 +787,9 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(existingCampaignId);
 
         // Setup voting scenario (shouldn't matter for this test)
-        uint256[] memory userPowers = new uint256[](1);
-        userPowers[0] = 500;
-        setupVotingScenario(1000, userPowers);
+        uint256[] memory gaugeVotes = new uint256[](1);
+        gaugeVotes[0] = 500;
+        setupGaugeVotingScenario(1000, gaugeVotes);
 
         uint256 nonExistentCampaignId = 999;
 
@@ -799,9 +799,9 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         );
         deployedStrategy.getClaimeableAmount(nonExistentCampaignId, alice, "");
 
-        // Test isUserEligible returns false (no error thrown)
+        // Test isGaugeEligible returns false (no error thrown)
         assertFalse(
-            deployedStrategy.isUserEligible(nonExistentCampaignId, alice),
+            deployedStrategy.isGaugeEligible(nonExistentCampaignId, alice),
             "Should not be eligible for non-existent campaign"
         );
 
