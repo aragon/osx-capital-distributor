@@ -6,11 +6,11 @@ import { AllocatorStrategyBase } from "./AllocatorStrategyBase.sol";
 import { IGaugeVoterSnapshotter } from "../interfaces/IGaugeVoterSnapshotter.sol";
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 
-/// @title MultiEpochGaugeVoterAllocatorStrategy
+/// @title GaugeDistributionStrategy
 /// @notice Allocator strategy that distributes tokens to gauges across multiple epochs based on historical vote data
 /// @dev Supports campaigns that span multiple epochs with flexible distribution amounts per epoch
 /// @dev The plugin tracks claims, this strategy only calculates accumulated unclaimed amounts
-contract MultiEpochGaugeVoterAllocatorStrategy is AllocatorStrategyBase {
+contract GaugeDistributionStrategy is AllocatorStrategyBase {
     // =========================================================================
     // Errors
     // =========================================================================
@@ -33,10 +33,10 @@ contract MultiEpochGaugeVoterAllocatorStrategy is AllocatorStrategyBase {
     IGaugeVoterSnapshotter public snapshotter;
 
     /// @notice Campaign-specific configuration
-    mapping(uint256 campaignId => MultiEpochGaugeAllocationCampaign) public campaigns;
+    mapping(uint256 campaignId => GaugeDistributionCampaign) public campaigns;
 
     /// @notice Campaign data structure
-    struct MultiEpochGaugeAllocationCampaign {
+    struct GaugeDistributionCampaign {
         uint256 startEpoch; // First epoch of the campaign
         uint256 endEpoch; // Last epoch (0 = continuous)
         mapping(uint256 => uint256) epochDistributions; // epoch => amount to distribute
@@ -94,7 +94,7 @@ contract MultiEpochGaugeVoterAllocatorStrategy is AllocatorStrategyBase {
         override
         returns (uint256 amount)
     {
-        MultiEpochGaugeAllocationCampaign storage campaign = campaigns[_campaignId];
+        GaugeDistributionCampaign storage campaign = campaigns[_campaignId];
 
         // Validate campaign exists
         if (campaign.startEpoch == 0) revert CampaignNotFound(_campaignId);
@@ -138,7 +138,7 @@ contract MultiEpochGaugeVoterAllocatorStrategy is AllocatorStrategyBase {
         view
         returns (uint256)
     {
-        MultiEpochGaugeAllocationCampaign storage campaign = campaigns[_campaignId];
+        GaugeDistributionCampaign storage campaign = campaigns[_campaignId];
 
         // Validate epoch is within campaign bounds
         if (_epochId < campaign.startEpoch) {
@@ -183,7 +183,7 @@ contract MultiEpochGaugeVoterAllocatorStrategy is AllocatorStrategyBase {
     /// @param _epochId Epoch to check
     /// @return True if epoch is claimable
     function isEpochClaimable(uint256 _campaignId, uint256 _epochId) public view returns (bool) {
-        MultiEpochGaugeAllocationCampaign storage campaign = campaigns[_campaignId];
+        GaugeDistributionCampaign storage campaign = campaigns[_campaignId];
 
         // Check campaign exists
         if (campaign.startEpoch == 0) return false;
@@ -239,7 +239,7 @@ contract MultiEpochGaugeVoterAllocatorStrategy is AllocatorStrategyBase {
         if (endEpoch != 0 && startEpoch > endEpoch) revert InvalidEpochBounds(startEpoch, endEpoch);
 
         // Create new campaign
-        MultiEpochGaugeAllocationCampaign storage campaign = campaigns[_campaignId];
+        GaugeDistributionCampaign storage campaign = campaigns[_campaignId];
         campaign.startEpoch = startEpoch;
         campaign.endEpoch = endEpoch;
 
@@ -257,7 +257,7 @@ contract MultiEpochGaugeVoterAllocatorStrategy is AllocatorStrategyBase {
 
         if (_amount == 0) revert InvalidDistributionAmount();
 
-        MultiEpochGaugeAllocationCampaign storage campaign = campaigns[_campaignId];
+        GaugeDistributionCampaign storage campaign = campaigns[_campaignId];
 
         // Validate campaign exists
         if (campaign.startEpoch == 0) revert CampaignNotFound(_campaignId);
@@ -297,10 +297,12 @@ contract MultiEpochGaugeVoterAllocatorStrategy is AllocatorStrategyBase {
 
         if (_epochIds.length != _amounts.length) revert("Length mismatch");
 
-        MultiEpochGaugeAllocationCampaign storage campaign = campaigns[_campaignId];
+        GaugeDistributionCampaign storage campaign = campaigns[_campaignId];
 
         // Validate campaign exists
         if (campaign.startEpoch == 0) revert CampaignNotFound(_campaignId);
+
+        uint256 currentEpoch = _getCurrentEpoch();
 
         for (uint256 i = 0; i < _epochIds.length;) {
             uint256 epochId = _epochIds[i];
@@ -317,8 +319,8 @@ contract MultiEpochGaugeVoterAllocatorStrategy is AllocatorStrategyBase {
             }
 
             // Prevent setting distribution for past epochs with no snapshot
-            if (!snapshotter.isEpochSnapshotted(_epochId) && _epochId < currentEpoch) {
-                revert EpochNotSnapshotted(_epochId);
+            if (!snapshotter.isEpochSnapshotted(epochId) && epochId < currentEpoch) {
+                revert EpochNotSnapshotted(epochId);
             }
 
             campaign.epochDistributions[epochId] = amount;

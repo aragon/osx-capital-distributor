@@ -1,4 +1,4 @@
-# Contract: GaugeVoterAllocatorStrategy
+# Contract: GaugeDistributionStrategy
 
 ## Purpose
 Allocator strategy that distributes tokens proportionally to users based on their voting participation and power in Aragon OSx Gauge voting plugin. Users receive allocations based on how much voting power they contributed to the gauge in the last voting round relative to the total voting power cast.

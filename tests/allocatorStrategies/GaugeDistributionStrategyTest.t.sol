@@ -5,26 +5,26 @@ import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 
 import { AragonTest } from "../helpers/AragonTest.sol";
-import { MultiEpochGaugeVoterAllocatorStrategy } from "../../src/allocatorStrategies/MultiEpochGaugeVoterAllocatorStrategy.sol";
+import { GaugeDistributionStrategy } from "../../src/allocatorStrategies/GaugeDistributionStrategy.sol";
 import { MockGaugeVoterSnapshotter } from "../mocks/MockGaugeVoterSnapshotter.sol";
 import { MintableERC20 } from "../mocks/MintableERC20.sol";
 import { IAllocatorStrategy } from "../../src/interfaces/IAllocatorStrategy.sol";
 import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
-/// @title MultiEpochGaugeVoterAllocatorStrategyTest
-/// @notice Test suite for MultiEpochGaugeVoterAllocatorStrategy contract
-contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
+/// @title GaugeDistributionStrategyTest
+/// @notice Test suite for GaugeDistributionStrategy contract
+contract GaugeDistributionStrategyTest is AragonTest {
     // =========================================================================
     // State Variables
     // =========================================================================
 
     CapitalDistributorPlugin capitalDistributorPlugin;
-    MultiEpochGaugeVoterAllocatorStrategy public strategy;
+    GaugeDistributionStrategy public strategy;
     MockGaugeVoterSnapshotter public mockSnapshotter;
     MintableERC20 public token;
 
-    bytes32 public constant STRATEGY_TYPE_ID = keccak256("MultiEpochGaugeVoterAllocatorStrategy");
+    bytes32 public constant STRATEGY_TYPE_ID = keccak256("GaugeDistributionStrategy");
     uint256 public constant DEFAULT_CAMPAIGN_ID = 1;
     uint256 public constant DEFAULT_START_EPOCH = 1;
     uint256 public constant DEFAULT_END_EPOCH = 0; // Continuous
@@ -54,10 +54,10 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
         token = new MintableERC20();
 
         // Deploy strategy implementation and register with factory
-        strategy = new MultiEpochGaugeVoterAllocatorStrategy();
+        strategy = new GaugeDistributionStrategy();
         vm.startPrank(address(createdDAO));
         allocatorStrategyFactory.registerStrategyType(
-            STRATEGY_TYPE_ID, address(strategy), "MultiEpochGaugeVoterAllocatorStrategy", address(0), 0
+            STRATEGY_TYPE_ID, address(strategy), "GaugeDistributionStrategy", address(0), 0
         );
         vm.stopPrank();
 
@@ -75,10 +75,7 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
     }
 
     /// @notice Create a test campaign with specified parameters
-    function createTestCampaign(
-        uint256 _startEpoch,
-        uint256 _endEpoch
-    ) internal returns (uint256 campaignId) {
+    function createTestCampaign(uint256 _startEpoch, uint256 _endEpoch) internal returns (uint256 campaignId) {
         vm.startPrank(address(createdDAO));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = abi.encode(address(mockSnapshotter));
@@ -93,8 +90,8 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
             bytes32(0),
             metadata,
             true, // Allow multiple claims
-            0,    // No start time restriction
-            0     // No end time restriction
+            0, // No start time restriction
+            0 // No end time restriction
         );
 
         vm.stopPrank();
@@ -105,10 +102,10 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
     function getDeployedStrategy(uint256 _campaignId)
         internal
         view
-        returns (MultiEpochGaugeVoterAllocatorStrategy deployedStrategy)
+        returns (GaugeDistributionStrategy deployedStrategy)
     {
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(_campaignId);
-        return MultiEpochGaugeVoterAllocatorStrategy(address(campaign.allocationStrategy));
+        return GaugeDistributionStrategy(address(campaign.allocationStrategy));
     }
 
     /// @notice Setup snapshot data for testing
@@ -145,14 +142,14 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
             0
         );
 
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
         assertEq(address(deployedStrategy.snapshotter()), address(mockSnapshotter), "Snapshotter not set correctly");
         vm.stopPrank();
     }
 
     function testGetEncodingTypes() public {
         uint256 campaignId = createTestCampaign();
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         assertEq(deployedStrategy.getInitializationEncodingTypes(), "address", "Init encoding types incorrect");
         assertEq(deployedStrategy.getCreationEncodingTypes(), "uint256,uint256", "Creation encoding types incorrect");
@@ -168,7 +165,7 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
         emit AllocationCampaignCreated(address(capitalDistributorPlugin), 0);
 
         uint256 campaignId = createTestCampaign(5, 10);
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         (uint256 startEpoch, uint256 endEpoch) = deployedStrategy.campaigns(campaignId);
         assertEq(startEpoch, 5, "Start epoch not set correctly");
@@ -177,7 +174,7 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
 
     function testContinuousCampaignCreation() public {
         uint256 campaignId = createTestCampaign(1, 0); // 0 means continuous
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         (uint256 startEpoch, uint256 endEpoch) = deployedStrategy.campaigns(campaignId);
         assertEq(startEpoch, 1, "Start epoch not set correctly");
@@ -213,7 +210,7 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
 
     function testSetEpochDistribution() public {
         uint256 campaignId = createTestCampaign(1, 10);
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         vm.prank(address(createdDAO));
         deployedStrategy.setEpochDistribution(campaignId, 5, 1000 ether);
@@ -223,7 +220,7 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
 
     function testSetMultipleEpochDistributions() public {
         uint256 campaignId = createTestCampaign(1, 10);
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         uint256[] memory epochs = new uint256[](3);
         epochs[0] = 2;
@@ -243,18 +240,34 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
         assertEq(deployedStrategy.getEpochDistribution(campaignId, 4), 300 ether, "Epoch 4 distribution incorrect");
     }
 
-    function testCannotSetDistributionForPastEpoch() public {
+    function testCannotSetDistributionForPastEpochWithoutSnapshot() public {
         uint256 campaignId = createTestCampaign(1, 10);
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
+        // Set current epoch to 5 (so epoch 3 is in the past)
+        mockSnapshotter.setCurrentEpoch(5);
+        
+        // Don't snapshot epoch 3, try to set distribution for it
+        vm.prank(address(createdDAO));
+        vm.expectRevert(abi.encodeWithSelector(GaugeDistributionStrategy.EpochNotSnapshotted.selector, 3));
+        deployedStrategy.setEpochDistribution(campaignId, 3, 1000 ether);
+    }
+    
+    function testCanSetDistributionForPastEpochWithSnapshot() public {
+        uint256 campaignId = createTestCampaign(1, 10);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Set current epoch to 5 (so epoch 3 is in the past)
+        mockSnapshotter.setCurrentEpoch(5);
+        
         // Mark epoch 3 as snapshotted
         setupSnapshot(3, 1000);
 
+        // Should succeed for past epoch with snapshot
         vm.prank(address(createdDAO));
-        vm.expectRevert(
-            abi.encodeWithSelector(MultiEpochGaugeVoterAllocatorStrategy.EpochNotSnapshotted.selector, 3)
-        );
         deployedStrategy.setEpochDistribution(campaignId, 3, 1000 ether);
+        
+        assertEq(deployedStrategy.getEpochDistribution(campaignId, 3), 1000 ether, "Distribution should be set");
     }
 
     // =========================================================================
@@ -263,19 +276,19 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
 
     function testSuccessfulSingleEpochAccumulation() public {
         uint256 campaignId = createTestCampaign(1, 10);
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Set current epoch to 3 (so epoch 2 is complete)
         mockSnapshotter.setCurrentEpoch(3);
 
-        // Set distribution for epoch 2
-        vm.prank(address(createdDAO));
-        deployedStrategy.setEpochDistribution(campaignId, 2, 1000 ether);
-
-        // Setup snapshot data for epoch 2
+        // Setup snapshot data for epoch 2 first
         setupSnapshot(2, 1000);
         setupGaugeVotes(2, gauge1, 300); // 30%
         setupGaugeVotes(2, gauge2, 700); // 70%
+
+        // Then set distribution for epoch 2
+        vm.prank(address(createdDAO));
+        deployedStrategy.setEpochDistribution(campaignId, 2, 1000 ether);
 
         // Check accumulated amount (should only include epoch 2)
         bytes memory auxData = "";
@@ -286,12 +299,14 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
         assertEq(claimableGauge2, 700 ether, "Gauge2 should get 70%");
 
         // Also test the individual epoch helper
-        assertEq(deployedStrategy.getEpochClaimableAmount(campaignId, gauge1, 2), 300 ether, "Individual epoch amount wrong");
+        assertEq(
+            deployedStrategy.getEpochClaimableAmount(campaignId, gauge1, 2), 300 ether, "Individual epoch amount wrong"
+        );
     }
 
     function testUnsnapshotteEpochNotIncluded() public {
         uint256 campaignId = createTestCampaign(1, 10);
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Set distribution but don't snapshot
         vm.prank(address(createdDAO));
@@ -305,7 +320,7 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
 
     function testEpochWithoutDistributionNotIncluded() public {
         uint256 campaignId = createTestCampaign(1, 10);
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup snapshot but no distribution
         setupSnapshot(2, 1000);
@@ -319,20 +334,16 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
 
     function testEpochsOutsideCampaignBoundsNotIncluded() public {
         uint256 campaignId = createTestCampaign(5, 10);
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Set distributions and snapshots for epochs outside bounds
         vm.startPrank(address(createdDAO));
         // Can't set distribution for epoch 4 (before start)
-        vm.expectRevert(
-            abi.encodeWithSelector(MultiEpochGaugeVoterAllocatorStrategy.EpochNotInCampaign.selector, 4, 5, 10)
-        );
+        vm.expectRevert(abi.encodeWithSelector(GaugeDistributionStrategy.EpochNotInCampaign.selector, 4, 5, 10));
         deployedStrategy.setEpochDistribution(campaignId, 4, 1000 ether);
-        
+
         // Can't set distribution for epoch 11 (after end)
-        vm.expectRevert(
-            abi.encodeWithSelector(MultiEpochGaugeVoterAllocatorStrategy.EpochNotInCampaign.selector, 11, 5, 10)
-        );
+        vm.expectRevert(abi.encodeWithSelector(GaugeDistributionStrategy.EpochNotInCampaign.selector, 11, 5, 10));
         deployedStrategy.setEpochDistribution(campaignId, 11, 1000 ether);
         vm.stopPrank();
 
@@ -344,16 +355,18 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
 
     function testAccumulationWithMultipleCallsReturnsSameAmount() public {
         uint256 campaignId = createTestCampaign(1, 10);
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Set current epoch to 3 (so epoch 2 is complete)
         mockSnapshotter.setCurrentEpoch(3);
 
-        // Setup epoch 2
-        vm.prank(address(createdDAO));
-        deployedStrategy.setEpochDistribution(campaignId, 2, 1000 ether);
+        // Setup snapshot for epoch 2 first
         setupSnapshot(2, 1000);
         setupGaugeVotes(2, gauge1, 500);
+        
+        // Then set distribution
+        vm.prank(address(createdDAO));
+        deployedStrategy.setEpochDistribution(campaignId, 2, 1000 ether);
 
         bytes memory auxData = "";
 
@@ -373,27 +386,27 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
 
     function testMultipleEpochAccumulation() public {
         uint256 campaignId = createTestCampaign(1, 10);
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Set current epoch to 4 (so epochs 1-3 are complete)
         mockSnapshotter.setCurrentEpoch(4);
 
-        // Setup multiple epochs
+        // Setup snapshots first
+        setupSnapshot(1, 1000);
+        setupGaugeVotes(1, gauge1, 400); // 40%
+
+        setupSnapshot(2, 2000);
+        setupGaugeVotes(2, gauge1, 1000); // 50%
+
+        setupSnapshot(3, 3000);
+        setupGaugeVotes(3, gauge1, 900); // 30%
+
+        // Setup distributions after snapshots
         vm.startPrank(address(createdDAO));
         deployedStrategy.setEpochDistribution(campaignId, 1, 1000 ether);
         deployedStrategy.setEpochDistribution(campaignId, 2, 2000 ether);
         deployedStrategy.setEpochDistribution(campaignId, 3, 3000 ether);
         vm.stopPrank();
-
-        // Setup snapshots
-        setupSnapshot(1, 1000);
-        setupGaugeVotes(1, gauge1, 400); // 40%
-        
-        setupSnapshot(2, 2000);
-        setupGaugeVotes(2, gauge1, 1000); // 50%
-        
-        setupSnapshot(3, 3000);
-        setupGaugeVotes(3, gauge1, 900); // 30%
 
         // Check individual epoch amounts using helper
         assertEq(deployedStrategy.getEpochClaimableAmount(campaignId, gauge1, 1), 400 ether, "Epoch 1 incorrect");
@@ -407,7 +420,7 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
 
         // Test gauge2 accumulation
         setupGaugeVotes(1, gauge2, 600); // 60% of epoch 1
-        setupGaugeVotes(2, gauge2, 1000); // 50% of epoch 2  
+        setupGaugeVotes(2, gauge2, 1000); // 50% of epoch 2
         setupGaugeVotes(3, gauge2, 2100); // 70% of epoch 3
 
         uint256 gauge2Total = deployedStrategy.getClaimeableAmount(campaignId, gauge2, auxData);
@@ -416,29 +429,30 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
 
     function testAccumulationWithPartialSnapshots() public {
         uint256 campaignId = createTestCampaign(1, 10);
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Set current epoch to 6 (so epochs 1-5 are complete)
         mockSnapshotter.setCurrentEpoch(6);
 
-        // Setup epochs (some snapshotted, some not)
-        vm.startPrank(address(createdDAO));
-        deployedStrategy.setEpochDistribution(campaignId, 1, 1000 ether);
-        deployedStrategy.setEpochDistribution(campaignId, 2, 2000 ether); // Won't snapshot this
-        deployedStrategy.setEpochDistribution(campaignId, 3, 3000 ether);
-        deployedStrategy.setEpochDistribution(campaignId, 4, 4000 ether); // Won't snapshot this
-        deployedStrategy.setEpochDistribution(campaignId, 5, 5000 ether);
-        vm.stopPrank();
-
         // Only snapshot epochs 1, 3, and 5
         setupSnapshot(1, 1000);
         setupGaugeVotes(1, gauge1, 500); // 50%
-        
+
         setupSnapshot(3, 1000);
         setupGaugeVotes(3, gauge1, 500); // 50%
-        
+
         setupSnapshot(5, 1000);
         setupGaugeVotes(5, gauge1, 500); // 50%
+        
+        // Setup distributions for snapshotted epochs
+        vm.startPrank(address(createdDAO));
+        deployedStrategy.setEpochDistribution(campaignId, 1, 1000 ether);
+        deployedStrategy.setEpochDistribution(campaignId, 3, 3000 ether);
+        deployedStrategy.setEpochDistribution(campaignId, 5, 5000 ether);
+        
+        // For future epochs (7 and up), we can set distribution without snapshot
+        deployedStrategy.setEpochDistribution(campaignId, 7, 7000 ether); // Future epoch, ok without snapshot
+        vm.stopPrank();
 
         // Should only accumulate snapshotted epochs
         bytes memory auxData = "";
@@ -456,7 +470,7 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
 
     function testIsEpochClaimable() public {
         uint256 campaignId = createTestCampaign(1, 10);
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Initially not claimable
         assertFalse(deployedStrategy.isEpochClaimable(campaignId, 2), "Should not be claimable without setup");
@@ -468,46 +482,44 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
 
         // Add snapshot
         setupSnapshot(2, 1000);
-        assertTrue(deployedStrategy.isEpochClaimable(campaignId, 2), "Should be claimable with distribution and snapshot");
+        assertTrue(
+            deployedStrategy.isEpochClaimable(campaignId, 2), "Should be claimable with distribution and snapshot"
+        );
     }
 
     function testContinuousCampaignAccumulation() public {
         // Create continuous campaign (endEpoch = 0)
         uint256 campaignId = createTestCampaign(1, 0);
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Set current epoch to 21 (so epoch 20 and below are complete)
         mockSnapshotter.setCurrentEpoch(21);
 
-        // Setup distributions for many epochs
+        // Snapshot some epochs first
+        setupSnapshot(1, 1000);
+        setupGaugeVotes(1, gauge1, 500);
+
+        setupSnapshot(5, 1000);
+        setupGaugeVotes(5, gauge1, 500);
+
+        setupSnapshot(10, 1000);
+        setupGaugeVotes(10, gauge1, 500);
+
+        setupSnapshot(20, 1000);
+        setupGaugeVotes(20, gauge1, 500);
+
+        // Set distributions for the snapshotted epochs
         vm.startPrank(address(createdDAO));
         deployedStrategy.setEpochDistribution(campaignId, 1, 1000 ether);
         deployedStrategy.setEpochDistribution(campaignId, 5, 5000 ether);
-        deployedStrategy.setEpochDistribution(campaignId, 10, 10000 ether);
-        deployedStrategy.setEpochDistribution(campaignId, 20, 20000 ether);
+        deployedStrategy.setEpochDistribution(campaignId, 10, 10_000 ether);
+        deployedStrategy.setEpochDistribution(campaignId, 20, 20_000 ether);
         vm.stopPrank();
-
-        // Snapshot some epochs
-        setupSnapshot(1, 1000);
-        setupGaugeVotes(1, gauge1, 500);
-        
-        setupSnapshot(5, 1000);
-        setupGaugeVotes(5, gauge1, 500);
-        
-        setupSnapshot(10, 1000);
-        setupGaugeVotes(10, gauge1, 500);
 
         // Should accumulate all snapshotted epochs up to current epoch
         bytes memory auxData = "";
         uint256 totalClaimable = deployedStrategy.getClaimeableAmount(campaignId, gauge1, auxData);
-        assertEq(totalClaimable, 8000 ether, "Should accumulate epochs 1, 5, 10 (500 + 2500 + 5000)");
-        
-        // Now snapshot epoch 20 and check again
-        setupSnapshot(20, 1000);
-        setupGaugeVotes(20, gauge1, 500);
-        
-        totalClaimable = deployedStrategy.getClaimeableAmount(campaignId, gauge1, auxData);
-        assertEq(totalClaimable, 18000 ether, "Should now include epoch 20 (8000 + 10000)");
+        assertEq(totalClaimable, 18_000 ether, "Should accumulate epochs 1, 5, 10, 20 (500 + 2500 + 5000 + 10000)");
     }
 
     // =========================================================================
@@ -516,7 +528,7 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
 
     function testZeroVotesGauge() public {
         uint256 campaignId = createTestCampaign(1, 10);
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         vm.prank(address(createdDAO));
         deployedStrategy.setEpochDistribution(campaignId, 1, 1000 ether);
@@ -531,7 +543,7 @@ contract MultiEpochGaugeVoterAllocatorStrategyTest is AragonTest {
 
     function testZeroTotalVotingPower() public {
         uint256 campaignId = createTestCampaign(1, 10);
-        MultiEpochGaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         vm.prank(address(createdDAO));
         deployedStrategy.setEpochDistribution(campaignId, 1, 1000 ether);
