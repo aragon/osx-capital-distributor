@@ -538,12 +538,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
         // Try to lower it
         vm.prank(address(createdDAO));
         vm.expectRevert(
-            abi.encodeWithSelector(
-                GaugeDistributionStrategy.CannotLowerDistribution.selector, 
-                2, 
-                1000 ether, 
-                500 ether
-            )
+            abi.encodeWithSelector(GaugeDistributionStrategy.CannotLowerDistribution.selector, 2, 1000 ether, 500 ether)
         );
         deployedStrategy.setEpochDistribution(campaignId, 2, 500 ether);
     }
@@ -586,12 +581,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         vm.prank(address(createdDAO));
         vm.expectRevert(
-            abi.encodeWithSelector(
-                GaugeDistributionStrategy.CannotLowerDistribution.selector, 
-                3, 
-                200 ether, 
-                150 ether
-            )
+            abi.encodeWithSelector(GaugeDistributionStrategy.CannotLowerDistribution.selector, 3, 200 ether, 150 ether)
         );
         deployedStrategy.setMultipleEpochDistributions(campaignId, epochs, amounts);
     }
