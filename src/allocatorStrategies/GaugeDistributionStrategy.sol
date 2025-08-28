@@ -24,6 +24,7 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
     error InvalidDistributionAmount();
     error EpochInPast(uint256 epoch, uint256 currentEpoch);
     error CampaignAlreadyExists(uint256 campaignId);
+    error CannotLowerDistribution(uint256 epochId, uint256 currentAmount, uint256 newAmount);
 
     // =========================================================================
     // State Variables
@@ -277,6 +278,12 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
             revert EpochNotSnapshotted(_epochId);
         }
 
+        // Prevent lowering distribution amount
+        uint256 currentDistribution = campaign.epochDistributions[_epochId];
+        if (_amount < currentDistribution) {
+            revert CannotLowerDistribution(_epochId, currentDistribution, _amount);
+        }
+
         campaign.epochDistributions[_epochId] = _amount;
     }
 
@@ -321,6 +328,12 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
             // Prevent setting distribution for past epochs with no snapshot
             if (!snapshotter.isEpochSnapshotted(epochId) && epochId < currentEpoch) {
                 revert EpochNotSnapshotted(epochId);
+            }
+
+            // Prevent lowering distribution amount
+            uint256 currentDistribution = campaign.epochDistributions[epochId];
+            if (amount < currentDistribution) {
+                revert CannotLowerDistribution(epochId, currentDistribution, amount);
             }
 
             campaign.epochDistributions[epochId] = amount;

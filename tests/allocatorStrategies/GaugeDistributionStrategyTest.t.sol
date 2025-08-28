@@ -527,6 +527,75 @@ contract GaugeDistributionStrategyTest is AragonTest {
     // Edge Case Tests
     // =========================================================================
 
+    function testCannotLowerDistribution() public {
+        uint256 campaignId = createTestCampaign(1, 10);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Set initial distribution
+        vm.prank(address(createdDAO));
+        deployedStrategy.setEpochDistribution(campaignId, 2, 1000 ether);
+
+        // Try to lower it
+        vm.prank(address(createdDAO));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                GaugeDistributionStrategy.CannotLowerDistribution.selector, 
+                2, 
+                1000 ether, 
+                500 ether
+            )
+        );
+        deployedStrategy.setEpochDistribution(campaignId, 2, 500 ether);
+    }
+
+    function testCanIncreaseDistribution() public {
+        uint256 campaignId = createTestCampaign(1, 10);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Set initial distribution
+        vm.prank(address(createdDAO));
+        deployedStrategy.setEpochDistribution(campaignId, 2, 1000 ether);
+
+        // Increase it - should succeed
+        vm.prank(address(createdDAO));
+        deployedStrategy.setEpochDistribution(campaignId, 2, 1500 ether);
+
+        assertEq(deployedStrategy.getEpochDistribution(campaignId, 2), 1500 ether, "Distribution should be increased");
+    }
+
+    function testCannotLowerMultipleDistributions() public {
+        uint256 campaignId = createTestCampaign(1, 10);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Set initial distributions
+        uint256[] memory epochs = new uint256[](3);
+        epochs[0] = 2;
+        epochs[1] = 3;
+        epochs[2] = 4;
+
+        uint256[] memory amounts = new uint256[](3);
+        amounts[0] = 100 ether;
+        amounts[1] = 200 ether;
+        amounts[2] = 300 ether;
+
+        vm.prank(address(createdDAO));
+        deployedStrategy.setMultipleEpochDistributions(campaignId, epochs, amounts);
+
+        // Try to lower epoch 3's distribution
+        amounts[1] = 150 ether; // Lower than 200 ether
+
+        vm.prank(address(createdDAO));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                GaugeDistributionStrategy.CannotLowerDistribution.selector, 
+                3, 
+                200 ether, 
+                150 ether
+            )
+        );
+        deployedStrategy.setMultipleEpochDistributions(campaignId, epochs, amounts);
+    }
+
     function testZeroVotesGauge() public {
         uint256 campaignId = createTestCampaign(1, 10);
         GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
