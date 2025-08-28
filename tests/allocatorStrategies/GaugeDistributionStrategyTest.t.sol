@@ -765,4 +765,166 @@ contract GaugeDistributionStrategyTest is AragonTest {
         uint256 claimable2 = deployedStrategy.getClaimeableAmount(campaignId, gauge1, auxData);
         assertEq(claimable2, 700 ether, "Claim should reflect new votes immediately");
     }
+
+    // =========================================================================
+    // Gas Cost Tests
+    // =========================================================================
+
+    function testGasCostOfClaimingManyEpochs() public {
+        uint256 campaignId = createTestCampaign(1, 0); // Continuous campaign
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Test with different numbers of epochs
+        uint256[] memory epochCounts = new uint256[](4);
+        epochCounts[0] = 10;
+        epochCounts[1] = 50;
+        epochCounts[2] = 100;
+        epochCounts[3] = 200;
+
+        for (uint256 i = 0; i < epochCounts.length; i++) {
+            uint256 epochCount = epochCounts[i];
+            
+            // Set current epoch
+            uint256 currentEpoch = epochCount + 1;
+            mockSnapshotter.setCurrentEpoch(currentEpoch);
+            mockGaugeVoter.setEpoch(currentEpoch);
+
+            // Setup snapshots and distributions for all epochs
+            vm.startPrank(address(createdDAO));
+            for (uint256 epoch = 1; epoch <= epochCount; epoch++) {
+                // Setup snapshot
+                setupSnapshot(epoch, 1000);
+                setupGaugeVotes(epoch, gauge1, 500); // 50% votes
+
+                // Set distribution
+                deployedStrategy.setEpochDistribution(campaignId, epoch, 1000 ether);
+            }
+            vm.stopPrank();
+
+            // Measure gas for claiming
+            uint256 gasStart = gasleft();
+            bytes memory auxData = "";
+            uint256 totalClaimable = deployedStrategy.getClaimeableAmount(campaignId, gauge1, auxData);
+            uint256 gasUsed = gasStart - gasleft();
+
+            console2.log("Epochs:", epochCount);
+            console2.log("Gas used for getClaimeableAmount:", gasUsed);
+            console2.log("Expected claimable:", epochCount * 500 ether);
+            console2.log("Actual claimable:", totalClaimable);
+            console2.log("---");
+
+            // Verify the amount is correct
+            assertEq(totalClaimable, epochCount * 500 ether, "Should accumulate all epochs correctly");
+        }
+    }
+
+    function testGasCostOfClaimingWithSparseDistributions() public {
+        uint256 campaignId = createTestCampaign(1, 0); // Continuous campaign
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Set current epoch to 201 (so we have 200 potential epochs)
+        uint256 currentEpoch = 201;
+        mockSnapshotter.setCurrentEpoch(currentEpoch);
+        mockGaugeVoter.setEpoch(currentEpoch);
+
+        // Only set distributions for every 10th epoch (sparse)
+        vm.startPrank(address(createdDAO));
+        uint256 distributedEpochs = 0;
+        for (uint256 epoch = 10; epoch <= 200; epoch += 10) {
+            // Setup snapshot
+            setupSnapshot(epoch, 1000);
+            setupGaugeVotes(epoch, gauge1, 500); // 50% votes
+
+            // Set distribution
+            deployedStrategy.setEpochDistribution(campaignId, epoch, 1000 ether);
+            distributedEpochs++;
+        }
+        vm.stopPrank();
+
+        // Measure gas for claiming with sparse distributions
+        uint256 gasStart = gasleft();
+        bytes memory auxData = "";
+        uint256 totalClaimable = deployedStrategy.getClaimeableAmount(campaignId, gauge1, auxData);
+        uint256 gasUsed = gasStart - gasleft();
+
+        console2.log("Total epochs checked: 200");
+        console2.log("Epochs with distributions: ", distributedEpochs);
+        console2.log("Gas used for getClaimeableAmount (sparse):", gasUsed);
+        console2.log("Total claimable:", totalClaimable);
+
+        // Verify the amount is correct
+        assertEq(totalClaimable, distributedEpochs * 500 ether, "Should accumulate only distributed epochs");
+    }
+
+    function testGasCostOfClaimingRecentEpochsOnly() public {
+        uint256 campaignId = createTestCampaign(1, 0); // Continuous campaign
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Set current epoch to 201
+        uint256 currentEpoch = 201;
+        mockSnapshotter.setCurrentEpoch(currentEpoch);
+        mockGaugeVoter.setEpoch(currentEpoch);
+
+        // Only set distributions for recent epochs (last 10)
+        vm.startPrank(address(createdDAO));
+        for (uint256 epoch = 191; epoch <= 200; epoch++) {
+            // Setup snapshot
+            setupSnapshot(epoch, 1000);
+            setupGaugeVotes(epoch, gauge1, 500); // 50% votes
+
+            // Set distribution
+            deployedStrategy.setEpochDistribution(campaignId, epoch, 1000 ether);
+        }
+        vm.stopPrank();
+
+        // Measure gas - still needs to iterate through all 200 epochs
+        uint256 gasStart = gasleft();
+        bytes memory auxData = "";
+        uint256 totalClaimable = deployedStrategy.getClaimeableAmount(campaignId, gauge1, auxData);
+        uint256 gasUsed = gasStart - gasleft();
+
+        console2.log("Total epochs checked: 200");
+        console2.log("Epochs with distributions: 10 (recent only)");
+        console2.log("Gas used for getClaimeableAmount (recent only):", gasUsed);
+        console2.log("Total claimable:", totalClaimable);
+
+        assertEq(totalClaimable, 10 * 500 ether, "Should accumulate only recent epochs");
+    }
+
+    function testGasCostWithBoundedCampaign() public {
+        // Create bounded campaign (epochs 1-50)
+        uint256 campaignId = createTestCampaign(1, 50);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Set current epoch to 100 (past campaign end)
+        uint256 currentEpoch = 100;
+        mockSnapshotter.setCurrentEpoch(currentEpoch);
+        mockGaugeVoter.setEpoch(currentEpoch);
+
+        // Setup all 50 epochs
+        vm.startPrank(address(createdDAO));
+        for (uint256 epoch = 1; epoch <= 50; epoch++) {
+            // Setup snapshot
+            setupSnapshot(epoch, 1000);
+            setupGaugeVotes(epoch, gauge1, 500); // 50% votes
+
+            // Set distribution
+            deployedStrategy.setEpochDistribution(campaignId, epoch, 1000 ether);
+        }
+        vm.stopPrank();
+
+        // Measure gas - only needs to check 50 epochs (bounded)
+        uint256 gasStart = gasleft();
+        bytes memory auxData = "";
+        uint256 totalClaimable = deployedStrategy.getClaimeableAmount(campaignId, gauge1, auxData);
+        uint256 gasUsed = gasStart - gasleft();
+
+        console2.log("Campaign bounds: epochs 1-50");
+        console2.log("Current epoch: 100");
+        console2.log("Epochs checked: 50 (bounded)");
+        console2.log("Gas used for getClaimeableAmount (bounded):", gasUsed);
+        console2.log("Total claimable:", totalClaimable);
+
+        assertEq(totalClaimable, 50 * 500 ether, "Should accumulate all bounded epochs");
+    }
 }
