@@ -3,16 +3,13 @@ pragma solidity ^0.8.29;
 
 import { DaoAuthorizableUpgradeable } from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
-import { IGaugeVoterSnapshotter } from "./interfaces/IGaugeVoterSnapshotter.sol";
-import { IAddressGaugeVoter } from "./interfaces/helpers/IAddressGaugeVoter.sol";
+import { IGaugeVoterSnapshotter } from "../interfaces/helpers/IGaugeVoterSnapshotter.sol";
+import { IAddressGaugeVoter } from "../interfaces/helpers/IAddressGaugeVoter.sol";
 
 /// @title GaugeVoterSnapshotter
 /// @notice Contract that captures and stores historical gauge voting data
 /// @dev Stores snapshots of gauge votes and total voting power for each epoch
 contract GaugeVoterSnapshotter is IGaugeVoterSnapshotter, DaoAuthorizableUpgradeable {
-    /// @notice The ID of the permission required to take snapshots
-    bytes32 public constant SNAPSHOTTER_ROLE = keccak256("SNAPSHOTTER_ROLE");
-
     /// @notice Storage of epoch snapshots
     mapping(uint256 => EpochSnapshot) public epochSnapshots;
 
@@ -30,7 +27,7 @@ contract GaugeVoterSnapshotter is IGaugeVoterSnapshotter, DaoAuthorizableUpgrade
     }
 
     /// @inheritdoc IGaugeVoterSnapshotter
-    function takeSnapshot() external auth(SNAPSHOTTER_ROLE) {
+    function takeSnapshot() external {
         uint256 epochId = gaugeVoter.epochId();
 
         // Check if already snapshotted

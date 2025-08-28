@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 
 import { IAllocatorStrategy } from "../interfaces/IAllocatorStrategy.sol";
 import { AllocatorStrategyBase } from "./AllocatorStrategyBase.sol";
-import { IGaugeVoterSnapshotter } from "../interfaces/IGaugeVoterSnapshotter.sol";
+import { IGaugeVoterSnapshotter } from "../interfaces/helpers/IGaugeVoterSnapshotter.sol";
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 
 /// @title GaugeDistributionStrategy
@@ -87,7 +87,7 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
     function getClaimeableAmount(
         uint256 _campaignId,
         address _account,
-        bytes calldata _auxData
+        bytes calldata
     )
         public
         view
@@ -142,21 +142,21 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
 
         // Validate epoch is within campaign bounds
         if (_epochId < campaign.startEpoch) {
-            revert EpochNotInCampaign(_epochId, campaign.startEpoch, campaign.endEpoch);
+            return 0;
         }
         if (campaign.endEpoch > 0 && _epochId > campaign.endEpoch) {
-            revert EpochNotInCampaign(_epochId, campaign.startEpoch, campaign.endEpoch);
+            return 0;
         }
 
         // Check if epoch has been snapshotted
         if (!snapshotter.isEpochSnapshotted(_epochId)) {
-            revert EpochNotSnapshotted(_epochId);
+            return 0;
         }
 
         // Check if distribution is set for this epoch
         uint256 epochDistribution = campaign.epochDistributions[_epochId];
         if (epochDistribution == 0) {
-            revert NoDistributionForEpoch(_epochId);
+            return 0;
         }
 
         // Get historical voting data

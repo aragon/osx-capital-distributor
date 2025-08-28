@@ -53,7 +53,7 @@ The setup manages three critical permissions:
    - Who: Plugin
    - Purpose: Allows plugin to execute actions on DAO
 
-3. **CAMPAIGN_CREATOR_PERMISSION_ID**
+3. **CAMPAIGN_MANAGER_PERMISSION_ID**
    - Where: Plugin
    - Who: DAO
    - Purpose: Allows DAO to create campaigns

@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.29 <0.9.0;
 
-import { IGaugeVoterSnapshotter } from "../../src/interfaces/IGaugeVoterSnapshotter.sol";
+import { IGaugeVoterSnapshotter } from "../../src/interfaces/helpers/IGaugeVoterSnapshotter.sol";
 
 /// @title MockGaugeVoterSnapshotter
 /// @notice Mock implementation of IGaugeVoterSnapshotter for testing
 contract MockGaugeVoterSnapshotter is IGaugeVoterSnapshotter {
-    
     mapping(uint256 => EpochSnapshot) public epochSnapshots;
-    
+
     /// @notice Mock current epoch for testing
     uint256 public currentEpoch = 1;
 
@@ -18,16 +17,18 @@ contract MockGaugeVoterSnapshotter is IGaugeVoterSnapshotter {
         uint256 totalVotingPowerCast,
         address[] calldata gauges,
         uint256[] calldata votes
-    ) external {
+    )
+        external
+    {
         require(gauges.length == votes.length, "Length mismatch");
-        
+
         EpochSnapshot storage snapshot = epochSnapshots[epochId];
         snapshot.totalVotingPowerCast = totalVotingPowerCast;
         snapshot.snapshotted = true;
-        
+
         // Clear existing data
         delete snapshot.snapshotGauges;
-        
+
         // Set new data
         for (uint256 i = 0; i < gauges.length; i++) {
             snapshot.gaugeVotes[gauges[i]] = votes[i];
@@ -39,17 +40,17 @@ contract MockGaugeVoterSnapshotter is IGaugeVoterSnapshotter {
     function takeSnapshot() external override {
         // Mock implementation - automatically take snapshot for current epoch
         uint256 epochId = currentEpoch;
-        
+
         if (epochSnapshots[epochId].snapshotted) {
             revert EpochAlreadySnapshotted(epochId);
         }
-        
+
         EpochSnapshot storage snapshot = epochSnapshots[epochId];
         snapshot.snapshotted = true;
-        
+
         // In the mock, the snapshot gauges should be set up via setSnapshot
         uint256 gaugeCount = snapshot.snapshotGauges.length;
-        
+
         emit SnapshotTaken(epochId, snapshot.totalVotingPowerCast, gaugeCount);
     }
 
