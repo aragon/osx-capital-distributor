@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
+import { IAddressGaugeVoter } from "./IAddressGaugeVoter.sol";
+
 /// @title IGaugeVoterSnapshotter
 /// @notice Interface for the gauge voter snapshotter contract that captures historical voting data
 interface IGaugeVoterSnapshotter {
@@ -57,4 +59,8 @@ interface IGaugeVoterSnapshotter {
     /// @notice Returns the current epoch from the gauge voter
     /// @return The current epoch number
     function getCurrentEpoch() external view returns (uint256);
+
+    /// @notice Get the gauge voter contract address
+    /// @return Address of the gauge voter contract
+    function gaugeVoter() external view returns (IAddressGaugeVoter);
 }

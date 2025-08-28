@@ -4,6 +4,7 @@ pragma solidity ^0.8.29;
 import { IAllocatorStrategy } from "../interfaces/IAllocatorStrategy.sol";
 import { AllocatorStrategyBase } from "./AllocatorStrategyBase.sol";
 import { IGaugeVoterSnapshotter } from "../interfaces/helpers/IGaugeVoterSnapshotter.sol";
+import { IAddressGaugeVoter } from "../interfaces/helpers/IAddressGaugeVoter.sol";
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 
 /// @title GaugeDistributionStrategy
@@ -33,6 +34,9 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
     /// @notice Reference to the gauge voter snapshotter
     IGaugeVoterSnapshotter public snapshotter;
 
+    /// @notice Reference to the gauge voter contract
+    IAddressGaugeVoter public gaugeVoter;
+
     /// @notice Campaign-specific configuration
     mapping(uint256 campaignId => GaugeDistributionCampaign) public campaigns;
 
@@ -59,6 +63,7 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
         if (address(_snapshotter) == address(0)) revert InvalidSnapshotter();
 
         snapshotter = _snapshotter;
+        gaugeVoter = IAddressGaugeVoter(_snapshotter.gaugeVoter());
     }
 
     // =========================================================================
@@ -108,10 +113,13 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
         uint256 endEpoch = campaign.endEpoch == 0 ? currentEpoch : campaign.endEpoch;
         if (endEpoch > currentEpoch) endEpoch = currentEpoch;
 
-        // Accumulate rewards for all snapshotted epochs
+        // Accumulate rewards for all eligible epochs
         for (uint256 epoch = campaign.startEpoch; epoch <= endEpoch;) {
-            // Only add if epoch is snapshotted and has distribution
-            if (snapshotter.isEpochSnapshotted(epoch) && campaign.epochDistributions[epoch] > 0) {
+            // For current epoch, we don't need snapshot; for past epochs we do
+            bool isEligible = (epoch == currentEpoch) || snapshotter.isEpochSnapshotted(epoch);
+
+            // Only add if eligible and has distribution
+            if (isEligible && campaign.epochDistributions[epoch] > 0) {
                 totalClaimable += _getEpochClaimableAmount(_campaignId, _account, epoch);
             }
 
@@ -149,22 +157,30 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
             return 0;
         }
 
-        // Check if epoch has been snapshotted
-        if (!snapshotter.isEpochSnapshotted(_epochId)) {
-            return 0;
-        }
-
         // Check if distribution is set for this epoch
         uint256 epochDistribution = campaign.epochDistributions[_epochId];
         if (epochDistribution == 0) {
             return 0;
         }
 
-        // Get historical voting data
-        uint256 gaugeVotes = snapshotter.getGaugeVotes(_epochId, _gauge);
-        if (gaugeVotes == 0) return 0;
+        uint256 currentEpoch = _getCurrentEpoch();
+        uint256 gaugeVotes;
+        uint256 totalVotingPowerCast;
 
-        uint256 totalVotingPowerCast = snapshotter.getTotalVotingPowerCast(_epochId);
+        if (_epochId == currentEpoch) {
+            // For current epoch, always use live data from gauge voter
+            gaugeVotes = gaugeVoter.gaugeVotes(_gauge);
+            totalVotingPowerCast = gaugeVoter.totalVotingPowerCast();
+        } else {
+            // For past epochs, require snapshot
+            if (!snapshotter.isEpochSnapshotted(_epochId)) {
+                return 0;
+            }
+
+            gaugeVotes = snapshotter.getGaugeVotes(_epochId, _gauge);
+            totalVotingPowerCast = snapshotter.getTotalVotingPowerCast(_epochId);
+        }
+
         if (totalVotingPowerCast == 0) return 0;
 
         // Calculate proportional allocation
@@ -179,7 +195,7 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
         return campaigns[_campaignId].epochDistributions[_epochId];
     }
 
-    /// @notice Checks if an epoch can be claimed (snapshotted and has distribution)
+    /// @notice Checks if an epoch can be claimed
     /// @param _campaignId Campaign identifier
     /// @param _epochId Epoch to check
     /// @return True if epoch is claimable
@@ -193,8 +209,16 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
         if (_epochId < campaign.startEpoch) return false;
         if (campaign.endEpoch > 0 && _epochId > campaign.endEpoch) return false;
 
-        // Check if snapshotted and has distribution
-        return snapshotter.isEpochSnapshotted(_epochId) && campaign.epochDistributions[_epochId] > 0;
+        // Check if has distribution
+        if (campaign.epochDistributions[_epochId] == 0) return false;
+
+        uint256 currentEpoch = _getCurrentEpoch();
+
+        // Current epoch is always claimable if it has distribution
+        if (_epochId == currentEpoch) return true;
+
+        // Past epochs require snapshot
+        return snapshotter.isEpochSnapshotted(_epochId);
     }
 
     /// @notice Gets the claimable amount for a specific epoch
@@ -273,8 +297,8 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
 
         uint256 currentEpoch = _getCurrentEpoch();
 
-        // Prevent setting distribution for past epochs with no snapshot
-        if (!snapshotter.isEpochSnapshotted(_epochId) && _epochId < currentEpoch) {
+        // Only past epochs require snapshot
+        if (_epochId < currentEpoch && !snapshotter.isEpochSnapshotted(_epochId)) {
             revert EpochNotSnapshotted(_epochId);
         }
 
@@ -325,8 +349,8 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
                 revert EpochNotInCampaign(epochId, campaign.startEpoch, campaign.endEpoch);
             }
 
-            // Prevent setting distribution for past epochs with no snapshot
-            if (!snapshotter.isEpochSnapshotted(epochId) && epochId < currentEpoch) {
+            // Only past epochs require snapshot
+            if (epochId < currentEpoch && !snapshotter.isEpochSnapshotted(epochId)) {
                 revert EpochNotSnapshotted(epochId);
             }
 
@@ -349,6 +373,6 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
     // =========================================================================
 
     /// @dev Storage gap to allow for future upgrades without storage collision.
-    /// This contract adds 2 storage slots: snapshotter address and campaigns mapping.
-    uint256[48] private __gap;
+    /// This contract adds 3 storage slots: snapshotter, gaugeVoter, and campaigns mapping.
+    uint256[47] private __gap;
 }

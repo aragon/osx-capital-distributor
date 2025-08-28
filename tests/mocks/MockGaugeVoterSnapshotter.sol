@@ -2,6 +2,7 @@
 pragma solidity >=0.8.29 <0.9.0;
 
 import { IGaugeVoterSnapshotter } from "../../src/interfaces/helpers/IGaugeVoterSnapshotter.sol";
+import { IAddressGaugeVoter } from "../../src/interfaces/helpers/IAddressGaugeVoter.sol";
 
 /// @title MockGaugeVoterSnapshotter
 /// @notice Mock implementation of IGaugeVoterSnapshotter for testing
@@ -10,6 +11,9 @@ contract MockGaugeVoterSnapshotter is IGaugeVoterSnapshotter {
 
     /// @notice Mock current epoch for testing
     uint256 public currentEpoch = 1;
+
+    /// @notice Mock gauge voter address for testing
+    IAddressGaugeVoter public mockGaugeVoter;
 
     /// @notice Directly set snapshot data for testing
     function setSnapshot(
@@ -97,5 +101,15 @@ contract MockGaugeVoterSnapshotter is IGaugeVoterSnapshotter {
     /// @notice Helper to set current epoch for testing
     function setCurrentEpoch(uint256 _currentEpoch) external {
         currentEpoch = _currentEpoch;
+    }
+
+    /// @inheritdoc IGaugeVoterSnapshotter
+    function gaugeVoter() external view override returns (IAddressGaugeVoter) {
+        return mockGaugeVoter;
+    }
+
+    /// @notice Helper to set gauge voter for testing
+    function setGaugeVoter(address _gaugeVoter) external {
+        mockGaugeVoter = IAddressGaugeVoter(_gaugeVoter);
     }
 }

@@ -7,6 +7,7 @@ import { console2 } from "forge-std/console2.sol";
 import { AragonTest } from "../helpers/AragonTest.sol";
 import { GaugeDistributionStrategy } from "../../src/allocatorStrategies/GaugeDistributionStrategy.sol";
 import { MockGaugeVoterSnapshotter } from "../mocks/MockGaugeVoterSnapshotter.sol";
+import { MockAddressGaugeVoter } from "../mocks/MockAddressGaugeVoter.sol";
 import { MintableERC20 } from "../mocks/MintableERC20.sol";
 import { IAllocatorStrategy } from "../../src/interfaces/IAllocatorStrategy.sol";
 import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
@@ -22,6 +23,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
     CapitalDistributorPlugin capitalDistributorPlugin;
     GaugeDistributionStrategy public strategy;
     MockGaugeVoterSnapshotter public mockSnapshotter;
+    MockAddressGaugeVoter public mockGaugeVoter;
     MintableERC20 public token;
 
     bytes32 public constant STRATEGY_TYPE_ID = keccak256("GaugeDistributionStrategy");
@@ -47,8 +49,12 @@ contract GaugeDistributionStrategyTest is AragonTest {
         // Initialize plugin from AragonTest
         capitalDistributorPlugin = CapitalDistributorPlugin(pluginAddress[0]);
 
-        // Deploy mock snapshotter
+        // Deploy mock gauge voter
+        mockGaugeVoter = new MockAddressGaugeVoter();
+        
+        // Deploy mock snapshotter and set gauge voter
         mockSnapshotter = new MockGaugeVoterSnapshotter();
+        mockSnapshotter.setGaugeVoter(address(mockGaugeVoter));
 
         // Deploy test token
         token = new MintableERC20();
@@ -117,6 +123,10 @@ contract GaugeDistributionStrategyTest is AragonTest {
     /// @notice Setup gauge votes for testing
     function setupGaugeVotes(uint256 epochId, address gauge, uint256 votes) internal {
         mockSnapshotter.setGaugeVotes(epochId, gauge, votes);
+        // Also set in gauge voter for current epoch live data
+        if (epochId == mockSnapshotter.getCurrentEpoch()) {
+            mockGaugeVoter.setGaugeVotes(gauge, votes);
+        }
     }
 
     // =========================================================================
@@ -613,5 +623,146 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         bytes memory auxData = "";
         assertEq(deployedStrategy.getClaimeableAmount(campaignId, gauge1, auxData), 0, "Should return 0 when no votes");
+    }
+
+    // =========================================================================
+    // Live Data Tests
+    // =========================================================================
+
+    function testCurrentEpochUsesLiveData() public {
+        uint256 campaignId = createTestCampaign(1, 10);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Set current epoch to 5
+        uint256 currentEpoch = 5;
+        mockSnapshotter.setCurrentEpoch(currentEpoch);
+        mockGaugeVoter.setEpoch(currentEpoch);
+
+        // Set live gauge votes (no snapshot taken yet)
+        mockGaugeVoter.setTotalVotingPowerCast(1000);
+        mockGaugeVoter.setGaugeVotes(gauge1, 400); // 40%
+        mockGaugeVoter.setGaugeVotes(gauge2, 600); // 60%
+
+        // Set distribution for current epoch
+        vm.prank(address(createdDAO));
+        deployedStrategy.setEpochDistribution(campaignId, currentEpoch, 1000 ether);
+
+        // Should be able to claim using live data (no snapshot required)
+        bytes memory auxData = "";
+        
+        // Debug: Check if gauge voter is properly set
+        address gaugeVoterAddr = address(deployedStrategy.gaugeVoter());
+        assertEq(gaugeVoterAddr, address(mockGaugeVoter), "Gauge voter should be set correctly");
+        
+        uint256 claimableGauge1 = deployedStrategy.getClaimeableAmount(campaignId, gauge1, auxData);
+        uint256 claimableGauge2 = deployedStrategy.getClaimeableAmount(campaignId, gauge2, auxData);
+
+        assertEq(claimableGauge1, 400 ether, "Gauge1 should get 40% from live data");
+        assertEq(claimableGauge2, 600 ether, "Gauge2 should get 60% from live data");
+    }
+
+    function testCurrentEpochClaimableWithoutSnapshot() public {
+        uint256 campaignId = createTestCampaign(1, 10);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Set current epoch
+        uint256 currentEpoch = 3;
+        mockSnapshotter.setCurrentEpoch(currentEpoch);
+        mockGaugeVoter.setEpoch(currentEpoch);
+
+        // Verify current epoch is claimable even without snapshot
+        vm.prank(address(createdDAO));
+        deployedStrategy.setEpochDistribution(campaignId, currentEpoch, 1000 ether);
+
+        assertTrue(
+            deployedStrategy.isEpochClaimable(campaignId, currentEpoch),
+            "Current epoch should be claimable without snapshot"
+        );
+    }
+
+    function testMixedEpochsWithLiveDataForCurrent() public {
+        uint256 campaignId = createTestCampaign(1, 10);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Current epoch is 4
+        uint256 currentEpoch = 4;
+        mockSnapshotter.setCurrentEpoch(currentEpoch);
+        mockGaugeVoter.setEpoch(currentEpoch);
+
+        // Setup past epochs with snapshots
+        setupSnapshot(2, 1000);
+        setupGaugeVotes(2, gauge1, 500); // 50%
+
+        setupSnapshot(3, 1000);
+        setupGaugeVotes(3, gauge1, 300); // 30%
+
+        // Setup current epoch with live data (no snapshot)
+        mockGaugeVoter.setTotalVotingPowerCast(1000);
+        mockGaugeVoter.setGaugeVotes(gauge1, 700); // 70%
+
+        // Set distributions
+        vm.startPrank(address(createdDAO));
+        deployedStrategy.setEpochDistribution(campaignId, 2, 1000 ether);
+        deployedStrategy.setEpochDistribution(campaignId, 3, 2000 ether);
+        deployedStrategy.setEpochDistribution(campaignId, 4, 3000 ether); // Current epoch
+        vm.stopPrank();
+
+        // Check total claimable (past epochs from snapshot + current from live data)
+        bytes memory auxData = "";
+        uint256 totalClaimable = deployedStrategy.getClaimeableAmount(campaignId, gauge1, auxData);
+        
+        // Expected: 500 (epoch 2) + 600 (epoch 3) + 2100 (epoch 4 live)
+        assertEq(totalClaimable, 3200 ether, "Should accumulate past snapshots + current live data");
+    }
+
+    function testCanSetDistributionForCurrentEpochAnytime() public {
+        uint256 campaignId = createTestCampaign(1, 10);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Current epoch is 5
+        uint256 currentEpoch = 5;
+        mockSnapshotter.setCurrentEpoch(currentEpoch);
+        mockGaugeVoter.setEpoch(currentEpoch);
+
+        // Set voting active (simulating voting period)
+        mockGaugeVoter.setVotingActive(true);
+
+        // Should still be able to set distribution for current epoch during voting
+        vm.prank(address(createdDAO));
+        deployedStrategy.setEpochDistribution(campaignId, currentEpoch, 1000 ether);
+
+        assertEq(
+            deployedStrategy.getEpochDistribution(campaignId, currentEpoch),
+            1000 ether,
+            "Should set distribution for current epoch even during voting"
+        );
+    }
+
+    function testLiveDataChangesReflectInClaims() public {
+        uint256 campaignId = createTestCampaign(1, 10);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Current epoch
+        uint256 currentEpoch = 3;
+        mockSnapshotter.setCurrentEpoch(currentEpoch);
+        mockGaugeVoter.setEpoch(currentEpoch);
+
+        // Set distribution
+        vm.prank(address(createdDAO));
+        deployedStrategy.setEpochDistribution(campaignId, currentEpoch, 1000 ether);
+
+        // Initial votes
+        mockGaugeVoter.setTotalVotingPowerCast(1000);
+        mockGaugeVoter.setGaugeVotes(gauge1, 500); // 50%
+
+        bytes memory auxData = "";
+        uint256 claimable1 = deployedStrategy.getClaimeableAmount(campaignId, gauge1, auxData);
+        assertEq(claimable1, 500 ether, "Initial claim should be 50%");
+
+        // Votes change (still in distribution period)
+        mockGaugeVoter.setGaugeVotes(gauge1, 700); // Now 70%
+
+        uint256 claimable2 = deployedStrategy.getClaimeableAmount(campaignId, gauge1, auxData);
+        assertEq(claimable2, 700 ether, "Claim should reflect new votes immediately");
     }
 }
