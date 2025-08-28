@@ -32,7 +32,7 @@ contract CapitalDistributorPlugin is
     using SafeCastUpgradeable for uint256;
 
     /// @notice The ID of the permission required to create a campaign.
-    bytes32 public constant CAMPAIGN_CREATOR_PERMISSION_ID = keccak256("CAMPAIGN_CREATOR_PERMISSION");
+    bytes32 public constant CAMPAIGN_MANAGER_PERMISSION_ID = keccak256("CAMPAIGN_MANAGER_PERMISSION");
 
     /// @notice Represents the different states a campaign can be in
     enum CampaignState {
@@ -242,7 +242,7 @@ contract CapitalDistributorPlugin is
         uint256 _endTime
     )
         external
-        auth(CAMPAIGN_CREATOR_PERMISSION_ID)
+        auth(CAMPAIGN_MANAGER_PERMISSION_ID)
         returns (uint256 id)
     {
         // Input validation in isolated scope
@@ -600,7 +600,7 @@ contract CapitalDistributorPlugin is
     /// @notice Pauses a campaign temporarily, preventing further claims.
     /// @dev Can only be called on ACTIVE campaigns. Paused campaigns can be resumed.
     /// @param _campaignId The ID of the campaign to pause.
-    function pauseCampaign(uint256 _campaignId) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) {
+    function pauseCampaign(uint256 _campaignId) external auth(CAMPAIGN_MANAGER_PERMISSION_ID) {
         _requireCampaignExists(_campaignId);
         Campaign storage campaign = campaigns[_campaignId];
 
@@ -615,7 +615,7 @@ contract CapitalDistributorPlugin is
     /// @notice Resumes a paused campaign, allowing claims again.
     /// @dev Can only be called on PAUSED campaigns.
     /// @param _campaignId The ID of the campaign to resume.
-    function resumeCampaign(uint256 _campaignId) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) {
+    function resumeCampaign(uint256 _campaignId) external auth(CAMPAIGN_MANAGER_PERMISSION_ID) {
         _requireCampaignExists(_campaignId);
         Campaign storage campaign = campaigns[_campaignId];
 
@@ -630,7 +630,7 @@ contract CapitalDistributorPlugin is
     /// @notice Permanently ends a campaign, preventing all future claims.
     /// @dev Can be called on ACTIVE or PAUSED campaigns. This action is irreversible.
     /// @param _campaignId The ID of the campaign to end.
-    function endCampaign(uint256 _campaignId) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) {
+    function endCampaign(uint256 _campaignId) external auth(CAMPAIGN_MANAGER_PERMISSION_ID) {
         _requireCampaignExists(_campaignId);
         Campaign storage campaign = campaigns[_campaignId];
 
