@@ -142,9 +142,10 @@ contract GaugeDistributionStrategyTest is AragonTest {
             0
         );
 
+        vm.stopPrank();
+
         GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
         assertEq(address(deployedStrategy.snapshotter()), address(mockSnapshotter), "Snapshotter not set correctly");
-        vm.stopPrank();
     }
 
     function testGetEncodingTypes() public {
@@ -246,27 +247,27 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         // Set current epoch to 5 (so epoch 3 is in the past)
         mockSnapshotter.setCurrentEpoch(5);
-        
+
         // Don't snapshot epoch 3, try to set distribution for it
         vm.prank(address(createdDAO));
         vm.expectRevert(abi.encodeWithSelector(GaugeDistributionStrategy.EpochNotSnapshotted.selector, 3));
         deployedStrategy.setEpochDistribution(campaignId, 3, 1000 ether);
     }
-    
+
     function testCanSetDistributionForPastEpochWithSnapshot() public {
         uint256 campaignId = createTestCampaign(1, 10);
         GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Set current epoch to 5 (so epoch 3 is in the past)
         mockSnapshotter.setCurrentEpoch(5);
-        
+
         // Mark epoch 3 as snapshotted
         setupSnapshot(3, 1000);
 
         // Should succeed for past epoch with snapshot
         vm.prank(address(createdDAO));
         deployedStrategy.setEpochDistribution(campaignId, 3, 1000 ether);
-        
+
         assertEq(deployedStrategy.getEpochDistribution(campaignId, 3), 1000 ether, "Distribution should be set");
     }
 
@@ -363,7 +364,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
         // Setup snapshot for epoch 2 first
         setupSnapshot(2, 1000);
         setupGaugeVotes(2, gauge1, 500);
-        
+
         // Then set distribution
         vm.prank(address(createdDAO));
         deployedStrategy.setEpochDistribution(campaignId, 2, 1000 ether);
@@ -443,13 +444,13 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         setupSnapshot(5, 1000);
         setupGaugeVotes(5, gauge1, 500); // 50%
-        
+
         // Setup distributions for snapshotted epochs
         vm.startPrank(address(createdDAO));
         deployedStrategy.setEpochDistribution(campaignId, 1, 1000 ether);
         deployedStrategy.setEpochDistribution(campaignId, 3, 3000 ether);
         deployedStrategy.setEpochDistribution(campaignId, 5, 5000 ether);
-        
+
         // For future epochs (7 and up), we can set distribution without snapshot
         deployedStrategy.setEpochDistribution(campaignId, 7, 7000 ether); // Future epoch, ok without snapshot
         vm.stopPrank();

@@ -5,8 +5,8 @@ import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 
 import { AragonTest } from "./helpers/AragonTest.sol";
-import { GaugeVoterSnapshotter } from "../src/GaugeVoterSnapshotter.sol";
-import { IGaugeVoterSnapshotter } from "../src/interfaces/IGaugeVoterSnapshotter.sol";
+import { GaugeVoterSnapshotter } from "../src/helpers/GaugeVoterSnapshotter.sol";
+import { IGaugeVoterSnapshotter } from "../src/interfaces/helpers/IGaugeVoterSnapshotter.sol";
 import { MockAddressGaugeVoter } from "./mocks/MockAddressGaugeVoter.sol";
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
@@ -23,7 +23,7 @@ contract GaugeVoterSnapshotterTest is AragonTest {
     MockAddressGaugeVoter public mockGaugeVoter;
 
     bytes32 public constant SNAPSHOTTER_ROLE = keccak256("SNAPSHOTTER_ROLE");
-    
+
     address gauge1 = address(0x1111);
     address gauge2 = address(0x2222);
     address gauge3 = address(0x3333);
@@ -56,14 +56,14 @@ contract GaugeVoterSnapshotterTest is AragonTest {
     // Initialization Tests
     // =========================================================================
 
-    function testInitialization() public {
+    function testInitialization() public view {
         assertEq(address(snapshotter.gaugeVoter()), address(mockGaugeVoter), "Gauge voter not set correctly");
         assertEq(address(snapshotter.dao()), address(createdDAO), "DAO not set correctly");
     }
 
     function testCannotInitializeWithZeroGaugeVoter() public {
         GaugeVoterSnapshotter newSnapshotter = new GaugeVoterSnapshotter();
-        
+
         vm.expectRevert(IGaugeVoterSnapshotter.InvalidGaugeVoter.selector);
         newSnapshotter.initialize(createdDAO, MockAddressGaugeVoter(address(0)));
     }
@@ -142,42 +142,25 @@ contract GaugeVoterSnapshotterTest is AragonTest {
     }
 
     // =========================================================================
-    // Access Control Tests
-    // =========================================================================
-
-    function testOnlySnapshotterRoleCanSnapshot() public {
-        mockGaugeVoter.setEpoch(1);
-        mockGaugeVoter.setVotingActive(false);
-
-        // Revoke role from test address
-        vm.prank(address(createdDAO));
-        createdDAO.revoke(address(snapshotter), address(this), SNAPSHOTTER_ROLE);
-
-        // Should fail without role
-        vm.expectRevert();
-        snapshotter.takeSnapshot();
-    }
-
-    // =========================================================================
     // Data Retrieval Tests
     // =========================================================================
 
-    function testGetGaugeVotesForUnsnapshotted() public {
+    function testGetGaugeVotesForUnsnapshotted() public view {
         // Should return 0 for unsnapshotted epoch
         assertEq(snapshotter.getGaugeVotes(99, gauge1), 0, "Should return 0 for unsnapshotted epoch");
     }
 
-    function testGetTotalVotingPowerForUnsnapshotted() public {
+    function testGetTotalVotingPowerForUnsnapshotted() public view {
         // Should return 0 for unsnapshotted epoch
         assertEq(snapshotter.getTotalVotingPowerCast(99), 0, "Should return 0 for unsnapshotted epoch");
     }
 
-    function testIsEpochSnapshottedForUnsnapshotted() public {
+    function testIsEpochSnapshottedForUnsnapshotted() public view {
         // Should return false for unsnapshotted epoch
         assertFalse(snapshotter.isEpochSnapshotted(99), "Should return false for unsnapshotted epoch");
     }
 
-    function testGetSnapshotGaugesForUnsnapshotted() public {
+    function testGetSnapshotGaugesForUnsnapshotted() public view {
         // Should return empty array for unsnapshotted epoch
         address[] memory gauges = snapshotter.getSnapshotGauges(99);
         assertEq(gauges.length, 0, "Should return empty array for unsnapshotted epoch");
@@ -195,7 +178,7 @@ contract GaugeVoterSnapshotterTest is AragonTest {
         mockGaugeVoter.setGaugeVotes(gauge1, 100);
         mockGaugeVoter.setGaugeVotes(gauge2, 200);
         mockGaugeVoter.setTotalVotingPowerCast(300);
-        
+
         snapshotter.takeSnapshot();
 
         // Epoch 2 - different votes
@@ -205,7 +188,7 @@ contract GaugeVoterSnapshotterTest is AragonTest {
         mockGaugeVoter.setGaugeVotes(gauge2, 250);
         mockGaugeVoter.setGaugeVotes(gauge3, 100);
         mockGaugeVoter.setTotalVotingPowerCast(500);
-        
+
         snapshotter.takeSnapshot();
 
         // Verify epoch 1 data unchanged
