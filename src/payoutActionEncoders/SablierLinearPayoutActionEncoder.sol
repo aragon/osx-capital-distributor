@@ -13,7 +13,7 @@ interface ISablierLockup {
     function createWithDurationsLL(
         address lockup,
         address token,
-        CreateWithDurationsLL[] calldata params
+        CreateWithDurationsLl[] calldata params
     )
         external
         returns (uint256 streamId);
@@ -50,7 +50,7 @@ struct UnlockAmounts {
     uint128 cliff;
 }
 
-struct CreateWithDurationsLL {
+struct CreateWithDurationsLl {
     address sender;
     address recipient;
     uint128 totalAmount;
@@ -193,8 +193,8 @@ contract SablierLinearPayoutActionEncoder is PayoutActionEncoderBase {
         UnlockAmounts memory unlockAmounts =
             UnlockAmounts({ start: _config.unlockAmountAtStart, cliff: _config.unlockAmountAtCliff });
         // Create the parameters struct
-        CreateWithDurationsLL[] memory params = new CreateWithDurationsLL[](1);
-        params[0] = CreateWithDurationsLL({
+        CreateWithDurationsLl[] memory params = new CreateWithDurationsLl[](1);
+        params[0] = CreateWithDurationsLl({
             sender: address(dao()), // The DAO is the sender
             recipient: _recipient,
             totalAmount: uint128(_amount),

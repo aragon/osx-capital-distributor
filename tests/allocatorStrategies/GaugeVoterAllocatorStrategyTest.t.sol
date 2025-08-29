@@ -1,15 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.29 <0.9.0;
 
-import { Test } from "forge-std/Test.sol";
-import { console2 } from "forge-std/console2.sol";
-
 import { AragonTest } from "../helpers/AragonTest.sol";
 import { GaugeVoterAllocatorStrategy } from "../../src/allocatorStrategies/GaugeVoterAllocatorStrategy.sol";
 import { MockAddressGaugeVoter } from "../mocks/MockAddressGaugeVoter.sol";
 import { MintableERC20 } from "../mocks/MintableERC20.sol";
 import { IAllocatorStrategy } from "../../src/interfaces/IAllocatorStrategy.sol";
-import { IAddressGaugeVoter } from "../../src/interfaces/helpers/IAddressGaugeVoter.sol";
 import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
@@ -56,14 +52,14 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
 
         // Deploy strategy implementation and register with factory
         strategy = new GaugeVoterAllocatorStrategy();
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         allocatorStrategyFactory.registerStrategyType(
             STRATEGY_TYPE_ID, address(strategy), "GaugeVoterAllocatorStrategy", address(0), 0
         );
         vm.stopPrank();
 
         // Mint tokens to DAO treasury for distribution
-        token.mint(address(createdDAO), 10_000 ether);
+        token.mint(address(createdDao), 10_000 ether);
     }
 
     // =========================================================================
@@ -86,7 +82,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         internal
         returns (uint256 campaignId)
     {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = abi.encode(address(mockGaugeVoter));
         bytes memory allocationCampaignAuxData = abi.encode(_distributionAmount);
@@ -165,7 +161,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
 
     /// @notice Test basic campaign creation works
     function testInitialization() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = abi.encode(address(mockGaugeVoter));
         bytes memory allocationCampaignAuxData = abi.encode(DEFAULT_DISTRIBUTION_AMOUNT);
@@ -678,13 +674,13 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
 
         // The error will be wrapped in DeploymentFailed
         vm.expectRevert();
-        allocatorStrategyFactory.getOrDeployStrategy(STRATEGY_TYPE_ID, createdDAO, invalidInitData);
+        allocatorStrategyFactory.getOrDeployStrategy(STRATEGY_TYPE_ID, createdDao, invalidInitData);
     }
 
     /// @notice Test campaign creation with zero distribution amount
     function testInvalidDistributionAmount() public {
         // Try to create campaign with zero distribution amount
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = abi.encode(address(mockGaugeVoter));
         bytes memory allocationCampaignAuxData = abi.encode(0); // Zero distribution amount

@@ -22,7 +22,7 @@ contract CampaignStateManagementTest is AragonTest {
     }
 
     function createBasicCampaign() internal returns (uint256 campaignId) {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         campaignId = capitalDistributorPlugin.createCampaign(
             "ipfs://test", toBytes32("mock-strategy"), "", "", IERC20(token), bytes32(0), "", false, 0, 0
         );
@@ -42,7 +42,7 @@ contract CampaignStateManagementTest is AragonTest {
     function test_PauseActiveCampaign() public {
         uint256 campaignId = createBasicCampaign();
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Should emit CampaignPaused event
         vm.expectEmit(true, false, false, false);
@@ -61,7 +61,7 @@ contract CampaignStateManagementTest is AragonTest {
     function test_ResumePausedCampaign() public {
         uint256 campaignId = createBasicCampaign();
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Pause first
         capitalDistributorPlugin.pauseCampaign(campaignId);
@@ -84,7 +84,7 @@ contract CampaignStateManagementTest is AragonTest {
     function test_EndActiveCampaign() public {
         uint256 campaignId = createBasicCampaign();
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Should emit CampaignEnded event
         vm.expectEmit(true, false, false, false);
@@ -103,7 +103,7 @@ contract CampaignStateManagementTest is AragonTest {
     function test_EndPausedCampaign() public {
         uint256 campaignId = createBasicCampaign();
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Pause first
         capitalDistributorPlugin.pauseCampaign(campaignId);
@@ -126,7 +126,7 @@ contract CampaignStateManagementTest is AragonTest {
     function test_InvalidStateTransitions() public {
         uint256 campaignId = createBasicCampaign();
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Cannot pause a non-active campaign
         capitalDistributorPlugin.endCampaign(campaignId);
@@ -147,7 +147,7 @@ contract CampaignStateManagementTest is AragonTest {
     function test_CannotResumeNonPausedCampaign() public {
         uint256 campaignId = createBasicCampaign();
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Try to resume active campaign
         vm.expectRevert(
@@ -167,7 +167,7 @@ contract CampaignStateManagementTest is AragonTest {
     function test_CannotEndAlreadyEndedCampaign() public {
         uint256 campaignId = createBasicCampaign();
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // End campaign
         capitalDistributorPlugin.endCampaign(campaignId);
@@ -188,10 +188,10 @@ contract CampaignStateManagementTest is AragonTest {
 
     /// @notice Test claiming works only on active campaigns
     function test_ClaimingOnlyWorksOnActiveCampaigns() public {
-        token.mint(address(createdDAO), 10 ether);
+        token.mint(address(createdDao), 10 ether);
         uint256 campaignId = createBasicCampaign();
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Claiming should work on active campaign (would fail for other reasons but not state)
         // This test mainly verifies the state check is working
@@ -232,7 +232,7 @@ contract CampaignStateManagementTest is AragonTest {
     function test_SafeMerkleRootUpdateFlow() public {
         uint256 campaignId = createBasicCampaign();
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // 1. Pause campaign to prevent front-running
         capitalDistributorPlugin.pauseCampaign(campaignId);
@@ -270,7 +270,7 @@ contract CampaignStateManagementTest is AragonTest {
         vm.stopPrank();
 
         // Authorized user can pause
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         capitalDistributorPlugin.pauseCampaign(campaignId);
         vm.stopPrank();
 
@@ -281,7 +281,7 @@ contract CampaignStateManagementTest is AragonTest {
         vm.stopPrank();
 
         // Authorized user can resume
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         capitalDistributorPlugin.resumeCampaign(campaignId);
         vm.stopPrank();
     }

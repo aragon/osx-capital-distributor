@@ -5,7 +5,6 @@ import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 import { AllocatorStrategyFactory } from "../../src/factories/AllocatorStrategyFactory.sol";
 import { FactoryBase } from "../../src/factories/FactoryBase.sol";
-import { IAllocatorStrategyFactory } from "../../src/interfaces/IAllocatorStrategyFactory.sol";
 import { IAllocatorStrategy } from "../../src/interfaces/IAllocatorStrategy.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
