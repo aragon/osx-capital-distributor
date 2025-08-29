@@ -5,7 +5,6 @@ import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 import { ActionEncoderFactory } from "../../src/factories/ActionEncoderFactory.sol";
 import { FactoryBase } from "../../src/factories/FactoryBase.sol";
-import { IActionEncoderFactory } from "../../src/interfaces/IActionEncoderFactory.sol";
 import { IPayoutActionEncoder } from "../../src/interfaces/IPayoutActionEncoder.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";

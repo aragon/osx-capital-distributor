@@ -9,7 +9,6 @@ import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 import { Action, IExecutor } from "@aragon/commons/executors/IExecutor.sol";
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
-import { DAO } from "@aragon/osx/core/dao/DAO.sol";
 import { PluginUUPSUpgradeable } from "@aragon/commons/plugin/PluginUUPSUpgradeable.sol";
 import { MetadataExtensionUpgradeable } from "@aragon/commons/utils/metadata/MetadataExtensionUpgradeable.sol";
 

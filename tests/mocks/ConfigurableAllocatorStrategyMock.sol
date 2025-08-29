@@ -3,7 +3,6 @@ pragma solidity ^0.8.29;
 
 import { IAllocatorStrategy } from "../../src/interfaces/IAllocatorStrategy.sol";
 import { AllocatorStrategyBase } from "../../src/allocatorStrategies/AllocatorStrategyBase.sol";
-import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 
 /// @title ConfigurableAllocatorStrategyMock
 /// @notice A configurable mock implementation of AllocatorStrategyBase for testing.

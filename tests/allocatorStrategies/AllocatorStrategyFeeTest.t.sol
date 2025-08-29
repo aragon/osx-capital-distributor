@@ -1,16 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import { Test } from "forge-std/Test.sol";
-import { console2 } from "forge-std/console2.sol";
 import { AllocatorStrategyFactory } from "../../src/factories/AllocatorStrategyFactory.sol";
 import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
-import { ActionEncoderFactory } from "../../src/factories/ActionEncoderFactory.sol";
-import { IAllocatorStrategy } from "../../src/interfaces/IAllocatorStrategy.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IDAO } from "@aragon/commons/dao/IDAO.sol";
-import { Action, IExecutor } from "@aragon/commons/executors/IExecutor.sol";
-import { DAO } from "@aragon/osx/core/dao/DAO.sol";
 import { MerkleDistributorStrategy } from "../../src/allocatorStrategies/MerkleDistributorStrategy.sol";
 import { MintableERC20 } from "../mocks/MintableERC20.sol";
 import { AragonTest } from "../helpers/AragonTest.sol";
@@ -39,7 +31,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
 
         // Deploy test token
         token = new MintableERC20();
-        token.mint(address(createdDAO), 1_000_000 ether);
+        token.mint(address(createdDao), 1_000_000 ether);
 
         // Deploy strategy implementation
         merkleImplementation = new MerkleDistributorStrategy();
@@ -108,7 +100,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
 
         // Deploy strategy instance
         address strategy =
-            allocatorStrategyFactory.deployStrategy(MERKLE_STRATEGY_ID, createdDAO, abi.encode(bytes32(0)));
+            allocatorStrategyFactory.deployStrategy(MERKLE_STRATEGY_ID, createdDao, abi.encode(bytes32(0)));
 
         // Get fee configuration by instance
         (address recipient, uint256 basisPoints) = allocatorStrategyFactory.getStrategyFeeByInstance(strategy);
@@ -135,7 +127,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
 
         // Create campaign with merkle strategy
         bytes32 merkleRoot = keccak256(abi.encodePacked(alice, claimAmount));
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         uint256 campaignId = plugin.createCampaign(
             bytes("Test Campaign"),
             CapitalDistributorPlugin.StrategyConfig(
@@ -183,7 +175,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
 
         // Create campaign
         bytes32 merkleRoot = keccak256(abi.encodePacked(alice, claimAmount));
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         uint256 campaignId = plugin.createCampaign(
             bytes("Test Campaign"),
             CapitalDistributorPlugin.StrategyConfig(

@@ -2,13 +2,10 @@
 pragma solidity >=0.8.29 <0.9.0;
 
 import { Test } from "forge-std/Test.sol";
-import { Vm } from "forge-std/Vm.sol";
-import { console2 } from "forge-std/console2.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
-import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 import { PluginRepoFactory } from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
 import { PluginRepo } from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
 import { DAOFactory } from "@aragon/osx/framework/dao/DAOFactory.sol";
@@ -152,10 +149,10 @@ abstract contract AragonE2EBase is Test {
         pluginSettings[0] = DAOFactory.PluginSettings(PluginSetupRef(tag, pluginRepo), pluginSettingsData);
 
         // Deploy DAO
-        (DAO createdDAO, DAOFactory.InstalledPlugin[] memory pluginAddresses) =
+        (DAO createdDao, DAOFactory.InstalledPlugin[] memory pluginAddresses) =
             daoFactory.createDao(daoSettings, pluginSettings);
 
-        dao = createdDAO;
+        dao = createdDao;
         capitalDistributorPlugin = CapitalDistributorPlugin(pluginAddresses[0].plugin);
 
         vm.stopPrank();
@@ -323,9 +320,9 @@ abstract contract AragonE2EBase is Test {
         } else if (recipients.length == 2) {
             merkleRoot = _hashPair(leaves[0], leaves[1]);
         } else if (recipients.length <= 4) {
-            bytes32 level1_0 = recipients.length > 1 ? _hashPair(leaves[0], leaves[1]) : leaves[0];
-            bytes32 level1_1 = recipients.length > 3 ? _hashPair(leaves[2], leaves[3]) : leaves[2];
-            merkleRoot = _hashPair(level1_0, level1_1);
+            bytes32 level1Node0 = recipients.length > 1 ? _hashPair(leaves[0], leaves[1]) : leaves[0];
+            bytes32 level1Node1 = recipients.length > 3 ? _hashPair(leaves[2], leaves[3]) : leaves[2];
+            merkleRoot = _hashPair(level1Node0, level1Node1);
         } else {
             revert("SimpleMerkleTree only supports up to 4 recipients");
         }

@@ -30,7 +30,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     }
 
     function test_CreateCampaign() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -78,8 +78,8 @@ contract CapitalDistributorPluginTest is AragonTest {
     }
 
     function test_PayoutIsSent() public {
-        token.mint(address(createdDAO), 1 ether);
-        vm.startPrank(address(createdDAO));
+        token.mint(address(createdDao), 1 ether);
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -98,16 +98,16 @@ contract CapitalDistributorPluginTest is AragonTest {
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
-        assertEq(token.balanceOf(address(createdDAO)), 1 ether, "DAO doesn't have funds");
+        assertEq(token.balanceOf(address(createdDao)), 1 ether, "DAO doesn't have funds");
         assertEq(token.balanceOf(alice), 0 ether, "Alice has funds");
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, metadata, "");
-        assertEq(token.balanceOf(address(createdDAO)), 0 ether, "DAO has funds");
+        assertEq(token.balanceOf(address(createdDao)), 0 ether, "DAO has funds");
         assertEq(token.balanceOf(alice), 1 ether, "Alice has funds");
     }
 
     function test_PayoutIsSentToVault() public {
-        token.mint(address(createdDAO), 1 ether);
-        vm.startPrank(address(createdDAO));
+        token.mint(address(createdDao), 1 ether);
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -126,10 +126,10 @@ contract CapitalDistributorPluginTest is AragonTest {
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
-        assertEq(token.balanceOf(address(createdDAO)), 1 ether, "DAO doesn't have funds");
+        assertEq(token.balanceOf(address(createdDao)), 1 ether, "DAO doesn't have funds");
         assertEq(token.balanceOf(alice), 0 ether, "Alice has funds");
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, metadata, "");
-        assertEq(token.balanceOf(address(createdDAO)), 0 ether, "DAO has funds");
+        assertEq(token.balanceOf(address(createdDao)), 0 ether, "DAO has funds");
         assertEq(token.balanceOf(address(vaultToSendTokens)), 1 ether, "Vault has funds");
     }
 }

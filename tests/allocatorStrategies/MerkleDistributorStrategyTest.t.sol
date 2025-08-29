@@ -1,18 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.29 <0.9.0;
 
-import { Test } from "forge-std/Test.sol";
-import { console2 } from "forge-std/console2.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 
-import { DAO } from "@aragon/osx/core/dao/DAO.sol";
-import { IDAO } from "@aragon/commons/dao/IDAO.sol";
-
-import { IPayoutActionEncoder } from "../../src/interfaces/IPayoutActionEncoder.sol";
 import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
 import { AragonTest } from "../helpers/AragonTest.sol";
-import { IAllocatorStrategy } from "../../src/interfaces/IAllocatorStrategy.sol";
-import { IAllocatorStrategyFactory } from "../../src/interfaces/IAllocatorStrategyFactory.sol";
 import { MerkleDistributorStrategy } from "../../src/allocatorStrategies/MerkleDistributorStrategy.sol";
 
 import { MintableERC20 } from "../mocks/MintableERC20.sol";
@@ -55,7 +47,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         generateTreeScript = new GenerateMerkleTree();
         generateProofScript = new GenerateProof();
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         allocatorStrategyFactory.registerStrategyType(
             toBytes32("merkle-strategy"), address(strategy), "", address(0), 0
         );
@@ -89,11 +81,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         // Calculate merkle root using proper OpenZeppelin-compatible construction
         // Level 1: pair adjacent leaves with sorted hashing
-        bytes32 level1_0 = _hashPair(leaves[0], leaves[1]);
-        bytes32 level1_1 = _hashPair(leaves[2], leaves[3]);
+        bytes32 level1Node0 = _hashPair(leaves[0], leaves[1]);
+        bytes32 level1Node1 = _hashPair(leaves[2], leaves[3]);
 
         // Level 2 (root): hash the two level 1 nodes
-        merkleRoot = _hashPair(level1_0, level1_1);
+        merkleRoot = _hashPair(level1Node0, level1Node1);
     }
 
     function _hashPair(bytes32 a, bytes32 b) internal pure returns (bytes32) {
@@ -152,7 +144,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     }
 
     function test_CreateCampaign() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -188,8 +180,8 @@ contract MerkleDistributorStrategyTest is AragonTest {
     }
 
     function test_PayoutIsSent() public {
-        token.mint(address(createdDAO), 10 ether);
-        vm.startPrank(address(createdDAO));
+        token.mint(address(createdDao), 10 ether);
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -207,19 +199,19 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32[] memory aliceProof = getMerkleProof(0);
         bytes memory claimAuxData = abi.encode(aliceProof, amounts[0]);
 
-        assertEq(token.balanceOf(address(createdDAO)), 10 ether, "DAO doesn't have funds");
+        assertEq(token.balanceOf(address(createdDao)), 10 ether, "DAO doesn't have funds");
         assertEq(token.balanceOf(alice), 0 ether, "Alice has funds before claim");
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimAuxData, "");
 
-        assertEq(token.balanceOf(address(createdDAO)), 9 ether, "DAO should have 9 ether left");
+        assertEq(token.balanceOf(address(createdDao)), 9 ether, "DAO should have 9 ether left");
         assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether");
     }
 
     function test_MultipleRecipientsClaim() public {
-        token.mint(address(createdDAO), 10 ether);
-        vm.startPrank(address(createdDAO));
+        token.mint(address(createdDao), 10 ether);
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -247,12 +239,12 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether");
         assertEq(token.balanceOf(bob), 2 ether, "Bob should have 2 ether");
-        assertEq(token.balanceOf(address(createdDAO)), 7 ether, "DAO should have 7 ether left");
+        assertEq(token.balanceOf(address(createdDao)), 7 ether, "DAO should have 7 ether left");
     }
 
     function test_InvalidProofReverts() public {
-        token.mint(address(createdDAO), 10 ether);
-        vm.startPrank(address(createdDAO));
+        token.mint(address(createdDao), 10 ether);
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -276,8 +268,8 @@ contract MerkleDistributorStrategyTest is AragonTest {
     }
 
     function test_CannotClaimTwice() public {
-        token.mint(address(createdDAO), 10 ether);
-        vm.startPrank(address(createdDAO));
+        token.mint(address(createdDao), 10 ether);
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -306,7 +298,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     }
 
     function test_GetCampaignPayout() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -343,7 +335,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 scriptRoot = getScriptGeneratedMerkleRoot();
         assertNotEq(scriptRoot, bytes32(0), "Script should generate non-zero merkle root");
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -361,10 +353,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
     }
 
     function test_ScriptGeneratedProofsClaim() public {
-        token.mint(address(createdDAO), 100 ether);
+        token.mint(address(createdDao), 100 ether);
         bytes32 scriptRoot = getScriptGeneratedMerkleRoot();
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -393,7 +385,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 initialBalance1 = token.balanceOf(testRecipient1);
         uint256 initialBalance2 = token.balanceOf(testRecipient2);
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Claim for recipient 1
         capitalDistributorPlugin.claimCampaignPayout(campaignId, testRecipient1, claimData1, "");
@@ -411,7 +403,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     function test_ScriptGeneratedProofValidation() public {
         bytes32 scriptRoot = getScriptGeneratedMerkleRoot();
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -447,8 +439,8 @@ contract MerkleDistributorStrategyTest is AragonTest {
         assertEq(totalRecipients, 100, "Should have 100 recipients");
         assertNotEq(largeRoot, bytes32(0), "Should generate valid merkle root for large set");
 
-        token.mint(address(createdDAO), 1000 ether);
-        vm.startPrank(address(createdDAO));
+        token.mint(address(createdDao), 1000 ether);
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -502,10 +494,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_UpdateMerkleRootSucceedsOnPausedCampaign() public {
         // Setup: Create campaign with initial merkle root
-        token.mint(address(createdDAO), 10 ether);
+        token.mint(address(createdDao), 10 ether);
         bytes32 initialRoot = merkleRoot;
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -550,10 +542,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_UpdateMerkleRootFailsOnEndedCampaign() public {
         // Setup: Create campaign with initial merkle root
-        token.mint(address(createdDAO), 10 ether);
+        token.mint(address(createdDao), 10 ether);
         bytes32 initialRoot = merkleRoot;
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -589,10 +581,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_UpdateMerkleRootFailsOnActiveCampaign() public {
         // Setup: Create active campaign with initial merkle root
-        token.mint(address(createdDAO), 10 ether);
+        token.mint(address(createdDao), 10 ether);
         bytes32 initialRoot = merkleRoot;
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -629,10 +621,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_SafeMerkleRootUpdateWorkflow() public {
         // Setup: Create campaign and mint tokens
-        token.mint(address(createdDAO), 10 ether);
+        token.mint(address(createdDao), 10 ether);
         bytes32 initialRoot = merkleRoot;
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -664,7 +656,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         );
 
         // Step 2: Pause campaign to allow updates
-        vm.prank(address(createdDAO));
+        vm.prank(address(createdDao));
         capitalDistributorPlugin.pauseCampaign(campaignId);
         assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be paused");
 
@@ -683,7 +675,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         assertEq(updatedRoot, newRoot, "Merkle root should be updated when paused");
 
         // Step 4: Resume campaign and verify we can't update again
-        vm.prank(address(createdDAO));
+        vm.prank(address(createdDao));
         capitalDistributorPlugin.resumeCampaign(campaignId);
         assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be active after resume");
 
@@ -705,10 +697,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_SetAllocationCampaignRevertOnInvalidMerkleRoot() public {
         // Setup: Create strategy first to test setAllocationCampaign directly
-        token.mint(address(createdDAO), 10 ether);
+        token.mint(address(createdDao), 10 ether);
         bytes32 validRoot = merkleRoot;
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -738,10 +730,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_UpdateCampaignMerkleRootRevertOnInvalidMerkleRoot() public {
         // Setup: Create campaign
-        token.mint(address(createdDAO), 10 ether);
+        token.mint(address(createdDao), 10 ether);
         bytes32 initialRoot = merkleRoot;
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -774,10 +766,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_SetAllocationCampaignRevertOnAlreadyExistingCampaign() public {
         // Setup: Create first campaign
-        token.mint(address(createdDAO), 10 ether);
+        token.mint(address(createdDao), 10 ether);
         bytes32 firstRoot = merkleRoot;
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -808,10 +800,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_UpdateCampaignMerkleRootRevertOnDuplicateRoot() public {
         // Setup: Create campaign
-        token.mint(address(createdDAO), 10 ether);
+        token.mint(address(createdDao), 10 ether);
         bytes32 initialRoot = merkleRoot;
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -843,10 +835,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_UpdateCampaignMerkleRootRevertOnCampaignNotFound() public {
         // Setup: Create active campaign to get strategy address
-        token.mint(address(createdDAO), 10 ether);
+        token.mint(address(createdDao), 10 ether);
         bytes32 initialRoot = merkleRoot;
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -881,10 +873,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_UpdateCampaignMerkleRootUsesStoredPluginAddress() public {
         // Setup: Create campaign
-        token.mint(address(createdDAO), 10 ether);
+        token.mint(address(createdDao), 10 ether);
         bytes32 initialRoot = merkleRoot;
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -911,7 +903,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 newRoot = keccak256("new-root");
         bytes memory newRootData = abi.encode(newRoot);
 
-        vm.prank(address(createdDAO));
+        vm.prank(address(createdDao));
         strategy.updateCampaignMerkleRoot(campaignId, newRootData);
 
         // Verify the root was updated
@@ -921,10 +913,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_GetCampaignMerkleRootReturnsZeroForNonExistentCampaign() public {
         // Setup: Create active campaign to get strategy address
-        token.mint(address(createdDAO), 10 ether);
+        token.mint(address(createdDao), 10 ether);
         bytes32 initialRoot = merkleRoot;
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -953,10 +945,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
     // ============================================================================
 
     function test_MerkleCampaignSetEventEmission() public {
-        token.mint(address(createdDAO), 10 ether);
+        token.mint(address(createdDao), 10 ether);
         bytes32 testRoot = merkleRoot;
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -977,10 +969,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_MerkleCampaignUpdatedEventEmission() public {
         // Setup: Create campaign
-        token.mint(address(createdDAO), 10 ether);
+        token.mint(address(createdDao), 10 ether);
         bytes32 initialRoot = merkleRoot;
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -1011,7 +1003,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         );
 
         // Now pause the campaign to allow updates
-        vm.prank(address(createdDAO));
+        vm.prank(address(createdDao));
         capitalDistributorPlugin.pauseCampaign(campaignId);
 
         // Verify campaign is paused
@@ -1058,9 +1050,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_GetClaimableAmountReturnsZeroForPartialClaim() public {
         // Setup campaign
-        token.mint(address(createdDAO), 10 ether);
+        token.mint(address(createdDao), 10 ether);
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 
@@ -1101,9 +1093,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_GetClaimableAmountReturnsZeroForInvalidProof() public {
         // Setup campaign
-        token.mint(address(createdDAO), 10 ether);
+        token.mint(address(createdDao), 10 ether);
 
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
 

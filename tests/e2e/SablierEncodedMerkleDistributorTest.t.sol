@@ -2,7 +2,6 @@
 pragma solidity >=0.8.29 <0.9.0;
 
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 
 import { PluginRepoFactory } from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
@@ -11,8 +10,6 @@ import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol
 
 import { AragonE2EBase } from "../helpers/AragonE2EBase.sol";
 import { MerkleDistributorStrategy } from "../../src/allocatorStrategies/MerkleDistributorStrategy.sol";
-import { IAllocatorStrategyFactory } from "../../src/interfaces/IAllocatorStrategyFactory.sol";
-import { IPayoutActionEncoder } from "../../src/interfaces/IPayoutActionEncoder.sol";
 import {
     ISablierLockup,
     SablierLinearPayoutActionEncoder
@@ -222,7 +219,7 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
         bytes memory claimData = abi.encode(recipientProofs[alice], recipientAmounts[alice]);
 
         // Record initial balances
-        uint256 initialDAOBalance = usdc.balanceOf(address(dao));
+        uint256 initialDaoBalance = usdc.balanceOf(address(dao));
         // uint256 initialAliceBalance = usdc.balanceOf(alice); // unused
 
         // Claim payout (this should create Sablier stream instead of direct transfer)
@@ -232,7 +229,7 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, claimData, "");
 
         // Verify DAO balance decreased
-        assertLt(usdc.balanceOf(address(dao)), initialDAOBalance, "DAO balance should decrease");
+        assertLt(usdc.balanceOf(address(dao)), initialDaoBalance, "DAO balance should decrease");
         assertTokenBalance(address(usdc), alice, 0, "Alice should not have immediate balance with streams");
 
         // Note: With Sablier streams, Alice might not immediately receive tokens

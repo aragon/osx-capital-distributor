@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.29 <0.9.0;
 
-import { Test } from "forge-std/Test.sol";
-import { console2 } from "forge-std/console2.sol";
 import { Vm } from "forge-std/Vm.sol";
-
-import { DAO } from "@aragon/osx/core/dao/DAO.sol";
 import { Action } from "@aragon/commons/executors/IExecutor.sol";
 
 import { IPayoutActionEncoder } from "../src/interfaces/IPayoutActionEncoder.sol";
@@ -105,7 +101,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Helper function to mint tokens and approve if needed
     function mintTokensToDAO(uint256 amount) internal {
-        token.mint(address(createdDAO), amount);
+        token.mint(address(createdDao), amount);
     }
 
     // ============================================
@@ -115,7 +111,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test T01: Create a Campaign with basic parameters as specified in the test spec
     /// @dev This is the core test case from the specification
     function test_CreateCampaign() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         bytes memory metadata = "";
         bytes memory allocatorDeploymentParams = "";
@@ -155,7 +151,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test campaign creation with different type of values
     function test_CreateCampaignWithDifferentValues() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         bytes memory metadata = "ipfs://QmTest123";
         bytes memory allocatorDeploymentParams = "deployment-params";
@@ -184,7 +180,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test campaign creation with start time
     function test_CreateCampaignWithStartTime() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 startTime = block.timestamp + 1000;
 
@@ -205,7 +201,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test campaign creation with end time
     function test_CreateCampaignWithEndTime() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 endTime = block.timestamp + 2000;
 
@@ -241,7 +237,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test that campaign creation fails with zero token address
     function test_CreateCampaignFailsWithZeroToken() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.ZeroAddress.selector, "_token"));
         capitalDistributorPlugin.createCampaign(
@@ -256,7 +252,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test that campaign creation fails with invalid time bounds
     function test_CreateCampaignFailsWithInvalidTimeBounds() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 startTime = block.timestamp + 2000;
         uint256 endTime = block.timestamp + 1000; // End time before start time
@@ -274,7 +270,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test that campaign creation fails with non-existent strategy
     function test_CreateCampaignFailsWithNonExistentStrategy() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
@@ -289,7 +285,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test campaign creation with maximum metadata length
     function test_CreateCampaignWithMaximumMetadata() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         bytes memory maxMetadata = new bytes(1000);
         for (uint256 i = 0; i < 1000; i++) {
@@ -311,7 +307,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test campaign creation with future start time
     function test_CreateCampaignWithFutureStartTime() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 futureStartTime = block.timestamp + 86_400; // 1 day in the future
 
@@ -330,7 +326,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test campaign creation with past end time
     function test_CreateCampaignWithPastEndTime() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 pastEndTime = block.timestamp - 86_400; // 1 day in the past
 
@@ -349,7 +345,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test that campaign IDs increment correctly
     function test_CampaignIdIncrementsCorrectly() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 initialNumCampaigns = capitalDistributorPlugin.numCampaigns();
 
@@ -375,7 +371,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test that numCampaigns increments correctly
     function test_NumCampaignsIncrementsCorrectly() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 initialNumCampaigns = capitalDistributorPlugin.numCampaigns();
 
@@ -404,7 +400,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test that campaigns are active by default
     function test_CampaignIsActiveByDefault() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             "",
@@ -424,7 +420,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test that campaign data is stored correctly
     function test_CampaignDataStoredCorrectly() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         bytes memory metadata = "test-metadata";
         bool multipleClaimsAllowed = true;
@@ -454,7 +450,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test creating multiple campaigns in sequence
     function test_CreateMultipleCampaignsInSequence() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 initialNumCampaigns = capitalDistributorPlugin.numCampaigns();
 
@@ -476,7 +472,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test that each campaign gets a unique ID
     function test_EachCampaignGetsUniqueId() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256[] memory campaignIds = new uint256[](3);
 
@@ -498,7 +494,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test campaign creation without action encoder
     function test_CreateCampaignWithoutActionEncoder() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             "",
@@ -519,7 +515,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test campaign creation with valid action encoder
     function test_CreateCampaignWithValidActionEncoder() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             "",
@@ -538,7 +534,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test CampaignCreated event emission with empty metadata
     function test_CampaignCreatedEventWithEmptyMetadata() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         bytes memory emptyMetadata = "";
 
@@ -574,7 +570,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test CampaignCreated event emission with all parameters
     function test_CampaignCreatedEventWithAllParameters() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         bytes memory metadata = "comprehensive-metadata";
         bool multipleClaimsAllowed = true;
@@ -613,7 +609,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test that campaign creation fails with non-existent action encoder
     function test_CreateCampaignFailsWithNonExistentActionEncoder() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
@@ -628,7 +624,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test campaign creation with both start and end times
     function test_CreateCampaignWithBothTimes() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 startTime = block.timestamp + 1000;
         uint256 endTime = block.timestamp + 2000;
@@ -651,7 +647,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test campaign creation with equal start and end times fails
     function test_CreateCampaignFailsWithEqualTimes() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 sameTime = block.timestamp + 1000;
 
@@ -668,7 +664,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test campaign creation with strategy parameters
     function test_CreateCampaignWithStrategyParams() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         bytes memory strategyParams = "strategy-deployment-params";
 
@@ -687,7 +683,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test campaign creation with allocation strategy auxiliary data
     function test_CreateCampaignWithAllocationStrategyAuxData() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         bytes memory auxData = "allocation-strategy-aux-data";
 
@@ -706,7 +702,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test campaign creation with action encoder auxiliary data
     function test_CreateCampaignWithActionEncoderAuxData() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         bytes memory encoderAuxData = abi.encode(address(vaultToSendTokens));
 
@@ -725,7 +721,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test campaign creation with maximum time values
     function test_CreateCampaignWithMaximumTimeValues() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 maxStartTime = type(uint256).max - 1000;
         uint256 maxEndTime = type(uint256).max;
@@ -747,7 +743,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test campaign creation gas usage
     function test_CampaignCreationGasUsage() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 gasBefore = gasleft();
 
@@ -769,7 +765,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test that campaign creation with different tokens works
     function test_CreateCampaignWithDifferentTokens() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         MintableERC20 token2 = new MintableERC20();
 
@@ -804,16 +800,16 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test T02: Basic payout claiming functionality
     function test_PayoutIsClaimed() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
-        assertEq(token.balanceOf(address(createdDAO)), 1 ether, "DAO doesn't have funds");
+        assertEq(token.balanceOf(address(createdDao)), 1 ether, "DAO doesn't have funds");
         assertEq(token.balanceOf(alice), 0 ether, "Alice has funds");
 
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
 
-        assertEq(token.balanceOf(address(createdDAO)), 0 ether, "DAO has funds");
+        assertEq(token.balanceOf(address(createdDao)), 0 ether, "DAO has funds");
         assertEq(token.balanceOf(alice), 1 ether, "Alice doesn't have funds");
 
         vm.stopPrank();
@@ -822,7 +818,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test payout claiming with multiple claims allowed
     function test_PayoutIsClaimedWithMultipleClaims() public {
         mintTokensToDAO(3 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithParams(true, 0, 0); // multiple claims allowed
 
@@ -843,7 +839,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test claiming fails before start date
     function test_ClaimingFailsBeforeStartDate() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 futureStart = block.timestamp + 1000;
         uint256 campaignId = createCampaignWithParams(false, futureStart, 0);
@@ -861,7 +857,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test claiming fails after end date
     function test_ClaimingFailsAfterEndDate() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 pastEnd = block.timestamp - 1;
         uint256 campaignId = createCampaignWithParams(false, 0, pastEnd);
@@ -879,7 +875,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test claiming fails after already claiming when multiple claims not allowed
     function test_ClaimingFailsAfterAlreadyClaiming() public {
         mintTokensToDAO(2 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign(); // multiple claims not allowed
 
@@ -899,7 +895,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test claiming fails when campaign is ended
     function test_ClaimingFailsWhenCampaignEnded() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -920,7 +916,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test claiming fails with no claimable amount
     function test_ClaimingFailsWithNoClaimableAmount() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createZeroAmountCampaign();
 
@@ -934,7 +930,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test PayoutClaimed event emission
     function test_PayoutClaimedEvent() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -953,7 +949,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test claiming on behalf of others
     function test_ClaimingOnBehalfOfOthers() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -978,7 +974,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test multiple users claiming for same recipient
     function test_MultipleUsersClaimingForSameRecipient() public {
         mintTokensToDAO(2 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithParams(true, 0, 0); // multiple claims allowed
 
@@ -1003,7 +999,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test partial claims with multiple claims allowed
     function test_PartialClaimsWithMultipleClaimsAllowed() public {
         mintTokensToDAO(3 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithParams(true, 0, 0);
 
@@ -1021,7 +1017,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test claiming up to max amount
     function test_ClaimingUpToMaxAmount() public {
         mintTokensToDAO(2 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithParams(true, 0, 0);
 
@@ -1043,7 +1039,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test claiming at exact start time
     function test_ClaimingAtExactStartTime() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 startTime = block.timestamp + 100;
         uint256 campaignId = createCampaignWithParams(false, startTime, 0);
@@ -1061,7 +1057,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test claiming one second before end time
     function test_ClaimingOneSecondBeforeEndTime() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 endTime = block.timestamp + 100;
         uint256 campaignId = createCampaignWithParams(false, 0, endTime);
@@ -1079,7 +1075,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test claiming at exact end time
     function test_ClaimingAtExactEndTime() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 endTime = block.timestamp + 100;
         uint256 campaignId = createCampaignWithParams(false, 0, endTime);
@@ -1101,7 +1097,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test claiming with different auxiliary data
     function test_ClaimingWithDifferentAuxData() public {
         mintTokensToDAO(2 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1119,7 +1115,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test claiming from expired campaign that was active
     function test_ClaimingFromExpiredCampaignThatWasActive() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 endTime = block.timestamp + 100;
         uint256 campaignId = createCampaignWithParams(false, 0, endTime);
@@ -1146,7 +1142,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test zero amount claim (when strategy returns 0)
     function test_ZeroAmountClaim() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Create campaign ID 999 that returns 0 amount
         uint256 campaignId = createZeroAmountCampaign();
@@ -1164,7 +1160,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test campaign deactivation
     function test_DeactivateCampaign() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1185,7 +1181,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test deactivation fails without permission
     function test_DeactivateCampaignFailsWithoutPermission() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         uint256 campaignId = createBasicCampaign();
         vm.stopPrank();
 
@@ -1197,7 +1193,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test deactivation fails if already inactive
     function test_DeactivateCampaignFailsIfAlreadyInactive() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1220,7 +1216,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test deactivation fails if campaign not found
     function test_DeactivateCampaignFailsIfNotFound() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 nonExistentId = 999;
 
@@ -1233,7 +1229,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test claiming fails after deactivation
     function test_ClaimingFailsAfterDeactivation() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1260,7 +1256,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test batch claim from multiple campaigns
     function test_BatchClaimCampaignPayout() public {
         mintTokensToDAO(3 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Create 3 campaigns
         uint256[] memory campaignIds = new uint256[](3);
@@ -1293,7 +1289,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test batch claim with different recipients
     function test_BatchClaimWithDifferentRecipients() public {
         mintTokensToDAO(3 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256[] memory campaignIds = new uint256[](3);
         address[] memory recipients = new address[](3);
@@ -1323,7 +1319,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test batch claim fails with array length mismatch
     function test_BatchClaimFailsWithArrayLengthMismatch() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256[] memory campaignIds = new uint256[](2);
         address[] memory recipients = new address[](3); // Mismatch!
@@ -1339,7 +1335,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test batch claim with partial success
     function test_BatchClaimPartialSuccess() public {
         mintTokensToDAO(2 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Create 2 campaigns, but deactivate one
         uint256 campaign1 = createBasicCampaign();
@@ -1375,7 +1371,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test getCampaignPayout view function
     function test_GetCampaignPayout() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1389,7 +1385,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test getClaimedAmount function
     function test_GetClaimedAmount() public {
         mintTokensToDAO(2 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithParams(true, 0, 0);
 
@@ -1405,7 +1401,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test getCampaignStrategyId function
     function test_GetCampaignStrategyId() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1417,7 +1413,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test getCampaignEncoderId function
     function test_GetCampaignEncoderId() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             "",
@@ -1436,7 +1432,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test getCampaignEncoderId with no encoder
     function test_GetCampaignEncoderIdWithNoEncoder() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1449,7 +1445,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test isCampaignActive function
     function test_IsCampaignActive() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1465,7 +1461,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test isCampaignActive with time bounds
     function test_IsCampaignActiveWithTimeBounds() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Future campaign
         uint256 futureStart = block.timestamp + 1000;
@@ -1490,7 +1486,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test getStrategyCreationEncodingTypes
     function test_GetStrategyCreationEncodingTypes() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1502,7 +1498,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test getStrategyClaimEncodingTypes
     function test_GetStrategyClaimEncodingTypes() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1514,7 +1510,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test getEncoderCreationEncodingTypes
     function test_GetEncoderCreationEncodingTypes() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             "",
@@ -1533,7 +1529,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test getEncoderClaimEncodingTypes
     function test_GetEncoderClaimEncodingTypes() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             "",
@@ -1552,7 +1548,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test encoding type getters fail for non-existent campaign
     function test_EncodingTypeGettersFailForNonExistentCampaign() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 nonExistentId = 999;
 
@@ -1578,7 +1574,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test create and claim in same block
     function test_CreateAndClaimInSameBlock() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Create and claim in same transaction
         uint256 campaignId = createBasicCampaign();
@@ -1593,7 +1589,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test multiple campaigns for same token
     function test_MultipleCampaignsForSameToken() public {
         mintTokensToDAO(3 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Create 3 campaigns with same token
         uint256 campaign1 = createBasicCampaign();
@@ -1616,7 +1612,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test full campaign lifecycle
     function test_FullCampaignLifecycle() public {
         mintTokensToDAO(2 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // 1. Create campaign with time bounds
         uint256 startTime = block.timestamp + 100;
@@ -1658,7 +1654,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test pausing an active campaign
     function test_PauseCampaign() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1679,7 +1675,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test resuming a paused campaign
     function test_ResumeCampaign() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1701,7 +1697,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test pausing already paused campaign fails
     function test_PauseAlreadyPausedCampaign() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1725,7 +1721,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test resuming non-paused campaign fails
     function test_ResumeNonPausedCampaign() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1746,7 +1742,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test pausing ended campaign fails
     function test_PauseEndedCampaign() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1770,7 +1766,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test resuming ended campaign fails
     function test_ResumeEndedCampaign() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1794,7 +1790,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test claiming from paused campaign fails
     function test_ClaimFromPausedCampaign() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1817,7 +1813,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test campaign lifecycle with pause/resume
     function test_CampaignLifecycleWithPauseResume() public {
         mintTokensToDAO(2 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1851,7 +1847,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test only authorized addresses can pause campaigns
     function test_PauseCampaignRequiresPermission() public {
         mintTokensToDAO(1 ether);
-        vm.prank(address(createdDAO));
+        vm.prank(address(createdDao));
         uint256 campaignId = createBasicCampaign();
 
         // Try to pause as unauthorized user
@@ -1863,7 +1859,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test only authorized addresses can resume campaigns
     function test_ResumeCampaignRequiresPermission() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         uint256 campaignId = createBasicCampaign();
         capitalDistributorPlugin.pauseCampaign(campaignId);
         vm.stopPrank();
@@ -1876,7 +1872,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     /// @notice Test pause/resume non-existent campaign
     function test_PauseResumeNonExistentCampaign() public {
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 nonExistentId = 999;
 
@@ -1894,7 +1890,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test ending a paused campaign
     function test_EndPausedCampaign() public {
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
@@ -1923,7 +1919,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test batch claim with paused campaigns
     function test_BatchClaimWithPausedCampaigns() public {
         mintTokensToDAO(3 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Create 3 campaigns
         uint256 campaign1 = createBasicCampaign();
@@ -1977,7 +1973,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         // Create campaign with fee-enabled strategy
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithStrategy(toBytes32("fee-strategy"), bytes32(0), "", false);
 
@@ -2011,7 +2007,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         // Create campaign
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithStrategy(toBytes32("zero-fee-strategy"), bytes32(0), "", false);
 
@@ -2036,7 +2032,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         // Create campaign (note: mock strategy returns 1 ether, not 10)
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithStrategy(toBytes32("max-fee-strategy"), bytes32(0), "", false);
 
@@ -2062,7 +2058,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         // Note: Mock strategy always returns 1 ether
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithStrategy(toBytes32("accuracy-fee-strategy"), bytes32(0), "", false);
 
@@ -2100,7 +2096,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         // Create campaign with encoder
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithStrategy(
             toBytes32("encoder-fee-strategy"), toBytes32("vault-deposit"), abi.encode(address(vaultToSendTokens)), false
@@ -2144,7 +2140,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         // Create campaigns
         mintTokensToDAO(3 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaign1 = createCampaignWithStrategy(toBytes32("batch-fee-1"), bytes32(0), "", false);
 
@@ -2183,7 +2179,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         // Create campaign
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithStrategy(toBytes32("event-fee-strategy"), bytes32(0), "", false);
 
@@ -2214,14 +2210,14 @@ contract CapitalDistributorPluginTest is AragonTest {
             abi.encodeWithSelector(
                 IAllocatorStrategyFactory.getOrDeployStrategy.selector,
                 toBytes32("zero-address-strategy"),
-                address(createdDAO),
+                address(createdDao),
                 ""
             ),
             abi.encode(address(0))
         );
 
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Try to create campaign - should fail
         vm.expectRevert(
@@ -2246,14 +2242,14 @@ contract CapitalDistributorPluginTest is AragonTest {
             abi.encodeWithSelector(
                 IAllocatorStrategyFactory.getOrDeployStrategy.selector,
                 toBytes32("reverting-strategy"),
-                address(createdDAO),
+                address(createdDao),
                 ""
             ),
             "Deployment failed"
         );
 
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Try to create campaign - should bubble up the revert
         vm.expectRevert("Deployment failed");
@@ -2278,7 +2274,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         );
 
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // The factory will catch the setup failure and wrap it in DeploymentFailed
         vm.expectRevert();
@@ -2300,14 +2296,14 @@ contract CapitalDistributorPluginTest is AragonTest {
             abi.encodeWithSelector(
                 IActionEncoderFactory.getOrDeployActionEncoder.selector,
                 toBytes32("zero-encoder"),
-                address(createdDAO),
+                address(createdDao),
                 ""
             ),
             abi.encode(address(0))
         );
 
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // ISSUE FOUND: When encoder factory returns zero address, the plugin still tries to call
         // setupCampaign on address(0), which causes a revert. This is a potential bug in the contract.
@@ -2334,7 +2330,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         actionEncoderFactory.registerActionEncoder(toBytes32("failing-encoder"), address(failingEncoder), "");
 
         mintTokensToDAO(1 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // The factory will catch the setup failure and wrap it in DeploymentFailed
         vm.expectRevert();
@@ -2355,7 +2351,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test basic functionality and security of claimCampaignPayoutToAddress
     function test_ClaimPayoutToAddress_BasicFunctionality() public {
         mintTokensToDAO(2 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         uint256 campaignId = createBasicCampaign();
         vm.stopPrank();
 
@@ -2388,7 +2384,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test security: only msg.sender can claim their allocation (no proxy claims)
     function test_ClaimPayoutToAddress_OnlyMsgSenderCanClaimTheirAllocation() public {
         mintTokensToDAO(3 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         uint256 campaignId = createBasicCampaign();
         vm.stopPrank();
 
@@ -2435,7 +2431,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         mintTokensToDAO(2 ether);
 
         // Register a fee-collecting strategy
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         allocatorStrategyFactory.registerStrategyType(
             toBytes32("fee-strategy"),
             address(strategy),
@@ -2490,7 +2486,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test campaign state validation and time bounds for claimCampaignPayoutToAddress
     function test_ClaimPayoutToAddress_CampaignStateAndTimeBounds() public {
         mintTokensToDAO(2 ether);
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
 
         // Create campaign with time bounds
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -2525,7 +2521,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.stopPrank();
 
         // Test paused campaign state
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         capitalDistributorPlugin.pauseCampaign(campaignId);
         vm.stopPrank();
 
@@ -2542,7 +2538,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         mintTokensToDAO(3 ether);
 
         // Create campaign allowing multiple claims
-        vm.startPrank(address(createdDAO));
+        vm.startPrank(address(createdDao));
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             "ipfs://test",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
