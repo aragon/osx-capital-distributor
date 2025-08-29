@@ -1074,4 +1074,184 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         assertEq(totalClaimable, 50 * 500 ether, "Should accumulate all bounded epochs");
     }
+
+    // =========================================================================
+    // Gas Cost Tests for setEpochDistribution
+    // =========================================================================
+
+    function testGasCostSetEpochDistributionFirstTime() public {
+        uint256 campaignId = createTestCampaign(1, 100);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Set current epoch
+        mockSnapshotter.setCurrentEpoch(10);
+        
+        // Setup snapshot for epoch 5 with multiple gauges
+        setupSnapshot(5, 10000);
+        setupGaugeVotes(5, gauge1, 2000); // 20%
+        setupGaugeVotes(5, gauge2, 3000); // 30%
+        setupGaugeVotes(5, makeAddr("gauge3"), 5000); // 50%
+
+        // Measure gas for first distribution set
+        vm.prank(address(createdDAO));
+        uint256 gasStart = gasleft();
+        deployedStrategy.setEpochDistribution(campaignId, 5, 1000 ether);
+        uint256 gasUsed = gasStart - gasleft();
+
+        console2.log("Gas used for first setEpochDistribution (3 gauges):", gasUsed);
+        assertTrue(gasUsed < 200_000, "Should use reasonable gas for first set");
+
+        // Verify distribution was set
+        assertEq(deployedStrategy.getEpochDistribution(campaignId, 5), 1000 ether);
+    }
+
+    function testGasCostSetEpochDistributionWithManyGauges() public {
+        uint256 campaignId = createTestCampaign(1, 100);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Set current epoch
+        mockSnapshotter.setCurrentEpoch(10);
+        
+        // Setup snapshot for epoch 5 with many gauges
+        uint256 totalVotes = 0;
+        uint256 numGauges = 20;
+        
+        for (uint256 i = 0; i < numGauges; i++) {
+            address gauge = makeAddr(string(abi.encodePacked("gauge", i)));
+            uint256 votes = 100 + i * 10; // Different votes for each gauge
+            setupGaugeVotes(5, gauge, votes);
+            totalVotes += votes;
+        }
+        setupSnapshot(5, totalVotes);
+
+        // Measure gas
+        vm.prank(address(createdDAO));
+        uint256 gasStart = gasleft();
+        deployedStrategy.setEpochDistribution(campaignId, 5, 1000 ether);
+        uint256 gasUsed = gasStart - gasleft();
+
+        console2.log("Gas used for setEpochDistribution with", numGauges, "gauges:", gasUsed);
+    }
+
+    function testGasCostSetEpochDistributionUpdate() public {
+        uint256 campaignId = createTestCampaign(1, 100);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Set current epoch
+        mockSnapshotter.setCurrentEpoch(10);
+        
+        // Setup snapshot
+        setupSnapshot(5, 10000);
+        setupGaugeVotes(5, gauge1, 2000);
+        setupGaugeVotes(5, gauge2, 3000);
+        setupGaugeVotes(5, makeAddr("gauge3"), 5000);
+
+        // Set initial distribution
+        vm.prank(address(createdDAO));
+        deployedStrategy.setEpochDistribution(campaignId, 5, 1000 ether);
+
+        // Measure gas for update (increase)
+        vm.prank(address(createdDAO));
+        uint256 gasStart = gasleft();
+        deployedStrategy.setEpochDistribution(campaignId, 5, 2000 ether);
+        uint256 gasUsed = gasStart - gasleft();
+
+        console2.log("Gas used for updating distribution (recalculate):", gasUsed);
+        assertTrue(gasUsed < 150_000, "Update should use reasonable gas");
+    }
+
+    function testGasCostSetEpochDistributionMultiplePastEpochs() public {
+        uint256 campaignId = createTestCampaign(1, 100);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Set current epoch
+        mockSnapshotter.setCurrentEpoch(20);
+        
+        // Setup snapshots for multiple epochs
+        for (uint256 epoch = 1; epoch <= 10; epoch++) {
+            setupSnapshot(epoch, 10000);
+            setupGaugeVotes(epoch, gauge1, 2000);
+            setupGaugeVotes(epoch, gauge2, 3000);
+            setupGaugeVotes(epoch, makeAddr("gauge3"), 5000);
+        }
+
+        // Set distributions for multiple epochs and measure gas
+        vm.startPrank(address(createdDAO));
+        
+        // First epoch - will process just this epoch
+        uint256 gasStart = gasleft();
+        deployedStrategy.setEpochDistribution(campaignId, 1, 1000 ether);
+        uint256 gasFirst = gasStart - gasleft();
+        console2.log("Gas for first epoch distribution:", gasFirst);
+
+        // Second epoch - will process from epoch 2
+        gasStart = gasleft();
+        deployedStrategy.setEpochDistribution(campaignId, 2, 1000 ether);
+        uint256 gasSecond = gasStart - gasleft();
+        console2.log("Gas for second epoch distribution:", gasSecond);
+
+        // Fifth epoch - will process epochs 3, 4, 5
+        gasStart = gasleft();
+        deployedStrategy.setEpochDistribution(campaignId, 5, 1000 ether);
+        uint256 gasFifth = gasStart - gasleft();
+        console2.log("Gas for fifth epoch (processes 3 epochs):", gasFifth);
+
+        vm.stopPrank();
+    }
+
+    function testGasCostSetEpochDistributionCurrentEpoch() public {
+        uint256 campaignId = createTestCampaign(1, 100);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Set current epoch
+        uint256 currentEpoch = 10;
+        mockSnapshotter.setCurrentEpoch(currentEpoch);
+        mockGaugeVoter.setEpoch(currentEpoch);
+
+        // Setup live votes for current epoch
+        mockGaugeVoter.setTotalVotingPowerCast(10000);
+        mockGaugeVoter.setGaugeVotes(gauge1, 2000);
+        mockGaugeVoter.setGaugeVotes(gauge2, 3000);
+
+        // Measure gas for current epoch (no processing needed)
+        vm.prank(address(createdDAO));
+        uint256 gasStart = gasleft();
+        deployedStrategy.setEpochDistribution(campaignId, currentEpoch, 1000 ether);
+        uint256 gasUsed = gasStart - gasleft();
+
+        console2.log("Gas used for current epoch distribution (no processing):", gasUsed);
+        assertTrue(gasUsed < 50_000, "Current epoch should be cheap");
+    }
+
+    function testGasCostBatchSetMultipleEpochDistributions() public {
+        uint256 campaignId = createTestCampaign(1, 100);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Set current epoch
+        mockSnapshotter.setCurrentEpoch(50);
+        
+        // Setup snapshots for multiple epochs
+        uint256[] memory epochs = new uint256[](10);
+        uint256[] memory amounts = new uint256[](10);
+        
+        for (uint256 i = 0; i < 10; i++) {
+            uint256 epoch = i + 1;
+            epochs[i] = epoch;
+            amounts[i] = (i + 1) * 100 ether;
+            
+            setupSnapshot(epoch, 10000);
+            setupGaugeVotes(epoch, gauge1, 2000);
+            setupGaugeVotes(epoch, gauge2, 3000);
+            setupGaugeVotes(epoch, makeAddr("gauge3"), 5000);
+        }
+
+        // Measure gas for batch operation
+        vm.prank(address(createdDAO));
+        uint256 gasStart = gasleft();
+        deployedStrategy.setMultipleEpochDistributions(campaignId, epochs, amounts);
+        uint256 gasUsed = gasStart - gasleft();
+
+        console2.log("Gas used for batch setting 10 epoch distributions:", gasUsed);
+        console2.log("Average gas per epoch:", gasUsed / 10);
+    }
 }
