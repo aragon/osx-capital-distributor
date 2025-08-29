@@ -107,12 +107,4 @@ abstract contract AllocatorStrategyBase is
     {
         return interfaceId == type(IAllocatorStrategy).interfaceId || super.supportsInterface(interfaceId);
     }
-
-    // =========================================================================
-    // Storage Gap
-    // =========================================================================
-
-    /// @dev Storage gap to allow for future upgrades without storage collision.
-    /// This contract uses 3 storage slots: strategyTypeId, plugin, factory.
-    uint256[47] private __gap;
 }

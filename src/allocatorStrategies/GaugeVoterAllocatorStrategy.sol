@@ -162,12 +162,4 @@ contract GaugeVoterAllocatorStrategy is AllocatorStrategyBase {
 
         emit AllocationCampaignCreated(plugin, _campaignId);
     }
-
-    // =========================================================================
-    // Storage Gap
-    // =========================================================================
-
-    /// @dev Storage gap to allow for future upgrades without storage collision.
-    /// This contract adds 2 storage slots: gaugeVoter address and campaigns mapping.
-    uint256[48] private __gap;
 }
