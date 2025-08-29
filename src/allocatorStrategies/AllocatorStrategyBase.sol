@@ -78,7 +78,7 @@ abstract contract AllocatorStrategyBase is
     function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) public virtual override;
 
     /// @inheritdoc IAllocatorStrategy
-    function getClaimeableAmount(
+    function getClaimableAmount(
         uint256 _campaignId,
         address _account,
         bytes calldata _auxData

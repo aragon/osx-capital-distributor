@@ -1138,7 +1138,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         // Should return 0 for non-existent campaign
         vm.startPrank(address(capitalDistributorPlugin));
-        uint256 claimableAmount = testStrategy.getClaimeableAmount(nonExistentCampaignId, testAccount, auxData);
+        uint256 claimableAmount = testStrategy.getClaimableAmount(nonExistentCampaignId, testAccount, auxData);
         vm.stopPrank();
 
         assertEq(claimableAmount, 0, "Should return 0 for non-existent campaign");
@@ -1176,7 +1176,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Test 1: Full amount should be claimable initially
         bytes memory fullClaimData = abi.encode(aliceProof, fullAmount);
         vm.prank(address(capitalDistributorPlugin));
-        uint256 claimableAmount = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getClaimeableAmount(
+        uint256 claimableAmount = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getClaimableAmount(
             campaignId, alice, fullClaimData
         );
         assertEq(claimableAmount, fullAmount, "Should return full amount initially");
@@ -1185,7 +1185,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 excessiveAmount = fullAmount * 2;
         bytes memory excessiveClaimData = abi.encode(aliceProof, excessiveAmount);
         vm.prank(address(capitalDistributorPlugin));
-        uint256 excessiveClaimable = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getClaimeableAmount(
+        uint256 excessiveClaimable = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getClaimableAmount(
             campaignId, alice, excessiveClaimData
         );
         assertEq(excessiveClaimable, 0, "Should return 0 for excessive claim amount");

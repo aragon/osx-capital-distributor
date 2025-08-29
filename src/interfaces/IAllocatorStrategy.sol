@@ -41,7 +41,7 @@ interface IAllocatorStrategy is IERC165 {
     function getCreationEncodingTypes() external view returns (string memory types);
 
     /// @notice Returns the Solidity types expected for claim auxiliary data.
-    /// @return types Comma-separated string of Solidity type strings expected for getClaimeableAmount _auxData
+    /// @return types Comma-separated string of Solidity type strings expected for getClaimableAmount _auxData
     /// parameter.
     function getClaimEncodingTypes() external view returns (string memory types);
 
@@ -58,7 +58,7 @@ interface IAllocatorStrategy is IERC165 {
     /// @param _account The address of the account for which to calculate the payout.
     /// @param _auxData Strategy-specific auxiliary data. Pass `bytes("")` if not required by the strategy.
     /// @return amount The amount of tokens/value the account is eligible to receive.
-    function getClaimeableAmount(
+    function getClaimableAmount(
         uint256 _campaignId,
         address _account,
         bytes calldata _auxData

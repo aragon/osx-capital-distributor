@@ -28,7 +28,7 @@ contract ConfigurableAllocatorStrategyMock is AllocatorStrategyBase {
     }
 
     /// @inheritdoc IAllocatorStrategy
-    function getClaimeableAmount(
+    function getClaimableAmount(
         uint256 _campaignId,
         address _recipient,
         bytes calldata

@@ -52,9 +52,9 @@ struct GaugeAllocationCampaign {
 - **Events**: AllocationCampaignCreated(plugin, _campaignId)
 - **Note**: Campaign timing is managed by CapitalDistributorPlugin. Claims only work when campaign has started AND voting is inactive
 
-### getClaimeableAmount(uint256 _campaignId, address _account, bytes calldata _auxData) → uint256
+### getClaimableAmount(uint256 _campaignId, address _account, bytes calldata _auxData) → uint256
 - **Access**: External view
-- **Description**: Calculates the claimeable amount for a user based on their gauge voting participation
+- **Description**: Calculates the claimable amount for a user based on their gauge voting participation
 - **Parameters**:
   - `_campaignId`: Campaign identifier
   - `_account`: User address to check allocation for
@@ -154,7 +154,7 @@ error InvalidDistributionAmount();
 1. Strategy is deployed and initialized with gauge voting plugin reference
 2. DAO creates campaign through `setAllocationCampaign` with distribution amount (can be created anytime)
 3. Campaign stores current epoch ID and distribution amount
-4. Users can check their allocation with `getClaimeableAmount` (only works when campaign has started, in same epoch, and voting is inactive)
+4. Users can check their allocation with `getClaimableAmount` (only works when campaign has started, in same epoch, and voting is inactive)
 5. Users claim through the capital distributor plugin (not directly through strategy)
 6. Plugin calls strategy to verify amounts during claim process
 
@@ -179,7 +179,7 @@ error InvalidDistributionAmount();
 - [x] initialize() takes IAddressGaugeVoter in _auxData and validates != address(0)
 - [x] setAllocationCampaign() can be called anytime and stores current epochId
 - [x] setAllocationCampaign() takes only uint256 totalDistributionAmount in _auxData
-- [x] getClaimeableAmount() validates epoch match, voting inactive, and calculates proportionally
+- [x] getClaimableAmount() validates epoch match, voting inactive, and calculates proportionally
 - [x] getInitializationEncodingTypes() returns "address" (IAddressGaugeVoter)
 - [x] getCreationEncodingTypes() returns "uint256" only
 - [x] getClaimEncodingTypes() returns empty string
@@ -190,7 +190,7 @@ error InvalidDistributionAmount();
 - [x] Campaign creation can happen anytime (no voting status check in setAllocationCampaign)
 - [x] Claims only work when voting is inactive
 - [x] Claims only work in same epoch as campaign creation
-- [x] Proper division by zero protection in getClaimeableAmount()
+- [x] Proper division by zero protection in getClaimableAmount()
 - [x] Access control: only owner or DAO can create campaigns
 
 **Error Handling (Must Have)**
@@ -240,7 +240,7 @@ error InvalidDistributionAmount();
   - Important: This would apply probably as well for the action encoders
 - In the function setAllocationCampaing, I've left a message to you @claude. We should be calling the plugin back and request the amount, rather than passing it through a param than can be altered
 - What is the isActive param used for?
-- Left some comments in the `getClaimeableAmount()` function.
+- Left some comments in the `getClaimableAmount()` function.
   - We should remove the campaign.isActive check
 
 - The function `getUserVotingPower` is not used. If it's not used should be deleted.
