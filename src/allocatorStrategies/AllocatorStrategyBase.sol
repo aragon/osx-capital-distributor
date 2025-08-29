@@ -19,9 +19,6 @@ abstract contract AllocatorStrategyBase is
     OwnableUpgradeable,
     ERC165Upgradeable
 {
-    /// @notice The ID of the permission required to manage strategy configurations
-    bytes32 public constant STRATEGY_MANAGER_PERMISSION_ID = keccak256("STRATEGY_MANAGER_PERMISSION");
-
     bytes32 public strategyTypeId;
     address public plugin;
     address public factory;
