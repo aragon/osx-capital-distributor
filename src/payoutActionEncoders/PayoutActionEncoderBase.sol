@@ -19,6 +19,9 @@ abstract contract PayoutActionEncoderBase is
     OwnableUpgradeable,
     ERC165Upgradeable
 {
+    /// @notice The ID of the permission required to manage encoder configurations
+    bytes32 public constant ENCODER_MANAGER_PERMISSION_ID = keccak256("ENCODER_MANAGER_PERMISSION");
+
     bytes32 public encoderId;
 
     // =========================================================================

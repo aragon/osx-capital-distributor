@@ -22,7 +22,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
 
     bytes32 internal constant EXECUTE_PERMISSION_ID = keccak256("EXECUTE_PERMISSION");
     bytes32 private constant UPGRADE_PLUGIN_PERMISSION_ID = keccak256("UPGRADE_PLUGIN_PERMISSION");
-    bytes32 public constant CAMPAIGN_CREATOR_PERMISSION_ID = keccak256("CAMPAIGN_CREATOR_PERMISSION");
+    bytes32 public constant CAMPAIGN_MANAGER_PERMISSION_ID = keccak256("CAMPAIGN_MANAGER_PERMISSION");
     bytes32 public constant SET_METADATA_PERMISSION_ID = keccak256("SET_METADATA_PERMISSION");
 
     /// @notice The address of the `CapitalDistributorPlugin` base contract.
@@ -92,7 +92,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             where: plugin,
             who: _dao,
             condition: PermissionLib.NO_CONDITION,
-            permissionId: CAMPAIGN_CREATOR_PERMISSION_ID
+            permissionId: CAMPAIGN_MANAGER_PERMISSION_ID
         });
 
         permissions[3] = PermissionLib.MultiTargetPermission({
@@ -130,7 +130,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             where: _payload.plugin,
             who: _dao,
             condition: PermissionLib.NO_CONDITION,
-            permissionId: CAMPAIGN_CREATOR_PERMISSION_ID
+            permissionId: CAMPAIGN_MANAGER_PERMISSION_ID
         });
 
         permissions[1] = PermissionLib.MultiTargetPermission({

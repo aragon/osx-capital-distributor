@@ -40,7 +40,7 @@ contract CapitalDistributorPluginSetupTest is Test {
     // Permission IDs
     bytes32 internal constant EXECUTE_PERMISSION_ID = keccak256("EXECUTE_PERMISSION");
     bytes32 internal constant UPGRADE_PLUGIN_PERMISSION_ID = keccak256("UPGRADE_PLUGIN_PERMISSION");
-    bytes32 internal constant CAMPAIGN_CREATOR_PERMISSION_ID = keccak256("CAMPAIGN_CREATOR_PERMISSION");
+    bytes32 internal constant CAMPAIGN_MANAGER_PERMISSION_ID = keccak256("CAMPAIGN_MANAGER_PERMISSION");
     bytes32 internal constant SET_METADATA_PERMISSION_ID = keccak256("SET_METADATA_PERMISSION");
 
     constructor() {
@@ -126,7 +126,7 @@ contract CapitalDistributorPluginSetupTest is Test {
             pluginAddr,
             address(dao),
             PermissionLib.NO_CONDITION,
-            CAMPAIGN_CREATOR_PERMISSION_ID
+            CAMPAIGN_MANAGER_PERMISSION_ID
         );
 
         // 3. The DAO can change the metadata of the plugin
@@ -191,7 +191,7 @@ contract CapitalDistributorPluginSetupTest is Test {
             pluginAddr,
             address(dao),
             PermissionLib.NO_CONDITION,
-            CAMPAIGN_CREATOR_PERMISSION_ID
+            CAMPAIGN_MANAGER_PERMISSION_ID
         );
 
         // 1. Revoke DAO can upgrade plugin
