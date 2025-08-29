@@ -51,7 +51,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         // Deploy mock gauge voter
         mockGaugeVoter = new MockAddressGaugeVoter();
-        
+
         // Deploy mock snapshotter and set gauge voter
         mockSnapshotter = new MockGaugeVoterSnapshotter();
         mockSnapshotter.setGaugeVoter(address(mockGaugeVoter));
@@ -652,11 +652,11 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         // Should be able to claim using live data (no snapshot required)
         bytes memory auxData = "";
-        
+
         // Debug: Check if gauge voter is properly set
         address gaugeVoterAddr = address(deployedStrategy.gaugeVoter());
         assertEq(gaugeVoterAddr, address(mockGaugeVoter), "Gauge voter should be set correctly");
-        
+
         uint256 claimableGauge1 = deployedStrategy.getClaimeableAmount(campaignId, gauge1, auxData);
         uint256 claimableGauge2 = deployedStrategy.getClaimeableAmount(campaignId, gauge2, auxData);
 
@@ -713,7 +713,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
         // Check total claimable (past epochs from snapshot + current from live data)
         bytes memory auxData = "";
         uint256 totalClaimable = deployedStrategy.getClaimeableAmount(campaignId, gauge1, auxData);
-        
+
         // Expected: 500 (epoch 2) + 600 (epoch 3) + 2100 (epoch 4 live)
         assertEq(totalClaimable, 3200 ether, "Should accumulate past snapshots + current live data");
     }
@@ -802,7 +802,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         // Should be 40 epochs * 500 ether each = 20,000 ether
         assertEq(claimable, 20_000 ether, "Should calculate correct amount");
-        
+
         // Gas should be low since we're using accumulated amounts
         console2.log("Gas used with claimableSum for 40 epochs:", gasUsed);
         assertTrue(gasUsed < 100_000, "Should use less than 100k gas with accumulated amounts");
@@ -819,10 +819,10 @@ contract GaugeDistributionStrategyTest is AragonTest {
         setupGaugeVotes(5, gauge2, 600); // 60% of votes
 
         vm.startPrank(address(createdDAO));
-        
+
         // Set initial distribution
         deployedStrategy.setEpochDistribution(campaignId, 5, 1000 ether);
-        
+
         // Check initial claimable amounts
         uint256 claimable1 = deployedStrategy.getClaimeableAmount(campaignId, gauge1, "");
         uint256 claimable2 = deployedStrategy.getClaimeableAmount(campaignId, gauge2, "");
@@ -831,13 +831,13 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         // Increase distribution
         deployedStrategy.setEpochDistribution(campaignId, 5, 1500 ether);
-        
+
         // Check updated claimable amounts
         claimable1 = deployedStrategy.getClaimeableAmount(campaignId, gauge1, "");
         claimable2 = deployedStrategy.getClaimeableAmount(campaignId, gauge2, "");
         assertEq(claimable1, 600 ether, "Gauge1 should get 40% of 1500");
         assertEq(claimable2, 900 ether, "Gauge2 should get 60% of 1500");
-        
+
         vm.stopPrank();
     }
 
@@ -863,7 +863,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
         epochs[2] = 20;
         epochs[3] = 25;
         epochs[4] = 30;
-        
+
         for (uint256 i = 0; i < 5; i++) {
             amounts[i] = (i + 1) * 1000 ether;
         }
@@ -930,7 +930,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         for (uint256 i = 0; i < epochCounts.length; i++) {
             uint256 epochCount = epochCounts[i];
-            
+
             // Set current epoch
             uint256 currentEpoch = epochCount + 1;
             mockSnapshotter.setCurrentEpoch(currentEpoch);
@@ -1085,9 +1085,9 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         // Set current epoch
         mockSnapshotter.setCurrentEpoch(10);
-        
+
         // Setup snapshot for epoch 5 with multiple gauges
-        setupSnapshot(5, 10000);
+        setupSnapshot(5, 10_000);
         setupGaugeVotes(5, gauge1, 2000); // 20%
         setupGaugeVotes(5, gauge2, 3000); // 30%
         setupGaugeVotes(5, makeAddr("gauge3"), 5000); // 50%
@@ -1111,11 +1111,11 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         // Set current epoch
         mockSnapshotter.setCurrentEpoch(10);
-        
+
         // Setup snapshot for epoch 5 with many gauges
         uint256 totalVotes = 0;
         uint256 numGauges = 20;
-        
+
         for (uint256 i = 0; i < numGauges; i++) {
             address gauge = makeAddr(string(abi.encodePacked("gauge", i)));
             uint256 votes = 100 + i * 10; // Different votes for each gauge
@@ -1139,9 +1139,9 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         // Set current epoch
         mockSnapshotter.setCurrentEpoch(10);
-        
+
         // Setup snapshot
-        setupSnapshot(5, 10000);
+        setupSnapshot(5, 10_000);
         setupGaugeVotes(5, gauge1, 2000);
         setupGaugeVotes(5, gauge2, 3000);
         setupGaugeVotes(5, makeAddr("gauge3"), 5000);
@@ -1166,10 +1166,10 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         // Set current epoch
         mockSnapshotter.setCurrentEpoch(20);
-        
+
         // Setup snapshots for multiple epochs
         for (uint256 epoch = 1; epoch <= 10; epoch++) {
-            setupSnapshot(epoch, 10000);
+            setupSnapshot(epoch, 10_000);
             setupGaugeVotes(epoch, gauge1, 2000);
             setupGaugeVotes(epoch, gauge2, 3000);
             setupGaugeVotes(epoch, makeAddr("gauge3"), 5000);
@@ -1177,7 +1177,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         // Set distributions for multiple epochs and measure gas
         vm.startPrank(address(createdDAO));
-        
+
         // First epoch - will process just this epoch
         uint256 gasStart = gasleft();
         deployedStrategy.setEpochDistribution(campaignId, 1, 1000 ether);
@@ -1209,7 +1209,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
         mockGaugeVoter.setEpoch(currentEpoch);
 
         // Setup live votes for current epoch
-        mockGaugeVoter.setTotalVotingPowerCast(10000);
+        mockGaugeVoter.setTotalVotingPowerCast(10_000);
         mockGaugeVoter.setGaugeVotes(gauge1, 2000);
         mockGaugeVoter.setGaugeVotes(gauge2, 3000);
 
@@ -1229,17 +1229,17 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         // Set current epoch
         mockSnapshotter.setCurrentEpoch(50);
-        
+
         // Setup snapshots for multiple epochs
         uint256[] memory epochs = new uint256[](10);
         uint256[] memory amounts = new uint256[](10);
-        
+
         for (uint256 i = 0; i < 10; i++) {
             uint256 epoch = i + 1;
             epochs[i] = epoch;
             amounts[i] = (i + 1) * 100 ether;
-            
-            setupSnapshot(epoch, 10000);
+
+            setupSnapshot(epoch, 10_000);
             setupGaugeVotes(epoch, gauge1, 2000);
             setupGaugeVotes(epoch, gauge2, 3000);
             setupGaugeVotes(epoch, makeAddr("gauge3"), 5000);
