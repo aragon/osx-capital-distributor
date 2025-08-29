@@ -127,6 +127,8 @@ contract GaugeDistributionStrategyTest is AragonTest {
         if (epochId == mockSnapshotter.getCurrentEpoch()) {
             mockGaugeVoter.setGaugeVotes(gauge, votes);
         }
+        // Make sure gauge is added to the list (this is needed for claimableSum accumulation to work)
+        mockGaugeVoter.addGauge(gauge);
     }
 
     // =========================================================================
@@ -178,18 +180,20 @@ contract GaugeDistributionStrategyTest is AragonTest {
         uint256 campaignId = createTestCampaign(5, 10);
         GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
-        (uint256 startEpoch, uint256 endEpoch) = deployedStrategy.campaigns(campaignId);
+        (uint256 startEpoch, uint256 endEpoch, uint256 lastProcessedEpoch) = deployedStrategy.campaigns(campaignId);
         assertEq(startEpoch, 5, "Start epoch not set correctly");
         assertEq(endEpoch, 10, "End epoch not set correctly");
+        assertEq(lastProcessedEpoch, 0, "Last processed epoch should be 0 initially");
     }
 
     function testContinuousCampaignCreation() public {
         uint256 campaignId = createTestCampaign(1, 0); // 0 means continuous
         GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
-        (uint256 startEpoch, uint256 endEpoch) = deployedStrategy.campaigns(campaignId);
+        (uint256 startEpoch, uint256 endEpoch, uint256 lastProcessedEpoch) = deployedStrategy.campaigns(campaignId);
         assertEq(startEpoch, 1, "Start epoch not set correctly");
         assertEq(endEpoch, 0, "End epoch should be 0 for continuous");
+        assertEq(lastProcessedEpoch, 0, "Last processed epoch should be 0 initially");
     }
 
     function testCannotCreateCampaignWithInvalidEpochs() public {
@@ -402,15 +406,18 @@ contract GaugeDistributionStrategyTest is AragonTest {
         // Set current epoch to 4 (so epochs 1-3 are complete)
         mockSnapshotter.setCurrentEpoch(4);
 
-        // Setup snapshots first
+        // Setup snapshots first - include both gauges from the start
         setupSnapshot(1, 1000);
         setupGaugeVotes(1, gauge1, 400); // 40%
+        setupGaugeVotes(1, gauge2, 600); // 60%
 
         setupSnapshot(2, 2000);
         setupGaugeVotes(2, gauge1, 1000); // 50%
+        setupGaugeVotes(2, gauge2, 1000); // 50%
 
         setupSnapshot(3, 3000);
         setupGaugeVotes(3, gauge1, 900); // 30%
+        setupGaugeVotes(3, gauge2, 2100); // 70%
 
         // Setup distributions after snapshots
         vm.startPrank(address(createdDAO));
@@ -424,16 +431,12 @@ contract GaugeDistributionStrategyTest is AragonTest {
         assertEq(deployedStrategy.getEpochClaimableAmount(campaignId, gauge1, 2), 1000 ether, "Epoch 2 incorrect");
         assertEq(deployedStrategy.getEpochClaimableAmount(campaignId, gauge1, 3), 900 ether, "Epoch 3 incorrect");
 
-        // Check total accumulated amount
+        // Check total accumulated amount for gauge1
         bytes memory auxData = "";
         uint256 totalClaimable = deployedStrategy.getClaimeableAmount(campaignId, gauge1, auxData);
         assertEq(totalClaimable, 2300 ether, "Total should be sum of all epochs (400 + 1000 + 900)");
 
-        // Test gauge2 accumulation
-        setupGaugeVotes(1, gauge2, 600); // 60% of epoch 1
-        setupGaugeVotes(2, gauge2, 1000); // 50% of epoch 2
-        setupGaugeVotes(3, gauge2, 2100); // 70% of epoch 3
-
+        // Check total accumulated amount for gauge2
         uint256 gauge2Total = deployedStrategy.getClaimeableAmount(campaignId, gauge2, auxData);
         assertEq(gauge2Total, 3700 ether, "Gauge2 total should be 600 + 1000 + 2100");
     }
@@ -764,6 +767,150 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         uint256 claimable2 = deployedStrategy.getClaimeableAmount(campaignId, gauge1, auxData);
         assertEq(claimable2, 700 ether, "Claim should reflect new votes immediately");
+    }
+
+    // =========================================================================
+    // ClaimableSum Accumulation Tests
+    // =========================================================================
+
+    function testClaimableSumIsUsedForPastEpochs() public {
+        uint256 campaignId = createTestCampaign(1, 100);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Set current epoch
+        uint256 currentEpoch = 50;
+        mockSnapshotter.setCurrentEpoch(currentEpoch);
+        mockGaugeVoter.setEpoch(currentEpoch);
+
+        // Setup snapshots for past epochs
+        for (uint256 i = 1; i <= 40; i++) {
+            setupSnapshot(i, 1000);
+            setupGaugeVotes(i, gauge1, 500); // 50% of votes
+        }
+
+        // Set distributions for past epochs - this should accumulate claimableSum
+        vm.startPrank(address(createdDAO));
+        for (uint256 i = 1; i <= 40; i++) {
+            deployedStrategy.setEpochDistribution(campaignId, i, 1000 ether);
+        }
+        vm.stopPrank();
+
+        // Measure gas for first call (uses accumulated claimableSum)
+        uint256 gasBefore = gasleft();
+        uint256 claimable = deployedStrategy.getClaimeableAmount(campaignId, gauge1, "");
+        uint256 gasUsed = gasBefore - gasleft();
+
+        // Should be 40 epochs * 500 ether each = 20,000 ether
+        assertEq(claimable, 20_000 ether, "Should calculate correct amount");
+        
+        // Gas should be low since we're using accumulated amounts
+        console2.log("Gas used with claimableSum for 40 epochs:", gasUsed);
+        assertTrue(gasUsed < 100_000, "Should use less than 100k gas with accumulated amounts");
+    }
+
+    function testClaimableSumUpdatesWhenDistributionIncreases() public {
+        uint256 campaignId = createTestCampaign(1, 10);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Setup epoch 5 with initial distribution
+        mockSnapshotter.setCurrentEpoch(10);
+        setupSnapshot(5, 1000);
+        setupGaugeVotes(5, gauge1, 400); // 40% of votes
+        setupGaugeVotes(5, gauge2, 600); // 60% of votes
+
+        vm.startPrank(address(createdDAO));
+        
+        // Set initial distribution
+        deployedStrategy.setEpochDistribution(campaignId, 5, 1000 ether);
+        
+        // Check initial claimable amounts
+        uint256 claimable1 = deployedStrategy.getClaimeableAmount(campaignId, gauge1, "");
+        uint256 claimable2 = deployedStrategy.getClaimeableAmount(campaignId, gauge2, "");
+        assertEq(claimable1, 400 ether, "Gauge1 initial amount");
+        assertEq(claimable2, 600 ether, "Gauge2 initial amount");
+
+        // Increase distribution
+        deployedStrategy.setEpochDistribution(campaignId, 5, 1500 ether);
+        
+        // Check updated claimable amounts
+        claimable1 = deployedStrategy.getClaimeableAmount(campaignId, gauge1, "");
+        claimable2 = deployedStrategy.getClaimeableAmount(campaignId, gauge2, "");
+        assertEq(claimable1, 600 ether, "Gauge1 should get 40% of 1500");
+        assertEq(claimable2, 900 ether, "Gauge2 should get 60% of 1500");
+        
+        vm.stopPrank();
+    }
+
+    function testClaimableSumBatchUpdateWithMultipleEpochs() public {
+        uint256 campaignId = createTestCampaign(1, 50);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Set current epoch
+        mockSnapshotter.setCurrentEpoch(50);
+        mockGaugeVoter.setEpoch(50);
+
+        // Setup snapshots
+        for (uint256 i = 10; i <= 30; i += 5) {
+            setupSnapshot(i, 1000);
+            setupGaugeVotes(i, gauge1, 500); // 50% of votes
+        }
+
+        // Set distributions in batch
+        uint256[] memory epochs = new uint256[](5);
+        uint256[] memory amounts = new uint256[](5);
+        epochs[0] = 10;
+        epochs[1] = 15;
+        epochs[2] = 20;
+        epochs[3] = 25;
+        epochs[4] = 30;
+        
+        for (uint256 i = 0; i < 5; i++) {
+            amounts[i] = (i + 1) * 1000 ether;
+        }
+
+        vm.prank(address(createdDAO));
+        deployedStrategy.setMultipleEpochDistributions(campaignId, epochs, amounts);
+
+        // Check total claimable
+        uint256 claimable = deployedStrategy.getClaimeableAmount(campaignId, gauge1, "");
+        // Should be: (1000 + 2000 + 3000 + 4000 + 5000) * 0.5 = 7500 ether
+        assertEq(claimable, 7500 ether, "Should accumulate all epochs correctly");
+    }
+
+    function testClaimableSumMixedWithLiveData() public {
+        uint256 campaignId = createTestCampaign(1, 100);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        // Current epoch is 5
+        uint256 currentEpoch = 5;
+        mockSnapshotter.setCurrentEpoch(currentEpoch);
+        mockGaugeVoter.setEpoch(currentEpoch);
+
+        // Setup past epochs (1-4) with snapshots
+        for (uint256 i = 1; i < currentEpoch; i++) {
+            setupSnapshot(i, 1000);
+            setupGaugeVotes(i, gauge1, 500); // 50% of votes
+        }
+
+        // Setup live data for current epoch
+        mockGaugeVoter.setTotalVotingPowerCast(1000);
+        mockGaugeVoter.setGaugeVotes(gauge1, 600); // 60% for current epoch
+
+        // Set distributions
+        vm.startPrank(address(createdDAO));
+        // Past epochs - will be accumulated
+        for (uint256 i = 1; i < currentEpoch; i++) {
+            deployedStrategy.setEpochDistribution(campaignId, i, 1000 ether);
+        }
+        // Current epoch
+        deployedStrategy.setEpochDistribution(campaignId, currentEpoch, 1000 ether);
+        vm.stopPrank();
+
+        // Check total claimable
+        uint256 claimable = deployedStrategy.getClaimeableAmount(campaignId, gauge1, "");
+        // Past epochs: 4 * 500 = 2000 ether (accumulated)
+        // Current epoch: 600 ether (live data)
+        assertEq(claimable, 2600 ether, "Should combine accumulated and live data");
     }
 
     // =========================================================================

@@ -44,7 +44,21 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
     struct GaugeDistributionCampaign {
         uint256 startEpoch; // First epoch of the campaign
         uint256 endEpoch; // Last epoch (0 = continuous)
+        uint256 lastProcessedEpoch; // Last epoch processed into claimableSum (common to all gauges)
         mapping(uint256 => uint256) epochDistributions; // epoch => amount to distribute
+        mapping(address => uint256) claimableSum; // gauge => accumulated amount up to lastProcessedEpoch
+    }
+
+    // =========================================================================
+    // Modifiers
+    // =========================================================================
+
+    /// @notice Ensures the caller is authorized (owner or DAO)
+    modifier onlyAuthorized() {
+        if (msg.sender != owner() && msg.sender != address(dao())) {
+            revert IAllocatorStrategy.OnlyDAOAllowed(msg.sender);
+        }
+        _;
     }
 
     // =========================================================================
@@ -90,6 +104,7 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
     /// @dev For this strategy, _account represents the gauge address
     /// @dev _auxData is ignored as we accumulate all unclaimed epochs
     /// @dev The plugin tracks what has been claimed, so we return the total accumulated amount
+    /// @dev Uses accumulated claimableSum for past epochs and calculates only unprocessed epochs
     function getClaimeableAmount(
         uint256 _campaignId,
         address _account,
@@ -103,24 +118,26 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
         GaugeDistributionCampaign storage campaign = campaigns[_campaignId];
 
         // Validate campaign exists
-        if (campaign.startEpoch == 0) revert CampaignNotFound(_campaignId);
+        _validateCampaignExists(_campaignId);
 
-        // Accumulate claimable amounts across all eligible epochs
-        uint256 totalClaimable = 0;
+        // Get accumulated amount for this gauge
+        uint256 totalClaimable = campaign.claimableSum[_account];
 
         // Determine the range of epochs to check
         uint256 currentEpoch = _getCurrentEpoch();
-        uint256 endEpoch = campaign.endEpoch == 0 ? currentEpoch : campaign.endEpoch;
-        if (endEpoch > currentEpoch) endEpoch = currentEpoch;
+        uint256 endEpoch = _getEffectiveEndEpoch(campaign, currentEpoch);
 
-        // Accumulate rewards for all eligible epochs
-        for (uint256 epoch = campaign.startEpoch; epoch <= endEpoch;) {
+        // Start from where we left off processing
+        uint256 startFrom = _getNextUnprocessedEpoch(campaign);
+
+        // Only calculate epochs not yet processed
+        for (uint256 epoch = startFrom; epoch <= endEpoch;) {
             // For current epoch, we don't need snapshot; for past epochs we do
             bool isEligible = (epoch == currentEpoch) || snapshotter.isEpochSnapshotted(epoch);
 
             // Only add if eligible and has distribution
             if (isEligible && campaign.epochDistributions[epoch] > 0) {
-                totalClaimable += _getEpochClaimableAmount(_campaignId, _account, epoch);
+                totalClaimable += _getEpochClaimableAmount(campaign, _account, epoch);
             }
 
             unchecked {
@@ -139,7 +156,7 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
 
     /// @notice Internal function to calculate claimable amount for an epoch without checking claim status
     function _getEpochClaimableAmount(
-        uint256 _campaignId,
+        GaugeDistributionCampaign storage campaign,
         address _gauge,
         uint256 _epochId
     )
@@ -147,13 +164,8 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
         view
         returns (uint256)
     {
-        GaugeDistributionCampaign storage campaign = campaigns[_campaignId];
-
         // Validate epoch is within campaign bounds
-        if (_epochId < campaign.startEpoch) {
-            return 0;
-        }
-        if (campaign.endEpoch > 0 && _epochId > campaign.endEpoch) {
+        if (!_isEpochInCampaign(campaign, _epochId)) {
             return 0;
         }
 
@@ -206,8 +218,7 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
         if (campaign.startEpoch == 0) return false;
 
         // Check epoch bounds
-        if (_epochId < campaign.startEpoch) return false;
-        if (campaign.endEpoch > 0 && _epochId > campaign.endEpoch) return false;
+        if (!_isEpochInCampaign(campaign, _epochId)) return false;
 
         // Check if has distribution
         if (campaign.epochDistributions[_epochId] == 0) return false;
@@ -237,7 +248,192 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
         returns (uint256)
     {
         if (!isEpochClaimable(_campaignId, _epochId)) return 0;
-        return _getEpochClaimableAmount(_campaignId, _gauge, _epochId);
+        return _getEpochClaimableAmount(campaigns[_campaignId], _gauge, _epochId);
+    }
+
+    // =========================================================================
+    // Internal ClaimableSum Functions
+    // =========================================================================
+
+    /// @notice Calculate a gauge's share for a specific epoch
+    /// @param _campaign Campaign storage reference
+    /// @param _gauge Gauge address
+    /// @param _epochId Epoch to calculate for
+    /// @return The gauge's share of the distribution for this epoch
+    function _calculateGaugeShare(
+        GaugeDistributionCampaign storage _campaign,
+        address _gauge,
+        uint256 _epochId
+    )
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 distribution = _campaign.epochDistributions[_epochId];
+        uint256 gaugeVotes = snapshotter.getGaugeVotes(_epochId, _gauge);
+        uint256 totalVotes = snapshotter.getTotalVotingPowerCast(_epochId);
+
+        if (totalVotes == 0) return 0;
+        return (gaugeVotes * distribution) / totalVotes;
+    }
+
+    /// @notice Sum epochs distributions per gauge up to a specific epoch
+    /// @param _campaign Campaign object
+    function _processEpochs(GaugeDistributionCampaign storage _campaign) internal {
+        address[] memory gauges = gaugeVoter.getAllGauges();
+
+        uint256 startFrom = _getNextUnprocessedEpoch(_campaign);
+        uint256 endAt = _getEffectiveEndEpoch(_campaign, _getCurrentEpoch());
+
+        // Only process up to current epoch - 1 (completed epochs only)
+        uint256 currentEpoch = _getCurrentEpoch();
+        if (endAt >= currentEpoch) {
+            endAt = currentEpoch - 1;
+        }
+
+        uint256 lastProcessed = _campaign.lastProcessedEpoch;
+
+        // Process all epochs from last processed to current epoch (or endAt)
+        for (uint256 epoch = startFrom; epoch <= endAt;) {
+            if (_campaign.epochDistributions[epoch] > 0 && snapshotter.isEpochSnapshotted(epoch)) {
+                // Process this epoch for all gauges
+                for (uint256 i = 0; i < gauges.length;) {
+                    address gauge = gauges[i];
+                    _campaign.claimableSum[gauge] += _calculateGaugeShare(_campaign, gauge, epoch);
+
+                    unchecked {
+                        ++i;
+                    }
+                }
+                // Update lastProcessed only if we actually processed this epoch
+                lastProcessed = epoch;
+            }
+
+            unchecked {
+                ++epoch;
+            }
+        }
+
+        // Only update if we processed any epochs
+        if (lastProcessed > _campaign.lastProcessedEpoch) {
+            _campaign.lastProcessedEpoch = lastProcessed;
+        }
+    }
+
+    /// @notice Recalculate claimableSum for an epoch when distribution changes
+    /// @param _campaign Campaign storage reference
+    /// @param _epochId The epoch being updated
+    /// @param _oldDistribution The previous distribution amount
+    /// @param _newDistribution The new distribution amount
+    function _recalculateSum(
+        GaugeDistributionCampaign storage _campaign,
+        uint256 _epochId,
+        uint256 _oldDistribution,
+        uint256 _newDistribution
+    )
+        internal
+    {
+        // Only update if this epoch is within the processed range
+        address[] memory gauges = gaugeVoter.getAllGauges();
+
+        for (uint256 i = 0; i < gauges.length;) {
+            address gauge = gauges[i];
+            uint256 gaugeVotes = snapshotter.getGaugeVotes(_epochId, gauge);
+            uint256 totalVotes = snapshotter.getTotalVotingPowerCast(_epochId);
+
+            if (totalVotes > 0) {
+                uint256 oldAmount = (gaugeVotes * _oldDistribution) / totalVotes;
+                uint256 newAmount = (gaugeVotes * _newDistribution) / totalVotes;
+
+                // Update claimableSum with the difference
+                _campaign.claimableSum[gauge] = _campaign.claimableSum[gauge] - oldAmount + newAmount;
+            }
+
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // =========================================================================
+    // Validation Helper Functions
+    // =========================================================================
+
+    /// @notice Validates that a campaign exists
+    /// @param _campaignId Campaign identifier
+    function _validateCampaignExists(uint256 _campaignId) internal view {
+        if (campaigns[_campaignId].startEpoch == 0) {
+            revert CampaignNotFound(_campaignId);
+        }
+    }
+
+    /// @notice Checks if an epoch is within campaign bounds
+    /// @param _campaign Campaign storage reference
+    /// @param _epochId Epoch to check
+    /// @return True if epoch is within campaign bounds
+    function _isEpochInCampaign(
+        GaugeDistributionCampaign storage _campaign,
+        uint256 _epochId
+    )
+        internal
+        view
+        returns (bool)
+    {
+        if (_epochId < _campaign.startEpoch) {
+            return false;
+        }
+        if (_campaign.endEpoch > 0 && _epochId > _campaign.endEpoch) {
+            return false;
+        }
+        return true;
+    }
+
+    /// @notice Validates epoch is within campaign bounds, reverts if not
+    /// @param _campaign Campaign storage reference
+    /// @param _epochId Epoch to validate
+    function _validateEpochInCampaign(GaugeDistributionCampaign storage _campaign, uint256 _epochId) internal view {
+        if (_epochId < _campaign.startEpoch) {
+            revert EpochNotInCampaign(_epochId, _campaign.startEpoch, _campaign.endEpoch);
+        }
+        if (_campaign.endEpoch > 0 && _epochId > _campaign.endEpoch) {
+            revert EpochNotInCampaign(_epochId, _campaign.startEpoch, _campaign.endEpoch);
+        }
+    }
+
+    /// @notice Validates that a past epoch has a snapshot
+    /// @param _epochId Epoch to validate
+    /// @param _currentEpoch Current epoch
+    function _validatePastEpochHasSnapshot(uint256 _epochId, uint256 _currentEpoch) internal view {
+        if (_epochId < _currentEpoch && !snapshotter.isEpochSnapshotted(_epochId)) {
+            revert EpochNotSnapshotted(_epochId);
+        }
+    }
+
+    // =========================================================================
+    // Utility Functions
+    // =========================================================================
+
+    /// @notice Gets the next unprocessed epoch for accumulation
+    /// @param _campaign Campaign storage reference
+    /// @return The epoch to start processing from
+    function _getNextUnprocessedEpoch(GaugeDistributionCampaign storage _campaign) internal view returns (uint256) {
+        return _campaign.lastProcessedEpoch > 0 ? _campaign.lastProcessedEpoch + 1 : _campaign.startEpoch;
+    }
+
+    /// @notice Gets the effective end epoch for a campaign
+    /// @param _campaign Campaign storage reference
+    /// @param _currentEpoch Current epoch
+    /// @return The effective end epoch (considering continuous campaigns)
+    function _getEffectiveEndEpoch(
+        GaugeDistributionCampaign storage _campaign,
+        uint256 _currentEpoch
+    )
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 endEpoch = _campaign.endEpoch == 0 ? _currentEpoch : _campaign.endEpoch;
+        return endEpoch > _currentEpoch ? _currentEpoch : endEpoch;
     }
 
     // =========================================================================
@@ -246,11 +442,7 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
 
     /// @inheritdoc IAllocatorStrategy
     /// @dev Creates a multi-epoch campaign with start and end epochs
-    function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) public override {
-        if (msg.sender != owner() && msg.sender != address(dao())) {
-            revert IAllocatorStrategy.OnlyDAOAllowed(msg.sender);
-        }
-
+    function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) public override onlyAuthorized {
         // Campaign shouldn't already exist
         if (campaigns[_campaignId].startEpoch != 0) {
             revert CampaignAlreadyExists(_campaignId);
@@ -275,40 +467,55 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
     /// @param _campaignId Campaign identifier
     /// @param _epochId Epoch to set distribution for
     /// @param _amount Amount to distribute for this epoch
-    function setEpochDistribution(uint256 _campaignId, uint256 _epochId, uint256 _amount) external {
-        if (msg.sender != owner() && msg.sender != address(dao())) {
-            revert IAllocatorStrategy.OnlyDAOAllowed(msg.sender);
-        }
-
-        if (_amount == 0) revert InvalidDistributionAmount();
-
+    function setEpochDistribution(uint256 _campaignId, uint256 _epochId, uint256 _amount) external onlyAuthorized {
         GaugeDistributionCampaign storage campaign = campaigns[_campaignId];
-
-        // Validate campaign exists
-        if (campaign.startEpoch == 0) revert CampaignNotFound(_campaignId);
-
-        // Validate epoch is within campaign bounds
-        if (_epochId < campaign.startEpoch) {
-            revert EpochNotInCampaign(_epochId, campaign.startEpoch, campaign.endEpoch);
-        }
-        if (campaign.endEpoch > 0 && _epochId > campaign.endEpoch) {
-            revert EpochNotInCampaign(_epochId, campaign.startEpoch, campaign.endEpoch);
-        }
-
         uint256 currentEpoch = _getCurrentEpoch();
 
-        // Only past epochs require snapshot
-        if (_epochId < currentEpoch && !snapshotter.isEpochSnapshotted(_epochId)) {
-            revert EpochNotSnapshotted(_epochId);
+        // Validate params
+        {
+            if (_amount == 0) revert InvalidDistributionAmount();
+
+            // Validate campaign exists
+            _validateCampaignExists(_campaignId);
+
+            // Validate epoch is within campaign bounds
+            _validateEpochInCampaign(campaign, _epochId);
+
+            // Validate that if epoch is in the past, it has a snapshot
+            _validatePastEpochHasSnapshot(_epochId, currentEpoch);
         }
+
+        _setEpochDistribution(campaign, _epochId, _amount, currentEpoch);
+    }
+
+    function _setEpochDistribution(
+        GaugeDistributionCampaign storage _campaign,
+        uint256 _epochId,
+        uint256 _amount,
+        uint256 currentEpoch
+    )
+        internal
+    {
+        uint256 epochDistribution = _campaign.epochDistributions[_epochId];
 
         // Prevent lowering distribution amount
-        uint256 currentDistribution = campaign.epochDistributions[_epochId];
-        if (_amount < currentDistribution) {
-            revert CannotLowerDistribution(_epochId, currentDistribution, _amount);
+        if (_amount < epochDistribution) {
+            revert CannotLowerDistribution(_epochId, epochDistribution, _amount);
         }
 
-        campaign.epochDistributions[_epochId] = _amount;
+        // Check if we need to recalculate existing sum up values
+        if (epochDistribution > 0 && _epochId <= _campaign.lastProcessedEpoch) {
+            _recalculateSum(_campaign, _epochId, epochDistribution, _amount);
+        }
+
+        // Update the distribution
+        _campaign.epochDistributions[_epochId] = _amount;
+
+        // Only process if this is a new high water mark
+        if (_epochId < currentEpoch) {
+            // Process sum for last epochs
+            _processEpochs(_campaign);
+        }
     }
 
     /// @notice Sets distribution amounts for multiple epochs
@@ -321,50 +528,30 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
         uint256[] calldata _amounts
     )
         external
+        onlyAuthorized
     {
-        if (msg.sender != owner() && msg.sender != address(dao())) {
-            revert IAllocatorStrategy.OnlyDAOAllowed(msg.sender);
-        }
-
         if (_epochIds.length != _amounts.length) revert("Length mismatch");
 
         GaugeDistributionCampaign storage campaign = campaigns[_campaignId];
-
-        // Validate campaign exists
-        if (campaign.startEpoch == 0) revert CampaignNotFound(_campaignId);
-
         uint256 currentEpoch = _getCurrentEpoch();
 
-        for (uint256 i = 0; i < _epochIds.length;) {
+        // Validate campaign exists once
+        _validateCampaignExists(_campaignId);
+
+        for (uint256 i = 0; i < _epochIds.length; i++) {
             uint256 epochId = _epochIds[i];
             uint256 amount = _amounts[i];
 
             if (amount == 0) revert InvalidDistributionAmount();
 
             // Validate epoch is within campaign bounds
-            if (epochId < campaign.startEpoch) {
-                revert EpochNotInCampaign(epochId, campaign.startEpoch, campaign.endEpoch);
-            }
-            if (campaign.endEpoch > 0 && epochId > campaign.endEpoch) {
-                revert EpochNotInCampaign(epochId, campaign.startEpoch, campaign.endEpoch);
-            }
+            _validateEpochInCampaign(campaign, epochId);
 
-            // Only past epochs require snapshot
-            if (epochId < currentEpoch && !snapshotter.isEpochSnapshotted(epochId)) {
-                revert EpochNotSnapshotted(epochId);
-            }
+            // Validate that if epoch is in the past, it has a snapshot
+            _validatePastEpochHasSnapshot(epochId, currentEpoch);
 
-            // Prevent lowering distribution amount
-            uint256 currentDistribution = campaign.epochDistributions[epochId];
-            if (amount < currentDistribution) {
-                revert CannotLowerDistribution(epochId, currentDistribution, amount);
-            }
-
-            campaign.epochDistributions[epochId] = amount;
-
-            unchecked {
-                ++i;
-            }
+            // Set the distribution
+            _setEpochDistribution(campaign, epochId, amount, currentEpoch);
         }
     }
 
