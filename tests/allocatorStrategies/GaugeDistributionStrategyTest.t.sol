@@ -90,15 +90,9 @@ contract GaugeDistributionStrategyTest is AragonTest {
         campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                STRATEGY_TYPE_ID,
-                allocatorDeploymentParams,
-                allocationCampaignAuxData
+                STRATEGY_TYPE_ID, allocatorDeploymentParams, allocationCampaignAuxData
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(
                 true, // Allow multiple claims
                 0, // No start time restriction
@@ -150,15 +144,9 @@ contract GaugeDistributionStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                STRATEGY_TYPE_ID,
-                allocatorDeploymentParams,
-                allocationCampaignAuxData
+                STRATEGY_TYPE_ID, allocatorDeploymentParams, allocationCampaignAuxData
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(true, 0, 0)
         );
 
@@ -214,16 +202,8 @@ contract GaugeDistributionStrategyTest is AragonTest {
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
             metadata,
-            CapitalDistributorPlugin.StrategyConfig(
-                STRATEGY_TYPE_ID,
-                allocatorDeploymentParams,
-                invalidAuxData
-            ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.StrategyConfig(STRATEGY_TYPE_ID, allocatorDeploymentParams, invalidAuxData),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(true, 0, 0)
         );
         vm.stopPrank();
