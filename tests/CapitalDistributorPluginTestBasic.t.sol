@@ -36,15 +36,17 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("mock-strategy"),
-            allocatorDeploymentParams,
-            metadata, // Doesn't have to be metadata, just empty bytes
-            IERC20(token),
-            bytes32(0),
-            metadata, // Doesn't have to be metadata, just empty bytes
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("mock-strategy"),
+                allocatorDeploymentParams,
+                metadata // Doesn't have to be metadata, just empty bytes
+            ),
+            CapitalDistributorPlugin.PayoutConfig(
+                IERC20(token),
+                bytes32(0),
+                metadata // Doesn't have to be metadata, just empty bytes
+            ),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
@@ -61,15 +63,17 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("mock-strategy"),
-            allocatorDeploymentParams,
-            metadata, // Doesn't have to be metadata, just empty bytes
-            IERC20(token),
-            bytes32(0),
-            metadata, // Doesn't have to be metadata, just empty bytes
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("mock-strategy"),
+                allocatorDeploymentParams,
+                metadata // Doesn't have to be metadata, just empty bytes
+            ),
+            CapitalDistributorPlugin.PayoutConfig(
+                IERC20(token),
+                bytes32(0),
+                metadata // Doesn't have to be metadata, just empty bytes
+            ),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
     }
 
@@ -81,15 +85,17 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("mock-strategy"),
-            allocatorDeploymentParams,
-            metadata, // Doesn't have to be metadata, just empty bytes
-            IERC20(token),
-            bytes32(0),
-            metadata, // Doesn't have to be metadata, just empty bytes
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("mock-strategy"),
+                allocatorDeploymentParams,
+                metadata // Doesn't have to be metadata, just empty bytes
+            ),
+            CapitalDistributorPlugin.PayoutConfig(
+                IERC20(token),
+                bytes32(0),
+                metadata // Doesn't have to be metadata, just empty bytes
+            ),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         assertEq(token.balanceOf(address(createdDAO)), 1 ether, "DAO doesn't have funds");
@@ -109,15 +115,17 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("mock-strategy"),
-            allocatorDeploymentParams,
-            metadata, // Doesn't have to be metadata, just empty bytes
-            IERC20(token),
-            toBytes32("vault-deposit-encoder"),
-            abi.encode(address(vaultToSendTokens)),
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("mock-strategy"),
+                allocatorDeploymentParams,
+                metadata // Doesn't have to be metadata, just empty bytes
+            ),
+            CapitalDistributorPlugin.PayoutConfig(
+                IERC20(token),
+                toBytes32("vault-deposit-encoder"),
+                abi.encode(address(vaultToSendTokens))
+            ),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         assertEq(token.balanceOf(address(createdDAO)), 1 ether, "DAO doesn't have funds");
