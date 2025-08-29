@@ -5,7 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 
 import { AragonTest } from "../helpers/AragonTest.sol";
-import { GaugeVoterAllocatorStrategy } from "../../src/allocatorStrategies/GaugeVoterAllocatorStrategy.sol";
+import { GaugeDistributionStrategy } from "../../src/allocatorStrategies/GaugeDistributionStrategy.sol";
 import { MockAddressGaugeVoter } from "../mocks/MockAddressGaugeVoter.sol";
 import { MintableERC20 } from "../mocks/MintableERC20.sol";
 import { IAllocatorStrategy } from "../../src/interfaces/IAllocatorStrategy.sol";
@@ -13,19 +13,19 @@ import { IAddressGaugeVoter } from "../../src/interfaces/helpers/IAddressGaugeVo
 import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
-/// @title GaugeVoterAllocatorStrategyTest
-/// @notice Test suite for GaugeVoterAllocatorStrategy contract (gauge-based distribution)
-contract GaugeVoterAllocatorStrategyTest is AragonTest {
+/// @title GaugeDistributionStrategyTest
+/// @notice Test suite for GaugeDistributionStrategy contract (gauge-based distribution)
+contract GaugeDistributionStrategyTest is AragonTest {
     // =========================================================================
     // State Variables
     // =========================================================================
 
     CapitalDistributorPlugin capitalDistributorPlugin;
-    GaugeVoterAllocatorStrategy public strategy;
+    GaugeDistributionStrategy public strategy;
     MockAddressGaugeVoter public mockGaugeVoter;
     MintableERC20 public token;
 
-    bytes32 public constant STRATEGY_TYPE_ID = keccak256("GaugeVoterAllocatorStrategy");
+    bytes32 public constant STRATEGY_TYPE_ID = keccak256("GaugeDistributionStrategy");
     uint256 public constant DEFAULT_CAMPAIGN_ID = 1;
     uint256 public constant DEFAULT_DISTRIBUTION_AMOUNT = 1000 ether;
     uint256 public constant DEFAULT_EPOCH = 1;
@@ -55,10 +55,11 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         mockGaugeVoter.setVotingActive(false); // Start in distribution period
 
         // Deploy strategy implementation and register with factory
-        strategy = new GaugeVoterAllocatorStrategy();
+
+        strategy = new GaugeDistributionStrategy();
         vm.startPrank(address(createdDAO));
         allocatorStrategyFactory.registerStrategyType(
-            STRATEGY_TYPE_ID, address(strategy), "GaugeVoterAllocatorStrategy", address(0), 0
+            STRATEGY_TYPE_ID, address(strategy), "GaugeDistributionStrategy", address(0), 0
         );
         vm.stopPrank();
 
@@ -94,15 +95,9 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                STRATEGY_TYPE_ID,
-                allocatorDeploymentParams,
-                allocationCampaignAuxData
+                STRATEGY_TYPE_ID, allocatorDeploymentParams, allocationCampaignAuxData
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -155,10 +150,10 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     function getDeployedStrategy(uint256 _campaignId)
         internal
         view
-        returns (GaugeVoterAllocatorStrategy deployedStrategy)
+        returns (GaugeDistributionStrategy deployedStrategy)
     {
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(_campaignId);
-        return GaugeVoterAllocatorStrategy(address(campaign.allocationStrategy));
+        return GaugeDistributionStrategy(address(campaign.allocationStrategy));
     }
 
     // =========================================================================
@@ -175,15 +170,9 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                STRATEGY_TYPE_ID,
-                allocatorDeploymentParams,
-                allocationCampaignAuxData
+                STRATEGY_TYPE_ID, allocatorDeploymentParams, allocationCampaignAuxData
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -205,7 +194,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         uint256 campaignId = createTestCampaign();
 
         // Get the deployed strategy instance
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Verify campaign was created in the deployed strategy
         (uint256 epochId, uint256 distributionAmount) = deployedStrategy.campaigns(campaignId);
@@ -227,7 +216,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         uint256 expectedAmount = (300 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000; // 30% of distribution
 
         // Get the deployed strategy instance
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Check claimable amount for gauge
         uint256 claimableAmount = deployedStrategy.getClaimeableAmount(campaignId, alice, "");
@@ -241,7 +230,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     function testGetEncodingTypes() public {
         // Create a campaign to deploy the strategy
         uint256 campaignId = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         assertEq(
             deployedStrategy.getInitializationEncodingTypes(), "address", "Initialization encoding types incorrect"
@@ -280,7 +269,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     /// @notice Test proportional allocation calculation with various scenarios
     function testProportionalAllocation() public {
         uint256 campaignId = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Test scenario 1: Equal voting power
         uint256[] memory gaugeVotes = new uint256[](2);
@@ -309,7 +298,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     /// @notice Test gauge with zero votes gets zero allocation
     function testZeroVotingPower() public {
         uint256 campaignId = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup: Gauge alice has votes, gauge bob has none
         uint256[] memory gaugeVotes = new uint256[](2);
@@ -331,7 +320,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     /// @notice Test handling of zero total voting power
     function testZeroTotalVotingPower() public {
         uint256 campaignId = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup: No one has voted (total voting power is 0)
         uint256[] memory gaugeVotes = new uint256[](2);
@@ -353,7 +342,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     /// @notice Test multiple gauges receiving from same campaign
     function testMultipleUsers() public {
         uint256 campaignId = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup: Four gauges with different vote counts
         uint256[] memory gaugeVotes = new uint256[](4);
@@ -387,7 +376,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     /// @notice Test gauges with different vote counts
     function testPartialVotingPower() public {
         uint256 campaignId = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup: Gauges received different amounts of votes
         uint256[] memory gaugeVotes = new uint256[](3);
@@ -414,7 +403,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     /// @notice Test isGaugeEligible function validation
     function testEligibilityChecks() public {
         uint256 campaignId = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup voting scenario for gauges
         uint256[] memory gaugeVotes = new uint256[](2);
@@ -429,9 +418,12 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         // Test eligibility when voting is active (should be false)
         mockGaugeVoter.setVotingActive(true);
         assertFalse(
-            deployedStrategy.isGaugeEligible(campaignId, alice), "Gauge alice should not be eligible during active voting"
+            deployedStrategy.isGaugeEligible(campaignId, alice),
+            "Gauge alice should not be eligible during active voting"
         );
-        assertFalse(deployedStrategy.isGaugeEligible(campaignId, bob), "Gauge bob should not be eligible during active voting");
+        assertFalse(
+            deployedStrategy.isGaugeEligible(campaignId, bob), "Gauge bob should not be eligible during active voting"
+        );
 
         // Test eligibility when epoch changes (should be false)
         mockGaugeVoter.setVotingActive(false);
@@ -439,7 +431,9 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         assertFalse(
             deployedStrategy.isGaugeEligible(campaignId, alice), "Gauge alice should not be eligible in different epoch"
         );
-        assertFalse(deployedStrategy.isGaugeEligible(campaignId, bob), "Gauge bob should not be eligible in different epoch");
+        assertFalse(
+            deployedStrategy.isGaugeEligible(campaignId, bob), "Gauge bob should not be eligible in different epoch"
+        );
 
         // Test eligibility for non-existent campaign
         assertFalse(deployedStrategy.isGaugeEligible(999, alice), "Should not be eligible for non-existent campaign");
@@ -453,7 +447,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     function testEpochValidation() public {
         // Create campaign in epoch 1
         uint256 campaignId = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup voting scenario
         uint256[] memory gaugeVotes = new uint256[](1);
@@ -470,7 +464,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         mockGaugeVoter.setEpoch(2);
         vm.expectRevert(
             abi.encodeWithSelector(
-                GaugeVoterAllocatorStrategy.EpochMismatch.selector,
+                GaugeDistributionStrategy.EpochMismatch.selector,
                 DEFAULT_EPOCH, // Campaign epoch
                 2 // Current epoch
             )
@@ -481,7 +475,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     /// @notice Test claims are blocked during active voting periods
     function testVotingActiveRestriction() public {
         uint256 campaignId = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup voting scenario
         uint256[] memory gaugeVotes = new uint256[](1);
@@ -498,7 +492,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
 
         // Activate voting and verify claim fails
         mockGaugeVoter.setVotingActive(true);
-        expectStrategyError(GaugeVoterAllocatorStrategy.VotingCurrentlyActive.selector);
+        expectStrategyError(GaugeDistributionStrategy.VotingCurrentlyActive.selector);
         deployedStrategy.getClaimeableAmount(campaignId, alice, "");
     }
 
@@ -506,7 +500,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     function testCampaignExistence() public {
         // Create a campaign first to get deployed strategy instance
         uint256 campaignId = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup voting scenario (doesn't matter for this test)
         uint256[] memory gaugeVotes = new uint256[](1);
@@ -514,7 +508,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         setupGaugeVotingScenario(1000, gaugeVotes);
 
         // Try to get claimable amount for non-existent campaign
-        vm.expectRevert(abi.encodeWithSelector(GaugeVoterAllocatorStrategy.CampaignNotFound.selector, 999));
+        vm.expectRevert(abi.encodeWithSelector(GaugeDistributionStrategy.CampaignNotFound.selector, 999));
         deployedStrategy.getClaimeableAmount(999, alice, "");
 
         // Verify eligibility check also handles non-existent campaigns
@@ -531,7 +525,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         emit AllocationCampaignCreated(address(capitalDistributorPlugin), 0);
 
         uint256 campaignId1 = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy1 = getDeployedStrategy(campaignId1);
+        GaugeDistributionStrategy deployedStrategy1 = getDeployedStrategy(campaignId1);
 
         // Verify campaign was created
         (uint256 epochId, uint256 distributionAmount) = deployedStrategy1.campaigns(campaignId1);
@@ -546,7 +540,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         emit AllocationCampaignCreated(address(capitalDistributorPlugin), 1);
 
         uint256 campaignId2 = createTestCampaign(2, 2000 ether);
-        GaugeVoterAllocatorStrategy deployedStrategy2 = getDeployedStrategy(campaignId2);
+        GaugeDistributionStrategy deployedStrategy2 = getDeployedStrategy(campaignId2);
 
         // Verify second campaign was created
         (epochId, distributionAmount) = deployedStrategy2.campaigns(campaignId2);
@@ -557,7 +551,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     /// @notice Test behavior when epoch changes after campaign creation
     function testEpochTransition() public {
         uint256 campaignId = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup voting scenario in epoch 1
         uint256[] memory gaugeVotes = new uint256[](1);
@@ -574,7 +568,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         // Verify claims fail due to epoch mismatch
         vm.expectRevert(
             abi.encodeWithSelector(
-                GaugeVoterAllocatorStrategy.EpochMismatch.selector,
+                GaugeDistributionStrategy.EpochMismatch.selector,
                 DEFAULT_EPOCH, // Campaign epoch
                 2 // Current epoch
             )
@@ -588,7 +582,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     /// @notice Test claims work when voting transitions from active to inactive
     function testVotingPeriodTransition() public {
         uint256 campaignId = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup voting scenario
         uint256[] memory gaugeVotes = new uint256[](1);
@@ -597,7 +591,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
 
         // Start with active voting - claims should fail
         mockGaugeVoter.setVotingActive(true);
-        expectStrategyError(GaugeVoterAllocatorStrategy.VotingCurrentlyActive.selector);
+        expectStrategyError(GaugeDistributionStrategy.VotingCurrentlyActive.selector);
         deployedStrategy.getClaimeableAmount(campaignId, alice, "");
 
         // Transition to inactive voting - claims should work
@@ -619,7 +613,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     /// @notice Test cannot recreate existing campaigns
     function testCampaignReuse() public {
         uint256 campaignId = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Verify campaign was created successfully
         (uint256 epochId, uint256 distributionAmount) = deployedStrategy.campaigns(campaignId);
@@ -635,9 +629,9 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         uint256 campaignId3 = createTestCampaign(3, 3000 ether);
 
         // Get deployed strategy instances
-        GaugeVoterAllocatorStrategy deployedStrategy1 = getDeployedStrategy(campaignId1);
-        GaugeVoterAllocatorStrategy deployedStrategy2 = getDeployedStrategy(campaignId2);
-        GaugeVoterAllocatorStrategy deployedStrategy3 = getDeployedStrategy(campaignId3);
+        GaugeDistributionStrategy deployedStrategy1 = getDeployedStrategy(campaignId1);
+        GaugeDistributionStrategy deployedStrategy2 = getDeployedStrategy(campaignId2);
+        GaugeDistributionStrategy deployedStrategy3 = getDeployedStrategy(campaignId3);
 
         // Setup voting scenario
         uint256[] memory gaugeVotes = new uint256[](1);
@@ -698,15 +692,9 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                STRATEGY_TYPE_ID,
-                allocatorDeploymentParams,
-                allocationCampaignAuxData
+                STRATEGY_TYPE_ID, allocatorDeploymentParams, allocationCampaignAuxData
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
@@ -716,7 +704,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     function testUnauthorizedCampaignCreation() public {
         // First create a campaign to get deployed strategy instance
         uint256 campaignId = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Try to create campaign as non-DAO user (alice) - should fail with OnlyDAOAllowed
         vm.prank(alice);
@@ -734,7 +722,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     function testEpochMismatch() public {
         // Create campaign in epoch 1
         uint256 campaignId = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup voting scenario
         uint256[] memory gaugeVotes = new uint256[](1);
@@ -750,7 +738,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         // Test getClaimeableAmount error
         vm.expectRevert(
             abi.encodeWithSelector(
-                GaugeVoterAllocatorStrategy.EpochMismatch.selector,
+                GaugeDistributionStrategy.EpochMismatch.selector,
                 DEFAULT_EPOCH, // Campaign epoch
                 2 // Current epoch
             )
@@ -764,7 +752,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     /// @notice Test claims during active voting (VotingCurrentlyActive error)
     function testVotingCurrentlyActive() public {
         uint256 campaignId = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(campaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
         // Setup voting scenario with inactive voting
         uint256[] memory gaugeVotes = new uint256[](1);
@@ -779,7 +767,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
         mockGaugeVoter.setVotingActive(true);
 
         // Test getClaimeableAmount error
-        expectStrategyError(GaugeVoterAllocatorStrategy.VotingCurrentlyActive.selector);
+        expectStrategyError(GaugeDistributionStrategy.VotingCurrentlyActive.selector);
         deployedStrategy.getClaimeableAmount(campaignId, alice, "");
 
         // Test isGaugeEligible returns false (no error thrown)
@@ -790,7 +778,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
     function testCampaignNotFound() public {
         // Create one campaign first to get a deployed strategy instance
         uint256 existingCampaignId = createTestCampaign();
-        GaugeVoterAllocatorStrategy deployedStrategy = getDeployedStrategy(existingCampaignId);
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(existingCampaignId);
 
         // Setup voting scenario (shouldn't matter for this test)
         uint256[] memory gaugeVotes = new uint256[](1);
@@ -801,7 +789,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
 
         // Test getClaimeableAmount with non-existent campaign
         vm.expectRevert(
-            abi.encodeWithSelector(GaugeVoterAllocatorStrategy.CampaignNotFound.selector, nonExistentCampaignId)
+            abi.encodeWithSelector(GaugeDistributionStrategy.CampaignNotFound.selector, nonExistentCampaignId)
         );
         deployedStrategy.getClaimeableAmount(nonExistentCampaignId, alice, "");
 
@@ -818,7 +806,7 @@ contract GaugeVoterAllocatorStrategyTest is AragonTest {
 
         // Create another campaign and verify it now works
         uint256 newCampaignId = createTestCampaign(nonExistentCampaignId, 500 ether);
-        GaugeVoterAllocatorStrategy newDeployedStrategy = getDeployedStrategy(newCampaignId);
+        GaugeDistributionStrategy newDeployedStrategy = getDeployedStrategy(newCampaignId);
         uint256 expectedAmount = (500 * 500 ether) / 1000; // 50% of 500 ether
         assertEq(
             newDeployedStrategy.getClaimeableAmount(newCampaignId, alice, ""),

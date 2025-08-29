@@ -64,7 +64,7 @@ recipients.
 **Available Strategies:**
 
 - **MerkleDistributorStrategy**: Uses Merkle trees for efficient large-scale distributions (airdrops)
-- **GaugeVoterAllocatorStrategy**: Allocates based on gauge voting weights (incentive programs)
+- **GaugeDistributionStrategy**: Allocates based on gauge voting weights (incentive programs)
 
 #### ActionEncoderFactory
 

@@ -6,11 +6,11 @@ import { AllocatorStrategyBase } from "./AllocatorStrategyBase.sol";
 import { IAddressGaugeVoter } from "../interfaces/helpers/IAddressGaugeVoter.sol";
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 
-/// @title GaugeVoterAllocatorStrategy
+/// @title GaugeDistributionStrategy
 /// @notice Allocator strategy that distributes tokens proportionally to gauges based on the votes they received
 /// in Aragon OSx Gauge voting plugin
 /// @dev Gauges receive allocations based on how many votes they received relative to the total votes cast
-contract GaugeVoterAllocatorStrategy is AllocatorStrategyBase {
+contract GaugeDistributionStrategy is AllocatorStrategyBase {
     // =========================================================================
     // Errors
     // =========================================================================

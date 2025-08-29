@@ -1,4 +1,4 @@
-# Contract: GaugeVoterAllocatorStrategy
+# Contract: GaugeDistributionStrategy
 
 ## Purpose
 
