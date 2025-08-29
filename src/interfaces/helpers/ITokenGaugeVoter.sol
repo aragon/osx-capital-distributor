@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import "./IGaugeVoter.sol";
+import { IGauge, IGaugeManager, IGaugeManagerEvents, IGaugeManagerErrors } from "./IGaugeVoter.sol";
 
 interface ITokenGaugeVote {
     /// @param votes gauge => votes cast at that time

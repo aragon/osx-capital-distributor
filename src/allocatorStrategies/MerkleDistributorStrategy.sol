@@ -38,7 +38,6 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     /// @notice Thrown when the merkle proof verification fails
     error InvalidMerkleProof(uint256 campaignId, address account);
 
-
     /// @notice Thrown when no campaign exists for the given campaign ID
     error CampaignNotFound(uint256 campaignId);
 
