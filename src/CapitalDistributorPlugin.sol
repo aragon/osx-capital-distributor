@@ -285,21 +285,15 @@ contract CapitalDistributorPlugin is
         Campaign storage campaign = campaigns[id];
 
         // Deploy and setup allocation strategy
-        address strategyAddress = allocatorStrategyFactory.getOrDeployStrategy(
-            _strategy.strategyId, 
-            dao(), 
-            _strategy.strategyParams
-        );
+        address strategyAddress =
+            allocatorStrategyFactory.getOrDeployStrategy(_strategy.strategyId, dao(), _strategy.strategyParams);
         if (strategyAddress == address(0)) {
             revert FactoryDeploymentFailed("AllocatorStrategy");
         }
 
         campaign.allocationStrategy = IAllocatorStrategy(strategyAddress);
 
-        try IAllocatorStrategy(strategyAddress).setAllocationCampaign(
-            id, 
-            _strategy.initData
-        ) {
+        try IAllocatorStrategy(strategyAddress).setAllocationCampaign(id, _strategy.initData) {
             // Strategy setup successful
         } catch {
             revert ExternalCallFailed(strategyAddress, "setAllocationCampaign");
@@ -308,9 +302,7 @@ contract CapitalDistributorPlugin is
         // Setup action encoder if provided
         if (_payout.actionEncoderId != bytes32(0)) {
             IPayoutActionEncoder actionEncoder = actionEncoderFactory.getOrDeployActionEncoder(
-                _payout.actionEncoderId, 
-                dao(), 
-                _payout.actionEncoderInitData
+                _payout.actionEncoderId, dao(), _payout.actionEncoderInitData
             );
             campaign.actionEncoder = actionEncoder;
 
@@ -479,7 +471,7 @@ contract CapitalDistributorPlugin is
         }
 
         amountToSend = totalAmountToSend - claimed[_campaignId][_recipient];
-        
+
         // Get fee configuration and calculate
         (address feeRecipient, uint256 feeBasisPoints) = campaign.allocationStrategy.getFeeConfiguration();
         uint256 feeAmount = 0;

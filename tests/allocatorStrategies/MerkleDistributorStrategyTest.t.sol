@@ -159,15 +159,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(merkleRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -186,15 +180,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(merkleRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
     }
@@ -208,15 +196,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(merkleRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
@@ -244,15 +226,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(merkleRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
@@ -283,15 +259,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(merkleRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
@@ -314,15 +284,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(merkleRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
@@ -349,15 +313,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(merkleRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
@@ -392,15 +350,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(scriptRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(scriptRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -419,15 +371,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(scriptRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(scriptRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
@@ -472,15 +418,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(scriptRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(scriptRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
@@ -515,15 +455,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(largeRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(largeRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
@@ -578,15 +512,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(initialRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -632,15 +560,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(initialRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -677,15 +599,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(initialRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -723,15 +639,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(initialRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -805,15 +715,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(validRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(validRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -844,15 +748,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(initialRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -886,15 +784,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(firstRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(firstRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -926,15 +818,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(initialRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -967,15 +853,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(initialRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -1011,15 +891,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(initialRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -1057,15 +931,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(initialRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -1099,15 +967,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(testRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(testRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
@@ -1125,15 +987,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(initialRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -1211,15 +1067,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(merkleRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -1260,15 +1110,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
             CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                allocatorDeploymentParams,
-                abi.encode(merkleRoot)
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
             ),
-            CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                bytes32(0),
-                metadata
-            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();

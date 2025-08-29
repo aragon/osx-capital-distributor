@@ -121,9 +121,7 @@ contract CapitalDistributorPluginTest is AragonTest {
                 metadata // Doesn't have to be metadata, just empty bytes
             ),
             CapitalDistributorPlugin.PayoutConfig(
-                IERC20(token),
-                toBytes32("vault-deposit-encoder"),
-                abi.encode(address(vaultToSendTokens))
+                IERC20(token), toBytes32("vault-deposit-encoder"), abi.encode(address(vaultToSendTokens))
             ),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );

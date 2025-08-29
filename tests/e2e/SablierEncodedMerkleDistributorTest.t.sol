@@ -357,11 +357,7 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
         // Create campaign using script-generated merkle root
         uint256 scriptCampaignId = capitalDistributorPlugin.createCampaign(
             "ipfs://QmScriptGeneratedCampaignMetadata",
-            CapitalDistributorPlugin.StrategyConfig(
-                toBytes32("merkle-strategy"),
-                "",
-                abi.encode(scriptRoot)
-            ),
+            CapitalDistributorPlugin.StrategyConfig(toBytes32("merkle-strategy"), "", abi.encode(scriptRoot)),
             CapitalDistributorPlugin.PayoutConfig(
                 usdc,
                 toBytes32("sablier-linear-encoder"),
