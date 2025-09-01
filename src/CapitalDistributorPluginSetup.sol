@@ -119,7 +119,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
     {
         // Prepare permissions.
         uint256 helperLength = _payload.currentHelpers.length;
-        if (helperLength != 1) {
+        if (helperLength != 0) {
             revert WrongHelpersArrayLength({ length: helperLength });
         }
 
