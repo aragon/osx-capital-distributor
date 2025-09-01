@@ -284,18 +284,20 @@ contract CapitalDistributorPlugin is
         Campaign storage campaign = campaigns[id];
 
         // Deploy and setup allocation strategy
-        address strategyAddress =
-            allocatorStrategyFactory.getOrDeployStrategy(_strategy.strategyId, dao(), _strategy.strategyParams);
-        if (strategyAddress == address(0)) {
-            revert FactoryDeploymentFailed("AllocatorStrategy");
-        }
+        {
+            address strategyAddress =
+                allocatorStrategyFactory.getOrDeployStrategy(_strategy.strategyId, dao(), _strategy.strategyParams);
+            if (strategyAddress == address(0)) {
+                revert FactoryDeploymentFailed("AllocatorStrategy");
+            }
 
-        campaign.allocationStrategy = IAllocatorStrategy(strategyAddress);
+            campaign.allocationStrategy = IAllocatorStrategy(strategyAddress);
 
-        try IAllocatorStrategy(strategyAddress).setAllocationCampaign(id, _strategy.initData) {
-            // Strategy setup successful
-        } catch {
-            revert ExternalCallFailed(strategyAddress, "setAllocationCampaign");
+            try IAllocatorStrategy(strategyAddress).setAllocationCampaign(id, _strategy.initData) {
+                // Strategy setup successful
+            } catch {
+                revert ExternalCallFailed(strategyAddress, "setAllocationCampaign");
+            }
         }
 
         // Setup action encoder if provided
@@ -454,7 +456,7 @@ contract CapitalDistributorPlugin is
 
         uint256 alreadyClaimed = claimed[_campaignId][_recipient];
 
-        // Check if multiple claims are allowed
+        // Check if multiple claims are allowed first (fastest check)
         if (!campaign.multipleClaimsAllowed && alreadyClaimed > 0) {
             revert MultipleClaimsNotAllowed(_campaignId, _recipient);
         }
@@ -471,11 +473,10 @@ contract CapitalDistributorPlugin is
             revert AlreadyClaimedMaxAmount(_campaignId, _recipient, alreadyClaimed, totalAmountToSend);
         }
 
-        amountToSend = totalAmountToSend - alreadyClaimed;
-
         // Get fee configuration and calculate
         (address feeRecipient, uint256 feeBasisPoints) = campaign.allocationStrategy.getFeeConfiguration();
         uint256 feeAmount = 0;
+        amountToSend = totalAmountToSend - alreadyClaimed;
         if (feeBasisPoints > 0 && feeRecipient != address(0)) {
             feeAmount = (amountToSend * feeBasisPoints) / 10_000;
             amountToSend = amountToSend - feeAmount;
