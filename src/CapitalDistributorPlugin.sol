@@ -452,8 +452,10 @@ contract CapitalDistributorPlugin is
     {
         Campaign storage campaign = _validateCampaignClaimEligibility(_campaignId);
 
+        uint256 alreadyClaimed = claimed[_campaignId][_recipient];
+
         // Check if multiple claims are allowed
-        if (!campaign.multipleClaimsAllowed && claimed[_campaignId][_recipient] > 0) {
+        if (!campaign.multipleClaimsAllowed && alreadyClaimed > 0) {
             revert MultipleClaimsNotAllowed(_campaignId, _recipient);
         }
 
@@ -465,11 +467,11 @@ contract CapitalDistributorPlugin is
         }
 
         // Check if already claimed all payout assigned
-        if (claimed[_campaignId][_recipient] >= totalAmountToSend) {
-            revert AlreadyClaimedMaxAmount(_campaignId, _recipient, claimed[_campaignId][_recipient], totalAmountToSend);
+        if (alreadyClaimed >= totalAmountToSend) {
+            revert AlreadyClaimedMaxAmount(_campaignId, _recipient, alreadyClaimed, totalAmountToSend);
         }
 
-        amountToSend = totalAmountToSend - claimed[_campaignId][_recipient];
+        amountToSend = totalAmountToSend - alreadyClaimed;
 
         // Get fee configuration and calculate
         (address feeRecipient, uint256 feeBasisPoints) = campaign.allocationStrategy.getFeeConfiguration();
@@ -519,35 +521,44 @@ contract CapitalDistributorPlugin is
         // Common validation
         Campaign storage campaign = _validateCampaignClaimEligibility(_campaignId);
 
+        // Important: The recipient is always msg.sender
+        // This ensures only the rightful recipient can claim their allocation
+        address recipient = msg.sender;
+
+        uint256 alreadyClaimed = claimed[_campaignId][recipient];
+
         // Check multiple claims allowed
-        if (!campaign.multipleClaimsAllowed && claimed[_campaignId][msg.sender] > 0) {
-            revert MultipleClaimsNotAllowed(_campaignId, msg.sender);
+        if (!campaign.multipleClaimsAllowed && alreadyClaimed > 0) {
+            revert MultipleClaimsNotAllowed(_campaignId, recipient);
         }
 
-        // Get claimable amount for msg.sender
+        // Get claimable amount for msg.sender (not the payout address)
         uint256 totalAmountToSend =
-            campaign.allocationStrategy.getTotalClaimableAmount(_campaignId, msg.sender, _strategyAuxData);
+            campaign.allocationStrategy.getTotalClaimableAmount(_campaignId, recipient, _strategyAuxData);
 
         if (totalAmountToSend == 0) {
-            revert NoClaimableAmount(_campaignId, msg.sender);
+            revert NoClaimableAmount(_campaignId, recipient);
         }
 
-        if (claimed[_campaignId][msg.sender] >= totalAmountToSend) {
-            revert AlreadyClaimedMaxAmount(_campaignId, msg.sender, claimed[_campaignId][msg.sender], totalAmountToSend);
+        if (alreadyClaimed >= totalAmountToSend) {
+            revert AlreadyClaimedMaxAmount(_campaignId, recipient, alreadyClaimed, totalAmountToSend);
         }
-
-        amountToSend = totalAmountToSend - claimed[_campaignId][msg.sender];
 
         // Get fee configuration and calculate
-        (address feeRecipient, uint256 feeBasisPoints) = campaign.allocationStrategy.getFeeConfiguration();
         uint256 feeAmount = 0;
-        if (feeBasisPoints > 0 && feeRecipient != address(0)) {
-            feeAmount = (amountToSend * feeBasisPoints) / 10_000;
-            amountToSend = amountToSend - feeAmount;
+        address feeRecipient;
+        {
+            uint256 feeBasisPoints;
+            (feeRecipient, feeBasisPoints) = campaign.allocationStrategy.getFeeConfiguration();
+            amountToSend = totalAmountToSend - alreadyClaimed;
+            if (feeBasisPoints > 0 && feeRecipient != address(0)) {
+                feeAmount = (amountToSend * feeBasisPoints) / 10_000;
+                amountToSend = amountToSend - feeAmount;
+            }
         }
 
-        // Update claimed amount
-        claimed[_campaignId][msg.sender] = totalAmountToSend;
+        // Update claimed for the actual recipient (msg.sender), not the payout address
+        claimed[_campaignId][recipient] = totalAmountToSend;
 
         // Execute payout using helper - send to specified address
         _executePayout(
@@ -560,7 +571,7 @@ contract CapitalDistributorPlugin is
             _encoderAuxData
         );
 
-        emit PayoutClaimed(_campaignId, msg.sender, amountToSend);
+        emit PayoutClaimed(_campaignId, recipient, amountToSend);
         if (feeAmount > 0) {
             emit FeeCollected(_campaignId, feeRecipient, feeAmount);
         }
