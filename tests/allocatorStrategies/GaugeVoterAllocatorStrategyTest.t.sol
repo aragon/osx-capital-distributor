@@ -214,8 +214,8 @@ contract GaugeDistributionStrategyTest is AragonTest {
         // Get the deployed strategy instance
         GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
 
-        // Check claimable amount for gauge
-        uint256 claimableAmount = deployedStrategy.getClaimeableAmount(campaignId, alice, "");
+        // Check claimable amount
+        uint256 claimableAmount = deployedStrategy.getTotalClaimableAmount(campaignId, alice, "");
         assertEq(claimableAmount, expectedAmount, "Claimable amount calculation incorrect");
 
         // Verify gauge eligibility
@@ -273,8 +273,8 @@ contract GaugeDistributionStrategyTest is AragonTest {
         gaugeVotes[1] = 500; // Bob: 50%
         setupGaugeVotingScenario(1000, gaugeVotes);
 
-        uint256 aliceAmount = deployedStrategy.getClaimeableAmount(campaignId, alice, "");
-        uint256 bobAmount = deployedStrategy.getClaimeableAmount(campaignId, bob, "");
+        uint256 aliceAmount = deployedStrategy.getTotalClaimableAmount(campaignId, alice, "");
+        uint256 bobAmount = deployedStrategy.getTotalClaimableAmount(campaignId, bob, "");
 
         assertProportionalAllocation(500, 1000, DEFAULT_DISTRIBUTION_AMOUNT, aliceAmount);
         assertProportionalAllocation(500, 1000, DEFAULT_DISTRIBUTION_AMOUNT, bobAmount);
@@ -284,8 +284,8 @@ contract GaugeDistributionStrategyTest is AragonTest {
         gaugeVotes[1] = 250; // Bob: 25%
         setupGaugeVotingScenario(1000, gaugeVotes);
 
-        aliceAmount = deployedStrategy.getClaimeableAmount(campaignId, alice, "");
-        bobAmount = deployedStrategy.getClaimeableAmount(campaignId, bob, "");
+        aliceAmount = deployedStrategy.getTotalClaimableAmount(campaignId, alice, "");
+        bobAmount = deployedStrategy.getTotalClaimableAmount(campaignId, bob, "");
 
         assertProportionalAllocation(750, 1000, DEFAULT_DISTRIBUTION_AMOUNT, aliceAmount);
         assertProportionalAllocation(250, 1000, DEFAULT_DISTRIBUTION_AMOUNT, bobAmount);
@@ -302,8 +302,8 @@ contract GaugeDistributionStrategyTest is AragonTest {
         gaugeVotes[1] = 0; // Gauge bob: 0%
         setupGaugeVotingScenario(1000, gaugeVotes);
 
-        uint256 aliceAmount = deployedStrategy.getClaimeableAmount(campaignId, alice, "");
-        uint256 bobAmount = deployedStrategy.getClaimeableAmount(campaignId, bob, "");
+        uint256 aliceAmount = deployedStrategy.getTotalClaimableAmount(campaignId, alice, "");
+        uint256 bobAmount = deployedStrategy.getTotalClaimableAmount(campaignId, bob, "");
 
         assertEq(aliceAmount, DEFAULT_DISTRIBUTION_AMOUNT, "Gauge alice should get full amount");
         assertEq(bobAmount, 0, "Gauge bob should get zero with no votes");
@@ -324,8 +324,8 @@ contract GaugeDistributionStrategyTest is AragonTest {
         gaugeVotes[1] = 0; // Bob: 0
         setupGaugeVotingScenario(0, gaugeVotes); // Total: 0
 
-        uint256 aliceAmount = deployedStrategy.getClaimeableAmount(campaignId, alice, "");
-        uint256 bobAmount = deployedStrategy.getClaimeableAmount(campaignId, bob, "");
+        uint256 aliceAmount = deployedStrategy.getTotalClaimableAmount(campaignId, alice, "");
+        uint256 bobAmount = deployedStrategy.getTotalClaimableAmount(campaignId, bob, "");
 
         assertEq(aliceAmount, 0, "Alice should get zero when total voting power is zero");
         assertEq(bobAmount, 0, "Bob should get zero when total voting power is zero");
@@ -359,7 +359,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
         // Verify all gauges get correct proportional amounts
         uint256 totalClaimed = 0;
         for (uint256 i = 0; i < gauges.length; i++) {
-            uint256 gaugeAmount = deployedStrategy.getClaimeableAmount(campaignId, gauges[i], "");
+            uint256 gaugeAmount = deployedStrategy.getTotalClaimableAmount(campaignId, gauges[i], "");
             assertEq(gaugeAmount, expectedAmounts[i], "Gauge amount calculation incorrect");
             assertTrue(deployedStrategy.isGaugeEligible(campaignId, gauges[i]), "Gauge should be eligible");
             totalClaimed += gaugeAmount;
@@ -381,9 +381,9 @@ contract GaugeDistributionStrategyTest is AragonTest {
         gaugeVotes[2] = 500; // Gauge carol received 500 votes
         setupGaugeVotingScenario(1000, gaugeVotes);
 
-        uint256 aliceAmount = deployedStrategy.getClaimeableAmount(campaignId, alice, "");
-        uint256 bobAmount = deployedStrategy.getClaimeableAmount(campaignId, bob, "");
-        uint256 carolAmount = deployedStrategy.getClaimeableAmount(campaignId, carol, "");
+        uint256 aliceAmount = deployedStrategy.getTotalClaimableAmount(campaignId, alice, "");
+        uint256 bobAmount = deployedStrategy.getTotalClaimableAmount(campaignId, bob, "");
+        uint256 carolAmount = deployedStrategy.getTotalClaimableAmount(campaignId, carol, "");
 
         // Verify proportional allocation based on votes received
         assertProportionalAllocation(150, 1000, DEFAULT_DISTRIBUTION_AMOUNT, aliceAmount);
@@ -453,7 +453,9 @@ contract GaugeDistributionStrategyTest is AragonTest {
         // Verify claim works in correct epoch
         uint256 expectedAmount = (500 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000;
         assertEq(
-            deployedStrategy.getClaimeableAmount(campaignId, alice, ""), expectedAmount, "Should work in correct epoch"
+            deployedStrategy.getTotalClaimableAmount(campaignId, alice, ""),
+            expectedAmount,
+            "Should work in correct epoch"
         );
 
         // Change epoch and verify claim fails
@@ -465,7 +467,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
                 2 // Current epoch
             )
         );
-        deployedStrategy.getClaimeableAmount(campaignId, alice, "");
+        deployedStrategy.getTotalClaimableAmount(campaignId, alice, "");
     }
 
     /// @notice Test claims are blocked during active voting periods
@@ -481,7 +483,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
         // Verify claim works when voting is inactive
         uint256 expectedAmount = (500 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000;
         assertEq(
-            deployedStrategy.getClaimeableAmount(campaignId, alice, ""),
+            deployedStrategy.getTotalClaimableAmount(campaignId, alice, ""),
             expectedAmount,
             "Should work when voting inactive"
         );
@@ -489,7 +491,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
         // Activate voting and verify claim fails
         mockGaugeVoter.setVotingActive(true);
         expectStrategyError(GaugeDistributionStrategy.VotingCurrentlyActive.selector);
-        deployedStrategy.getClaimeableAmount(campaignId, alice, "");
+        deployedStrategy.getTotalClaimableAmount(campaignId, alice, "");
     }
 
     /// @notice Test handling of non-existent campaigns
@@ -505,7 +507,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         // Try to get claimable amount for non-existent campaign
         vm.expectRevert(abi.encodeWithSelector(GaugeDistributionStrategy.CampaignNotFound.selector, 999));
-        deployedStrategy.getClaimeableAmount(999, alice, "");
+        deployedStrategy.getTotalClaimableAmount(999, alice, "");
 
         // Verify eligibility check also handles non-existent campaigns
         assertFalse(deployedStrategy.isGaugeEligible(999, alice), "Should not be eligible for non-existent campaign");
@@ -556,7 +558,9 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         // Verify claim works in epoch 1
         uint256 expectedAmount = (500 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000;
-        assertEq(deployedStrategy.getClaimeableAmount(campaignId, alice, ""), expectedAmount, "Should work in epoch 1");
+        assertEq(
+            deployedStrategy.getTotalClaimableAmount(campaignId, alice, ""), expectedAmount, "Should work in epoch 1"
+        );
 
         // Transition to epoch 2
         mockGaugeVoter.setEpoch(2);
@@ -569,7 +573,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
                 2 // Current epoch
             )
         );
-        deployedStrategy.getClaimeableAmount(campaignId, alice, "");
+        deployedStrategy.getTotalClaimableAmount(campaignId, alice, "");
 
         // Verify eligibility also fails
         assertFalse(deployedStrategy.isGaugeEligible(campaignId, alice), "Should not be eligible in different epoch");
@@ -588,13 +592,13 @@ contract GaugeDistributionStrategyTest is AragonTest {
         // Start with active voting - claims should fail
         mockGaugeVoter.setVotingActive(true);
         expectStrategyError(GaugeDistributionStrategy.VotingCurrentlyActive.selector);
-        deployedStrategy.getClaimeableAmount(campaignId, alice, "");
+        deployedStrategy.getTotalClaimableAmount(campaignId, alice, "");
 
         // Transition to inactive voting - claims should work
         mockGaugeVoter.setVotingActive(false);
         uint256 expectedAmount = (500 * DEFAULT_DISTRIBUTION_AMOUNT) / 1000;
         assertEq(
-            deployedStrategy.getClaimeableAmount(campaignId, alice, ""),
+            deployedStrategy.getTotalClaimableAmount(campaignId, alice, ""),
             expectedAmount,
             "Should work when voting becomes inactive"
         );
@@ -635,9 +639,9 @@ contract GaugeDistributionStrategyTest is AragonTest {
         setupGaugeVotingScenario(1000, gaugeVotes);
 
         // Verify all campaigns work independently with correct amounts
-        uint256 amount1 = deployedStrategy1.getClaimeableAmount(campaignId1, alice, "");
-        uint256 amount2 = deployedStrategy2.getClaimeableAmount(campaignId2, alice, "");
-        uint256 amount3 = deployedStrategy3.getClaimeableAmount(campaignId3, alice, "");
+        uint256 amount1 = deployedStrategy1.getTotalClaimableAmount(campaignId1, alice, "");
+        uint256 amount2 = deployedStrategy2.getTotalClaimableAmount(campaignId2, alice, "");
+        uint256 amount3 = deployedStrategy3.getTotalClaimableAmount(campaignId3, alice, "");
 
         assertEq(amount1, 500 ether, "Campaign 1 should give 50% of 1000"); // 50% of 1000
         assertEq(amount2, 1000 ether, "Campaign 2 should give 50% of 2000"); // 50% of 2000
@@ -652,9 +656,9 @@ contract GaugeDistributionStrategyTest is AragonTest {
         gaugeVotes[0] = 250; // Alice now has 25% voting power
         setupGaugeVotingScenario(1000, gaugeVotes);
 
-        amount1 = deployedStrategy1.getClaimeableAmount(campaignId1, alice, "");
-        amount2 = deployedStrategy2.getClaimeableAmount(campaignId2, alice, "");
-        amount3 = deployedStrategy3.getClaimeableAmount(campaignId3, alice, "");
+        amount1 = deployedStrategy1.getTotalClaimableAmount(campaignId1, alice, "");
+        amount2 = deployedStrategy2.getTotalClaimableAmount(campaignId2, alice, "");
+        amount3 = deployedStrategy3.getTotalClaimableAmount(campaignId3, alice, "");
 
         assertEq(amount1, 250 ether, "Campaign 1 should now give 25% of 1000"); // 25% of 1000
         assertEq(amount2, 500 ether, "Campaign 2 should now give 25% of 2000"); // 25% of 2000
@@ -726,12 +730,12 @@ contract GaugeDistributionStrategyTest is AragonTest {
         setupGaugeVotingScenario(1000, gaugeVotes);
 
         // Verify claim works in correct epoch
-        assertGt(deployedStrategy.getClaimeableAmount(campaignId, alice, ""), 0, "Should work in correct epoch");
+        assertGt(deployedStrategy.getTotalClaimableAmount(campaignId, alice, ""), 0, "Should work in correct epoch");
 
         // Change to epoch 2 and verify specific error
         mockGaugeVoter.setEpoch(2);
 
-        // Test getClaimeableAmount error
+        // Test getTotalClaimableAmount error
         vm.expectRevert(
             abi.encodeWithSelector(
                 GaugeDistributionStrategy.EpochMismatch.selector,
@@ -739,7 +743,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
                 2 // Current epoch
             )
         );
-        deployedStrategy.getClaimeableAmount(campaignId, alice, "");
+        deployedStrategy.getTotalClaimableAmount(campaignId, alice, "");
 
         // Test isGaugeEligible returns false (no error thrown)
         assertFalse(deployedStrategy.isGaugeEligible(campaignId, alice), "Should not be eligible in wrong epoch");
@@ -757,14 +761,14 @@ contract GaugeDistributionStrategyTest is AragonTest {
         mockGaugeVoter.setVotingActive(false);
 
         // Verify claim works when voting inactive
-        assertGt(deployedStrategy.getClaimeableAmount(campaignId, alice, ""), 0, "Should work when voting inactive");
+        assertGt(deployedStrategy.getTotalClaimableAmount(campaignId, alice, ""), 0, "Should work when voting inactive");
 
         // Activate voting and verify specific error
         mockGaugeVoter.setVotingActive(true);
 
-        // Test getClaimeableAmount error
+        // Test getTotalClaimableAmount error
         expectStrategyError(GaugeDistributionStrategy.VotingCurrentlyActive.selector);
-        deployedStrategy.getClaimeableAmount(campaignId, alice, "");
+        deployedStrategy.getTotalClaimableAmount(campaignId, alice, "");
 
         // Test isGaugeEligible returns false (no error thrown)
         assertFalse(deployedStrategy.isGaugeEligible(campaignId, alice), "Should not be eligible during active voting");
@@ -783,11 +787,11 @@ contract GaugeDistributionStrategyTest is AragonTest {
 
         uint256 nonExistentCampaignId = 999;
 
-        // Test getClaimeableAmount with non-existent campaign
+        // Test getTotalClaimableAmount with non-existent campaign
         vm.expectRevert(
             abi.encodeWithSelector(GaugeDistributionStrategy.CampaignNotFound.selector, nonExistentCampaignId)
         );
-        deployedStrategy.getClaimeableAmount(nonExistentCampaignId, alice, "");
+        deployedStrategy.getTotalClaimableAmount(nonExistentCampaignId, alice, "");
 
         // Test isGaugeEligible returns false (no error thrown)
         assertFalse(
@@ -805,7 +809,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
         GaugeDistributionStrategy newDeployedStrategy = getDeployedStrategy(newCampaignId);
         uint256 expectedAmount = (500 * 500 ether) / 1000; // 50% of 500 ether
         assertEq(
-            newDeployedStrategy.getClaimeableAmount(newCampaignId, alice, ""),
+            newDeployedStrategy.getTotalClaimableAmount(newCampaignId, alice, ""),
             expectedAmount,
             "Should work after campaign creation"
         );

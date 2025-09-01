@@ -259,8 +259,8 @@ contract CapitalDistributorPluginSetupTest is Test {
         setup.prepareUninstallation(address(dao), payload3);
     }
 
-    function test_PrepareUpdate_ReturnsEmpty() external {
-        // It should return empty data
+    function test_PrepareUpdate_Reverts() external {
+        // It should revert
         address[] memory helpers = new address[](1);
         helpers[0] = address(0x1234);
 
@@ -270,13 +270,9 @@ contract CapitalDistributorPluginSetupTest is Test {
             data: ""
         });
 
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.NotImplemented.selector));
         (bytes memory initData, IPluginSetup.PreparedSetupData memory preparedSetupData) =
             setup.prepareUpdate(address(dao), 1, payload);
-
-        // Verify empty returns
-        assertEq(initData.length, 0, "initData should be empty");
-        assertEq(preparedSetupData.helpers.length, 0, "helpers should be empty");
-        assertEq(preparedSetupData.permissions.length, 0, "permissions should be empty");
     }
 
     function test_DecodeInstallationParams_Success() external {

@@ -76,8 +76,7 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
     }
 
     /// @inheritdoc IAllocatorStrategy
-    /// @dev For this strategy, _account represents the gauge address that should receive allocation
-    function getClaimeableAmount(
+    function getTotalClaimableAmount(
         uint256 _campaignId,
         address _account,
         bytes calldata
@@ -162,12 +161,4 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
 
         emit AllocationCampaignCreated(plugin, _campaignId);
     }
-
-    // =========================================================================
-    // Storage Gap
-    // =========================================================================
-
-    /// @dev Storage gap to allow for future upgrades without storage collision.
-    /// This contract adds 2 storage slots: gaugeVoter address and campaigns mapping.
-    uint256[48] private __gap;
 }

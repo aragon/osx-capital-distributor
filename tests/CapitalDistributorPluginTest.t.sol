@@ -2573,7 +2573,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
 // Mock contracts for testing failures
 contract MockFailingStrategy is IAllocatorStrategy {
-    function getClaimeableAmount(uint256, address, bytes calldata) external pure returns (uint256) {
+    function getTotalClaimableAmount(uint256, address, bytes calldata) external pure returns (uint256) {
         return 1 ether;
     }
 

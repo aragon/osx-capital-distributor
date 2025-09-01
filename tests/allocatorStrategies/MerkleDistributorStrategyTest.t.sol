@@ -1028,7 +1028,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     // Edge Cases and Boundary Tests
     // ============================================================================
 
-    function test_GetClaimableAmountReturnsZeroForNonExistentCampaign() public {
+    function test_getTotalClaimableAmountReturnsZeroForNonExistentCampaign() public {
         // Setup strategy without any campaigns
         MerkleDistributorStrategy testStrategy = new MerkleDistributorStrategy();
 
@@ -1042,13 +1042,13 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         // Should return 0 for non-existent campaign
         vm.startPrank(address(capitalDistributorPlugin));
-        uint256 claimableAmount = testStrategy.getClaimeableAmount(nonExistentCampaignId, testAccount, auxData);
+        uint256 claimableAmount = testStrategy.getTotalClaimableAmount(nonExistentCampaignId, testAccount, auxData);
         vm.stopPrank();
 
         assertEq(claimableAmount, 0, "Should return 0 for non-existent campaign");
     }
 
-    function test_GetClaimableAmountReturnsZeroForPartialClaim() public {
+    function test_getTotalClaimableAmountReturnsZeroForPartialClaim() public {
         // Setup campaign
         token.mint(address(createdDao), 10 ether);
 
@@ -1076,22 +1076,20 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Test 1: Full amount should be claimable initially
         bytes memory fullClaimData = abi.encode(aliceProof, fullAmount);
         vm.prank(address(capitalDistributorPlugin));
-        uint256 claimableAmount = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getClaimeableAmount(
-            campaignId, alice, fullClaimData
-        );
+        uint256 claimableAmount = MerkleDistributorStrategy(address(campaign.allocationStrategy))
+            .getTotalClaimableAmount(campaignId, alice, fullClaimData);
         assertEq(claimableAmount, fullAmount, "Should return full amount initially");
 
         // Test 2: Invalid claim amount (more than allocated) should return 0
         uint256 excessiveAmount = fullAmount * 2;
         bytes memory excessiveClaimData = abi.encode(aliceProof, excessiveAmount);
         vm.prank(address(capitalDistributorPlugin));
-        uint256 excessiveClaimable = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getClaimeableAmount(
-            campaignId, alice, excessiveClaimData
-        );
+        uint256 excessiveClaimable = MerkleDistributorStrategy(address(campaign.allocationStrategy))
+            .getTotalClaimableAmount(campaignId, alice, excessiveClaimData);
         assertEq(excessiveClaimable, 0, "Should return 0 for excessive claim amount");
     }
 
-    function test_GetClaimableAmountReturnsZeroForInvalidProof() public {
+    function test_getTotalClaimableAmountReturnsZeroForInvalidProof() public {
         // Setup campaign
         token.mint(address(createdDao), 10 ether);
 

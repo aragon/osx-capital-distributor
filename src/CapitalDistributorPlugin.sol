@@ -379,7 +379,7 @@ contract CapitalDistributorPlugin is
         _requireCampaignExists(_campaignId);
         Campaign storage campaign = campaigns[_campaignId];
 
-        amountToSend = campaign.allocationStrategy.getClaimeableAmount(_campaignId, _recipient, _auxData);
+        amountToSend = campaign.allocationStrategy.getTotalClaimableAmount(_campaignId, _recipient, _auxData);
     }
 
     /// @notice Internal helper to validate campaign claim eligibility
@@ -458,7 +458,7 @@ contract CapitalDistributorPlugin is
         }
 
         uint256 totalAmountToSend =
-            campaign.allocationStrategy.getClaimeableAmount(_campaignId, _recipient, _strategyAuxData);
+            campaign.allocationStrategy.getTotalClaimableAmount(_campaignId, _recipient, _strategyAuxData);
 
         if (totalAmountToSend == 0) {
             revert NoClaimableAmount(_campaignId, _recipient);
@@ -526,7 +526,7 @@ contract CapitalDistributorPlugin is
 
         // Get claimable amount for msg.sender
         uint256 totalAmountToSend =
-            campaign.allocationStrategy.getClaimeableAmount(_campaignId, msg.sender, _strategyAuxData);
+            campaign.allocationStrategy.getTotalClaimableAmount(_campaignId, msg.sender, _strategyAuxData);
 
         if (totalAmountToSend == 0) {
             revert NoClaimableAmount(_campaignId, msg.sender);

@@ -733,7 +733,7 @@ contract MaliciousImplementation is IAllocatorStrategy {
         // Do nothing
     }
 
-    function getClaimeableAmount(uint256, address, bytes calldata) external pure returns (uint256) {
+    function getTotalClaimableAmount(uint256, address, bytes calldata) external pure returns (uint256) {
         return 0;
     }
 

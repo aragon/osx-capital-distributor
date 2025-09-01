@@ -32,6 +32,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
     /// @param length The array length of passed helpers.
     error WrongHelpersArrayLength(uint256 length);
     error ZeroAddress();
+    error NotImplemented();
 
     /// @notice The contract constructor deploying the plugin implementation contract
     constructor() PluginUpgradeableSetup(address(new CapitalDistributorPlugin())) {
@@ -161,15 +162,16 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
     /// @inheritdoc IPluginSetup
     /// @dev Revoke the upgrade plugin permission to the DAO for all builds prior the current one (3).
     function prepareUpdate(
-        address _dao,
-        uint16 _fromBuild,
-        SetupPayload calldata _payload
+        address,
+        uint16,
+        SetupPayload calldata
     )
         external
+        pure
         override
-        returns (bytes memory initData, PreparedSetupData memory preparedSetupData)
+        returns (bytes memory, PreparedSetupData memory)
     {
-        // No update here
+        revert NotImplemented();
     }
 
     /// @notice Decodes the given byte array into the original installation parameters

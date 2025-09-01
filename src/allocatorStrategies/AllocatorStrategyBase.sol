@@ -78,7 +78,7 @@ abstract contract AllocatorStrategyBase is
     function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) public virtual override;
 
     /// @inheritdoc IAllocatorStrategy
-    function getClaimeableAmount(
+    function getTotalClaimableAmount(
         uint256 _campaignId,
         address _account,
         bytes calldata _auxData
@@ -107,12 +107,4 @@ abstract contract AllocatorStrategyBase is
     {
         return interfaceId == type(IAllocatorStrategy).interfaceId || super.supportsInterface(interfaceId);
     }
-
-    // =========================================================================
-    // Storage Gap
-    // =========================================================================
-
-    /// @dev Storage gap to allow for future upgrades without storage collision.
-    /// This contract uses 3 storage slots: strategyTypeId, plugin, factory.
-    uint256[47] private __gap;
 }
