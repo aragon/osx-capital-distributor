@@ -107,7 +107,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     }
 
     /// @inheritdoc IAllocatorStrategy
-    function getClaimableAmount(
+    function getTotalClaimableAmount(
         uint256 _campaignId,
         address _account,
         bytes calldata _auxData
