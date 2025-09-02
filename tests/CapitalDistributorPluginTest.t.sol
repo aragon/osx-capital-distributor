@@ -15,6 +15,7 @@ import { IActionEncoderFactory } from "../src/interfaces/IActionEncoderFactory.s
 
 import { MintableERC20 } from "./mocks/MintableERC20.sol";
 import { ERC4626Mock } from "./mocks/ERC4626Mock.sol";
+import { BadERC20Mock } from "./mocks/BadERC20Mock.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /// @title CapitalDistributorPluginTest
@@ -24,6 +25,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     CapitalDistributorPlugin capitalDistributorPlugin;
     AllocatorStrategyMock strategy;
     MintableERC20 token;
+    BadERC20Mock badToken;
     ERC4626Mock vaultToSendTokens;
     VaultDepositPayoutActionEncoder vaultDepositActionEncoder;
 
@@ -31,12 +33,16 @@ contract CapitalDistributorPluginTest is AragonTest {
     function setUp() public virtual {
         capitalDistributorPlugin = CapitalDistributorPlugin(pluginAddress[0]);
         token = new MintableERC20();
+        badToken = new BadERC20Mock();
         strategy = new AllocatorStrategyMock();
 
         allocatorStrategyFactory.registerStrategyType(toBytes32("mock-strategy"), address(strategy), "", address(0), 0);
 
         vaultToSendTokens = new ERC4626Mock(address(token));
         vaultDepositActionEncoder = new VaultDepositPayoutActionEncoder();
+
+        // Mint some bad tokens to the DAO for testing
+        badToken.mint(address(createdDao), 1000 ether);
     }
 
     // ============================================
@@ -2568,6 +2574,112 @@ contract CapitalDistributorPluginTest is AragonTest {
         assertEq(token.balanceOf(bob), 1 ether, "Bob final balance (from Alice's claim)");
         assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 1 ether, "Alice claimed her allocation");
         assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, bob), 1 ether, "Bob claimed his allocation");
+    }
+
+    // ============================================
+    // Token Validation Tests
+    // ============================================
+
+    /// @notice Test that bad tokens (returning false instead of reverting) are rejected when using default transfer
+    function test_RevertWhen_CreatingCampaignWithBadTokenAndNoEncoder() public {
+        vm.startPrank(address(createdDao));
+
+        // Test that bad tokens are rejected when using default transfer
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.InvalidToken.selector, address(badToken)));
+
+        capitalDistributorPlugin.createCampaign(
+            "",
+            CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
+            CapitalDistributorPlugin.PayoutConfig(
+                IERC20(address(badToken)),
+                bytes32(0), // No encoder - will trigger validation
+                ""
+            ),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
+        );
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test that bad tokens are allowed when using a custom encoder
+    function test_AllowsBadTokenWithCustomEncoder() public {
+        vm.startPrank(address(createdDao));
+
+        // Register vault encoder
+        actionEncoderFactory.registerActionEncoder(toBytes32("vault-deposit"), address(vaultDepositActionEncoder), "");
+
+        // Should NOT revert when using custom encoder
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
+            CapitalDistributorPlugin.PayoutConfig(
+                IERC20(address(badToken)),
+                toBytes32("vault-deposit"), // Custom encoder - skips validation
+                abi.encode(address(vaultToSendTokens))
+            ),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
+        );
+
+        // Verify campaign was created
+        assertEq(capitalDistributorPlugin.numCampaigns(), campaignId + 1, "Campaign should be created");
+        assertEq(
+            address(capitalDistributorPlugin.getCampaign(campaignId).token),
+            address(badToken),
+            "Bad token should be set"
+        );
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test that normal tokens pass validation with no encoder
+    function test_AllowsNormalTokenWithNoEncoder() public {
+        vm.startPrank(address(createdDao));
+
+        // Normal token should pass validation
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
+            CapitalDistributorPlugin.PayoutConfig(
+                IERC20(address(token)), // Normal ERC20
+                bytes32(0), // No encoder
+                ""
+            ),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
+        );
+
+        // Verify campaign was created
+        assertEq(capitalDistributorPlugin.numCampaigns(), campaignId + 1, "Campaign should be created");
+        assertEq(
+            address(capitalDistributorPlugin.getCampaign(campaignId).token),
+            address(token),
+            "Normal token should be set"
+        );
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test that the validation correctly identifies problematic tokens
+    function test_ValidationChecksTransferFromBehavior() public {
+        vm.startPrank(address(createdDao));
+
+        // Create a new instance of bad token for isolated testing
+        BadERC20Mock testToken = new BadERC20Mock();
+
+        // The validation should catch this
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.InvalidToken.selector, address(testToken)));
+
+        capitalDistributorPlugin.createCampaign(
+            "",
+            CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
+            CapitalDistributorPlugin.PayoutConfig(
+                IERC20(address(testToken)),
+                bytes32(0), // No encoder
+                ""
+            ),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
+        );
+
+        vm.stopPrank();
     }
 }
 

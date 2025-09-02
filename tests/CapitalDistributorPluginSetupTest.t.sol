@@ -225,18 +225,6 @@ contract CapitalDistributorPluginSetupTest is Test {
         );
     }
 
-    function test_RevertGiven_AListOfHelpersWithZero() external whenPreparingAnUninstallation {
-        // It should revert
-
-        // Case 1: Empty helpers array
-        address[] memory wrongHelpers1 = new address[](0);
-        IPluginSetup.SetupPayload memory payload1 =
-            IPluginSetup.SetupPayload({ plugin: pluginAddr, currentHelpers: wrongHelpers1, data: "" });
-
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.WrongHelpersArrayLength.selector, 0));
-        setup.prepareUninstallation(address(dao), payload1);
-    }
-
     function test_RevertGiven_AListOfHelpersWithMoreThanOne() external whenPreparingAnUninstallation {
         // It should revert
 

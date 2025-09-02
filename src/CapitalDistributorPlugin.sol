@@ -232,6 +232,9 @@ contract CapitalDistributorPlugin is
     /// @notice Thrown when invalid time bounds are provided for a campaign.
     error InvalidTimeBounds();
 
+    /// @notice Thrown when the token doesn't revert under invalid transfers
+    error InvalidToken(address token);
+
     /// @notice Initializes the component to be used by inheriting contracts.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
     /// @param _dao The IDAO interface of the associated DAO.
@@ -312,6 +315,9 @@ contract CapitalDistributorPlugin is
             } catch {
                 revert ExternalCallFailed(address(actionEncoder), "setupCampaign");
             }
+        } else {
+            // To prevent the DAO transfering tokens that don't revert, we check if the token is safe
+            _validateTokenBehavior(_payout.token);
         }
 
         // Set campaign fields
@@ -333,6 +339,18 @@ contract CapitalDistributorPlugin is
             _settings.startTime,
             _settings.endTime
         );
+    }
+
+    function _validateTokenBehavior(IERC20 _token) internal view {
+        // Try to transferFrom address(0) to this plugin
+        // This should ALWAYS fail for any legitimate token
+        (bool success, bytes memory data) =
+            address(_token).staticcall(abi.encodeCall(IERC20.transferFrom, (address(0), address(this), 1)));
+
+        if (success) {
+            // If the call succeeded, for whatever reason, it should revert as well
+            revert InvalidToken(address(_token));
+        }
     }
 
     /**
