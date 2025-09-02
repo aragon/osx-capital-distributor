@@ -40,7 +40,7 @@ contract CapitalDistributorPluginSetupTest is Test {
     // Permission IDs
     bytes32 internal constant EXECUTE_PERMISSION_ID = keccak256("EXECUTE_PERMISSION");
     bytes32 internal constant UPGRADE_PLUGIN_PERMISSION_ID = keccak256("UPGRADE_PLUGIN_PERMISSION");
-    bytes32 internal constant CAMPAIGN_CREATOR_PERMISSION_ID = keccak256("CAMPAIGN_CREATOR_PERMISSION");
+    bytes32 internal constant CAMPAIGN_MANAGER_PERMISSION_ID = keccak256("CAMPAIGN_MANAGER_PERMISSION");
     bytes32 internal constant SET_METADATA_PERMISSION_ID = keccak256("SET_METADATA_PERMISSION");
 
     constructor() {
@@ -126,7 +126,7 @@ contract CapitalDistributorPluginSetupTest is Test {
             pluginAddr,
             address(dao),
             PermissionLib.NO_CONDITION,
-            CAMPAIGN_CREATOR_PERMISSION_ID
+            CAMPAIGN_MANAGER_PERMISSION_ID
         );
 
         // 3. The DAO can change the metadata of the plugin
@@ -191,7 +191,7 @@ contract CapitalDistributorPluginSetupTest is Test {
             pluginAddr,
             address(dao),
             PermissionLib.NO_CONDITION,
-            CAMPAIGN_CREATOR_PERMISSION_ID
+            CAMPAIGN_MANAGER_PERMISSION_ID
         );
 
         // 1. Revoke DAO can upgrade plugin
@@ -259,8 +259,8 @@ contract CapitalDistributorPluginSetupTest is Test {
         setup.prepareUninstallation(address(dao), payload3);
     }
 
-    function test_PrepareUpdate_ReturnsEmpty() external {
-        // It should return empty data
+    function test_PrepareUpdate_Reverts() external {
+        // It should revert
         address[] memory helpers = new address[](1);
         helpers[0] = address(0x1234);
 
@@ -270,13 +270,9 @@ contract CapitalDistributorPluginSetupTest is Test {
             data: ""
         });
 
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.NotImplemented.selector));
         (bytes memory initData, IPluginSetup.PreparedSetupData memory preparedSetupData) =
             setup.prepareUpdate(address(dao), 1, payload);
-
-        // Verify empty returns
-        assertEq(initData.length, 0, "initData should be empty");
-        assertEq(preparedSetupData.helpers.length, 0, "helpers should be empty");
-        assertEq(preparedSetupData.permissions.length, 0, "permissions should be empty");
     }
 
     function test_DecodeInstallationParams_Success() external {

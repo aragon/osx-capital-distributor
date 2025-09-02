@@ -24,7 +24,10 @@ contract CampaignStateManagementTest is AragonTest {
     function createBasicCampaign() internal returns (uint256 campaignId) {
         vm.startPrank(address(createdDao));
         campaignId = capitalDistributorPlugin.createCampaign(
-            "ipfs://test", toBytes32("mock-strategy"), "", "", IERC20(token), bytes32(0), "", false, 0, 0
+            "ipfs://test",
+            CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
     }

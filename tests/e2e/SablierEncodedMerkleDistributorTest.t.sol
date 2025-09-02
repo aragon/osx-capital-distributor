@@ -152,25 +152,27 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
         // Create campaign with Sablier encoder
         campaignId = capitalDistributorPlugin.createCampaign(
             "ipfs://QmTestCampaignMetadata", // metadataURI
-            toBytes32("merkle-strategy"), // strategyId
-            deploymentParams,
-            abi.encode(merkleRoot), // allocationStrategyAuxData
-            usdc, // token
-            toBytes32("sablier-linear-encoder"), // defaultActionEncoderId
-            abi.encode(
-                SABLIER_V2_LOCKUP_LINEAR, // sablier contract
-                1 weeks, // stream duration
-                0, // no cliff
-                0, // No immediate unlock
-                0, // No cliff unlock
-                true, // Cancelable
-                false, // Transferable
-                address(0), // No broker
-                0
-            ), // actionEncoderInitializationAuxData
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), // strategyId
+                deploymentParams,
+                abi.encode(merkleRoot) // allocationStrategyAuxData
+            ),
+            CapitalDistributorPlugin.PayoutConfig(
+                usdc, // token
+                toBytes32("sablier-linear-encoder"), // defaultActionEncoderId
+                abi.encode(
+                    SABLIER_V2_LOCKUP_LINEAR, // sablier contract
+                    1 weeks, // stream duration
+                    0, // no cliff
+                    0, // No immediate unlock
+                    0, // No cliff unlock
+                    true, // Cancelable
+                    false, // Transferable
+                    address(0), // No broker
+                    0
+                ) // actionEncoderInitializationAuxData
+            ),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         vm.stopPrank();
@@ -352,25 +354,23 @@ contract SablierEncodedMerkleDistributorTest is AragonE2EBase {
         // Create campaign using script-generated merkle root
         uint256 scriptCampaignId = capitalDistributorPlugin.createCampaign(
             "ipfs://QmScriptGeneratedCampaignMetadata",
-            toBytes32("merkle-strategy"),
-            "",
-            abi.encode(scriptRoot),
-            usdc,
-            toBytes32("sablier-linear-encoder"),
-            abi.encode(
-                SABLIER_V2_LOCKUP_LINEAR,
-                1 weeks, // stream duration
-                0, // no cliff
-                0, // No immediate unlock
-                0, // No cliff unlock
-                true, // Cancelable
-                false, // Transferable
-                address(0), // No broker
-                0
+            CapitalDistributorPlugin.StrategyConfig(toBytes32("merkle-strategy"), "", abi.encode(scriptRoot)),
+            CapitalDistributorPlugin.PayoutConfig(
+                usdc,
+                toBytes32("sablier-linear-encoder"),
+                abi.encode(
+                    SABLIER_V2_LOCKUP_LINEAR,
+                    1 weeks, // stream duration
+                    0, // no cliff
+                    0, // No immediate unlock
+                    0, // No cliff unlock
+                    true, // Cancelable
+                    false, // Transferable
+                    address(0), // No broker
+                    0
+                )
             ),
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         vm.stopPrank();

@@ -6,12 +6,11 @@ import { AllocatorStrategyBase } from "./AllocatorStrategyBase.sol";
 import { IAddressGaugeVoter } from "../interfaces/helpers/IAddressGaugeVoter.sol";
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 
-/// @title GaugeVoterAllocatorStrategy
-/// @notice Allocator strategy that distributes tokens proportionally to users based on their voting participation and
-/// power in Aragon OSx Gauge voting plugin
-/// @dev Users receive allocations based on how much voting power they contributed to the gauge relative to the total
-/// voting power cast
-contract GaugeVoterAllocatorStrategy is AllocatorStrategyBase {
+/// @title GaugeDistributionStrategy
+/// @notice Allocator strategy that distributes tokens proportionally to gauges based on the votes they received
+/// in Aragon OSx Gauge voting plugin
+/// @dev Gauges receive allocations based on how many votes they received relative to the total votes cast
+contract GaugeDistributionStrategy is AllocatorStrategyBase {
     // =========================================================================
     // Errors
     // =========================================================================
@@ -101,23 +100,23 @@ contract GaugeVoterAllocatorStrategy is AllocatorStrategyBase {
         // Validate voting is not currently active (distribution period)
         if (gaugeVoter.votingActive()) revert VotingCurrentlyActive();
 
-        // Get user's current voting power
-        uint256 userVotingPower = gaugeVoter.usedVotingPower(_account);
-        if (userVotingPower == 0) return 0;
+        // Get votes received by this gauge
+        uint256 gaugeVotes = gaugeVoter.gaugeVotes(_account);
+        if (gaugeVotes == 0) return 0;
 
         // Get total voting power cast
         uint256 totalVotingPowerCast = gaugeVoter.totalVotingPowerCast();
         if (totalVotingPowerCast == 0) return 0;
 
-        // Calculate proportional allocation
-        return (userVotingPower * campaign.totalDistributionAmount) / totalVotingPowerCast;
+        // Calculate proportional allocation based on gauge votes
+        return (gaugeVotes * campaign.totalDistributionAmount) / totalVotingPowerCast;
     }
 
-    /// @notice Checks if user is eligible for allocation in the campaign
+    /// @notice Checks if gauge is eligible for allocation in the campaign
     /// @param _campaignId Campaign identifier
-    /// @param _account User address
-    /// @return True if user is eligible
-    function isUserEligible(uint256 _campaignId, address _account) public view returns (bool) {
+    /// @param _account Gauge address
+    /// @return True if gauge is eligible
+    function isGaugeEligible(uint256 _campaignId, address _account) public view returns (bool) {
         GaugeAllocationCampaign storage campaign = campaigns[_campaignId];
 
         // Check campaign exists
@@ -129,8 +128,8 @@ contract GaugeVoterAllocatorStrategy is AllocatorStrategyBase {
         // Check voting is not currently active
         if (gaugeVoter.votingActive()) return false;
 
-        // Check user has voting power > 0
-        return gaugeVoter.usedVotingPower(_account) > 0;
+        // Check gauge has received votes > 0
+        return gaugeVoter.gaugeVotes(_account) > 0;
     }
 
     // =========================================================================
@@ -138,7 +137,7 @@ contract GaugeVoterAllocatorStrategy is AllocatorStrategyBase {
     // =========================================================================
 
     /// @inheritdoc IAllocatorStrategy
-    /// @dev Campaigns can be created anytime, but claims only work when:
+    /// @dev Campaigns can be created anytime, but gauge claims only work when:
     /// 1. Campaign has started (managed by CapitalDistributorPlugin)
     /// 2. Voting is not currently active (distribution period)
     /// 3. Current epoch matches campaign epoch

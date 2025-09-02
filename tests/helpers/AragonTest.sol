@@ -31,10 +31,8 @@ contract AragonTest is Test {
     address immutable david = DAVID_ADDRESS;
     address immutable randomWallet = vm.addr(1_234_567_890);
 
-    address immutable DAO_BASE = address(new DAO());
-
     bytes internal constant EMPTY_BYTES = "";
-    ProtocolFactory.Deployment public deployment;
+
     AllocatorStrategyFactory public allocatorStrategyFactory;
     ActionEncoderFactory public actionEncoderFactory;
 
@@ -53,13 +51,14 @@ contract AragonTest is Test {
         factory.deployOnce();
 
         // Get the deployed addresses
+        ProtocolFactory.Deployment memory deployment;
         deployment = factory.getDeployment();
 
         // 1. Deploying the Plugin Setup
         CapitalDistributorPluginSetup pluginSetup = deployPluginSetup();
 
         // 2. Publishing it in the Aragon OSx Protocol
-        PluginRepo pluginRepo = deployPluginRepo(address(pluginSetup));
+        PluginRepo pluginRepo = deployPluginRepo(address(pluginSetup), deployment.pluginRepoFactory);
 
         // 3. Defining the DAO Settings
         DAOFactory.DAOSettings memory daoSettings = getDAOSettings();
@@ -96,8 +95,8 @@ contract AragonTest is Test {
         return pluginSetup;
     }
 
-    function deployPluginRepo(address pluginSetup) public returns (PluginRepo pluginRepo) {
-        pluginRepo = PluginRepoFactory(deployment.pluginRepoFactory).createPluginRepoWithFirstVersion(
+    function deployPluginRepo(address pluginSetup, address pluginRepoFactory) public returns (PluginRepo pluginRepo) {
+        pluginRepo = PluginRepoFactory(pluginRepoFactory).createPluginRepoWithFirstVersion(
             "capital-distributor", pluginSetup, msg.sender, "0x00", "0x00"
         );
     }

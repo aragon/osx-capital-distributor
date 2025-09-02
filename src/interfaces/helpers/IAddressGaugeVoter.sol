@@ -110,6 +110,11 @@ interface IAddressGaugeVoter is
 
     /// @notice timestamp of the end of the current voting period
     function epochVoteEnd() external view returns (uint256);
+
+    /// @notice Get the total votes for a gauge
+    /// @param gauge Address of the gauge
+    /// @return Total votes for the gauge
+    function gaugeVotes(address gauge) external view returns (uint256);
 }
 
 /*///////////////////////////////////////////////////////////////

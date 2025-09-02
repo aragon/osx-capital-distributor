@@ -130,15 +130,15 @@ contract AllocatorStrategyFeeTest is AragonTest {
         vm.startPrank(address(createdDao));
         uint256 campaignId = plugin.createCampaign(
             bytes("Test Campaign"),
-            MERKLE_STRATEGY_ID,
-            abi.encode(merkleRoot),
-            abi.encode(merkleRoot, 0),
-            token,
-            bytes32(0), // Direct transfer
-            bytes(""),
-            true,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                MERKLE_STRATEGY_ID, abi.encode(merkleRoot), abi.encode(merkleRoot, 0)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(
+                token,
+                bytes32(0), // Direct transfer
+                bytes("")
+            ),
+            CapitalDistributorPlugin.CampaignSettings(true, 0, 0)
         );
         vm.stopPrank();
 
@@ -178,15 +178,11 @@ contract AllocatorStrategyFeeTest is AragonTest {
         vm.startPrank(address(createdDao));
         uint256 campaignId = plugin.createCampaign(
             bytes("Test Campaign"),
-            MERKLE_STRATEGY_ID,
-            abi.encode(merkleRoot),
-            abi.encode(merkleRoot, 0),
-            token,
-            bytes32(0),
-            bytes(""),
-            true,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                MERKLE_STRATEGY_ID, abi.encode(merkleRoot), abi.encode(merkleRoot, 0)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(token, bytes32(0), bytes("")),
+            CapitalDistributorPlugin.CampaignSettings(true, 0, 0)
         );
         vm.stopPrank();
 

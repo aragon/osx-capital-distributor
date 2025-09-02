@@ -30,6 +30,9 @@ contract MockAddressGaugeVoter is IAddressGaugeVoter {
     /// @notice Mapping of gauge addresses to their active status
     mapping(address => bool) private _gaugeIsActive;
 
+    /// @notice Mapping of gauge addresses to their vote counts
+    mapping(address => uint256) private _gaugeVotes;
+
     // =========================================================================
     // Constructor
     // =========================================================================
@@ -81,6 +84,13 @@ contract MockAddressGaugeVoter is IAddressGaugeVoter {
     /// @param active_ Whether gauge is active
     function setGaugeActive(address gauge_, bool active_) external {
         _gaugeIsActive[gauge_] = active_;
+    }
+
+    /// @notice Set a gauge's vote count for testing
+    /// @param gauge_ Gauge address
+    /// @param votes_ Number of votes for the gauge
+    function setGaugeVotes(address gauge_, uint256 votes_) external {
+        _gaugeVotes[gauge_] = votes_;
     }
 
     // =========================================================================
@@ -181,5 +191,12 @@ contract MockAddressGaugeVoter is IAddressGaugeVoter {
     /// @inheritdoc IGaugeManager
     function updateGaugeMetadata(address _gauge, string calldata _metadata) external override {
         emit GaugeMetadataUpdated(_gauge, _metadata);
+    }
+
+    /// @notice Get the total votes for a gauge
+    /// @param gauge_ Gauge address
+    /// @return Total votes for the gauge
+    function gaugeVotes(address gauge_) external view returns (uint256) {
+        return _gaugeVotes[gauge_];
     }
 }
