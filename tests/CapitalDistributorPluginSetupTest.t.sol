@@ -172,9 +172,8 @@ contract CapitalDistributorPluginSetupTest is Test {
     function test_WhenPreparingAnUninstallation() external whenPreparingAnUninstallation {
         // It generates a correct list of permission changes
 
-        // Create proper payload with 1 helper as expected
-        address[] memory helpers = new address[](1);
-        helpers[0] = address(0x1234); // Dummy helper address
+        // Create proper payload with 0 helpers as expected
+        address[] memory helpers = new address[](0);
 
         IPluginSetup.SetupPayload memory payload =
             IPluginSetup.SetupPayload({ plugin: pluginAddr, currentHelpers: helpers, data: "" });
@@ -225,37 +224,24 @@ contract CapitalDistributorPluginSetupTest is Test {
         );
     }
 
-    function test_RevertGiven_AListOfHelpersWithZero() external whenPreparingAnUninstallation {
+    function test_RevertGiven_AListOfHelpersWithMoreThanZero() external whenPreparingAnUninstallation {
         // It should revert
 
-        // Case 1: Empty helpers array
-        address[] memory wrongHelpers1 = new address[](0);
-        IPluginSetup.SetupPayload memory payload1 =
-            IPluginSetup.SetupPayload({ plugin: pluginAddr, currentHelpers: wrongHelpers1, data: "" });
-
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.WrongHelpersArrayLength.selector, 0));
-        setup.prepareUninstallation(address(dao), payload1);
-    }
-
-    function test_RevertGiven_AListOfHelpersWithMoreThanOne() external whenPreparingAnUninstallation {
-        // It should revert
-
-        // Case 2: Two helpers
-        address[] memory wrongHelpers2 = new address[](2);
+        // Case 1: One helper
+        address[] memory wrongHelpers2 = new address[](1);
         wrongHelpers2[0] = address(0x1);
-        wrongHelpers2[1] = address(0x2);
         IPluginSetup.SetupPayload memory payload2 =
             IPluginSetup.SetupPayload({ plugin: pluginAddr, currentHelpers: wrongHelpers2, data: "" });
 
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.WrongHelpersArrayLength.selector, 2));
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.WrongHelpersArrayLength.selector, 1));
         setup.prepareUninstallation(address(dao), payload2);
 
-        // Case 3: Three helpers
-        address[] memory wrongHelpers3 = new address[](3);
+        // Case 2: 2 helpers
+        address[] memory wrongHelpers3 = new address[](2);
         IPluginSetup.SetupPayload memory payload3 =
             IPluginSetup.SetupPayload({ plugin: pluginAddr, currentHelpers: wrongHelpers3, data: "" });
 
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.WrongHelpersArrayLength.selector, 3));
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.WrongHelpersArrayLength.selector, 2));
         setup.prepareUninstallation(address(dao), payload3);
     }
 
