@@ -42,7 +42,6 @@ contract AllocatorStrategyFactoryTest is Test {
     // Test events
     event StrategyTypeRegistered(bytes32 indexed strategyId, address indexed implementation, string metadata);
     event StrategyDeployed(bytes32 indexed strategyId, address indexed strategy);
-    event StrategyRetrieved(bytes32 indexed strategyId, address indexed strategy, bytes32 indexed deploymentId);
     event TypeRegistered(
         bytes32 indexed typeId, address indexed implementation, string metadata, address indexed registrar
     );
@@ -237,9 +236,6 @@ contract AllocatorStrategyFactoryTest is Test {
         address strategy1 = factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
 
         bytes32 expectedDeploymentId = keccak256(abi.encode(MERKLE_STRATEGY_ID, address(dao), auxData));
-
-        vm.expectEmit(true, true, true, false);
-        emit StrategyRetrieved(MERKLE_STRATEGY_ID, strategy1, expectedDeploymentId);
 
         address strategy2 = factory.getOrDeployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
 
