@@ -231,6 +231,10 @@ contract CapitalDistributorPlugin is
 
     /// @notice Thrown when invalid time bounds are provided for a campaign.
     error InvalidTimeBounds();
+    
+    /// @notice Thrown when an invalid parameter is provided.
+    /// @param parameter The name of the invalid parameter.
+    error InvalidParameter(string parameter);
 
     /// @notice Initializes the component to be used by inheriting contracts.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
@@ -245,6 +249,24 @@ contract CapitalDistributorPlugin is
         external
         initializer
     {
+        // Validate DAO address
+        if (address(_dao) == address(0)) {
+            revert ZeroAddress("_dao");
+        }
+        
+        // Validate allocatorStrategyFactory
+        if (address(_allocatorStrategyFactory) == address(0)) {
+            revert ZeroAddress("_allocatorStrategyFactory");
+        }
+        if (address(_allocatorStrategyFactory).code.length == 0) {
+            revert InvalidParameter("_allocatorStrategyFactory");
+        }
+        
+        // Validate actionEncoderFactory (can be zero address)
+        if (address(_actionEncoderFactory) != address(0) && address(_actionEncoderFactory).code.length == 0) {
+            revert InvalidParameter("_actionEncoderFactory");
+        }
+        
         __PluginUUPSUpgradeable_init(_dao);
         allocatorStrategyFactory = _allocatorStrategyFactory;
         actionEncoderFactory = _actionEncoderFactory;
