@@ -97,7 +97,7 @@ making it a high-priority testing gap.
 - Deploy encoder
 - Use non-DAO address **Actions**:
 - Call setupCampaign as random address **Assertions**:
-- Reverts with `OnlyDAO(caller)` error
+- Reverts with `OnlyOwner(caller)` error
 
 #### test_SetupCampaign_RevertZeroVault
 

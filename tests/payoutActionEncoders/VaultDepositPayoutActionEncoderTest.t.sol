@@ -77,24 +77,24 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
         address newVault = makeAddr("newVault");
 
         vm.expectEmit(true, true, true, true);
-        emit CampaignVaultSet(CAMPAIGN_ID, newVault, address(createdDao));
+        emit CampaignVaultSet(CAMPAIGN_ID, newVault, encoder.owner());
 
-        vm.prank(address(createdDao));
+        vm.prank(encoder.owner());
         encoder.setupCampaign(CAMPAIGN_ID, abi.encode(newVault));
 
         assertEq(encoder.campaignVaults(CAMPAIGN_ID), newVault);
     }
 
-    function test_SetupCampaign_RevertNotDAO() public {
+    function test_SetupCampaign_RevertNotOwner() public {
         address newVault = makeAddr("newVault");
 
         vm.prank(testAlice);
-        vm.expectRevert(abi.encodeWithSelector(VaultDepositPayoutActionEncoder.OnlyDAO.selector, testAlice));
+        vm.expectRevert(abi.encodeWithSelector(VaultDepositPayoutActionEncoder.OnlyOwner.selector, testAlice));
         encoder.setupCampaign(CAMPAIGN_ID, abi.encode(newVault));
     }
 
     function test_SetupCampaign_RevertZeroVault() public {
-        vm.prank(address(createdDao));
+        vm.prank(encoder.owner());
         vm.expectRevert(VaultDepositPayoutActionEncoder.ZeroAddressNotAllowed.selector);
         encoder.setupCampaign(CAMPAIGN_ID, abi.encode(address(0)));
     }
@@ -118,7 +118,7 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
 
     function test_BuildActions_Success() public {
         // Setup vault for campaign
-        vm.prank(address(createdDao));
+        vm.prank(encoder.owner());
         encoder.setupCampaign(CAMPAIGN_ID, abi.encode(address(mockVault)));
 
         // Build actions
@@ -141,7 +141,7 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
 
     function test_BuildActions_CorrectApprovalAction() public {
         // Setup vault
-        vm.prank(address(createdDao));
+        vm.prank(encoder.owner());
         encoder.setupCampaign(CAMPAIGN_ID, abi.encode(address(mockVault)));
 
         // Build actions
@@ -166,7 +166,7 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
 
     function test_BuildActions_CorrectDepositAction() public {
         // Setup vault
-        vm.prank(address(createdDao));
+        vm.prank(encoder.owner());
         encoder.setupCampaign(CAMPAIGN_ID, abi.encode(address(mockVault)));
 
         // Build actions
@@ -191,7 +191,7 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
 
     function test_BuildActions_RevertZeroAmount() public {
         // Setup vault
-        vm.prank(address(createdDao));
+        vm.prank(encoder.owner());
         encoder.setupCampaign(CAMPAIGN_ID, abi.encode(address(mockVault)));
 
         // Try to build actions with zero amount
@@ -220,7 +220,7 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
         uint256 campaign2 = 2;
 
         // Setup different vaults for different campaigns
-        vm.startPrank(address(createdDao));
+        vm.startPrank(encoder.owner());
         encoder.setupCampaign(CAMPAIGN_ID, abi.encode(vault1));
         encoder.setupCampaign(campaign2, abi.encode(vault2));
         vm.stopPrank();
@@ -243,7 +243,7 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
         uint256 campaign3 = 3;
 
         // Setup same vault for multiple campaigns
-        vm.startPrank(address(createdDao));
+        vm.startPrank(encoder.owner());
         encoder.setupCampaign(CAMPAIGN_ID, abi.encode(address(mockVault)));
         encoder.setupCampaign(campaign2, abi.encode(address(mockVault)));
         encoder.setupCampaign(campaign3, abi.encode(address(mockVault)));
@@ -265,7 +265,7 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
         vm.assume(amount < type(uint256).max / 2); // Avoid overflow in tests
 
         // Setup vault
-        vm.prank(address(createdDao));
+        vm.prank(encoder.owner());
         encoder.setupCampaign(CAMPAIGN_ID, abi.encode(address(mockVault)));
 
         // Build actions with fuzzed amount
@@ -298,7 +298,7 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
         address testVault = makeAddr("testVault");
         bytes memory auxData = abi.encode(testVault);
 
-        vm.prank(address(createdDao));
+        vm.prank(encoder.owner());
         encoder.setupCampaign(99, auxData);
 
         assertEq(encoder.campaignVaults(99), testVault);
@@ -308,7 +308,7 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
         // Create invalid auxData (too short)
         bytes memory invalidData = hex"1234";
 
-        vm.prank(address(createdDao));
+        vm.prank(encoder.owner());
         vm.expectRevert(); // Abi decoding error
         encoder.setupCampaign(CAMPAIGN_ID, invalidData);
     }
@@ -326,7 +326,7 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
         VaultDepositPayoutActionEncoder newEncoder = VaultDepositPayoutActionEncoder(newEncoderAddr);
 
         // Setup campaign
-        vm.prank(address(createdDao));
+        vm.prank(newEncoder.owner());
         newEncoder.setupCampaign(10, auxData);
 
         // Build actions
@@ -339,7 +339,7 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
 
     function test_Integration_WithMockVault() public {
         // Setup
-        vm.prank(address(createdDao));
+        vm.prank(encoder.owner());
         encoder.setupCampaign(CAMPAIGN_ID, abi.encode(address(mockVault)));
 
         // Give DAO tokens
@@ -379,10 +379,10 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
         );
 
         // Setup campaigns on both encoders
-        vm.prank(address(createdDao));
+        vm.prank(encoder.owner());
         encoder.setupCampaign(1, abi.encode(address(mockVault)));
 
-        vm.prank(address(secondDao));
+        vm.prank(encoder2.owner());
         encoder2.setupCampaign(1, abi.encode(vault2));
 
         // Build actions from both
@@ -402,7 +402,7 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
     function test_LargeAmounts() public {
         uint256 maxAmount = type(uint256).max;
 
-        vm.prank(address(createdDao));
+        vm.prank(encoder.owner());
         encoder.setupCampaign(CAMPAIGN_ID, abi.encode(address(mockVault)));
 
         // Should not revert with max uint256
@@ -416,7 +416,7 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
     }
 
     function test_GasOptimization() public {
-        vm.prank(address(createdDao));
+        vm.prank(encoder.owner());
         encoder.setupCampaign(CAMPAIGN_ID, abi.encode(address(mockVault)));
 
         uint256 gasBefore = gasleft();
