@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import { Action } from "@aragon/commons/executors/IExecutor.sol";
-import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import { PayoutActionEncoderBase } from "./PayoutActionEncoderBase.sol";
+import {Action} from "@aragon/commons/executors/IExecutor.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {PayoutActionEncoderBase} from "./PayoutActionEncoderBase.sol";
 
 /// @title IVault
 /// @notice A generic interface for a vault that this encoder can interact with.
@@ -18,9 +18,6 @@ interface IVault {
 /// @dev This contract is DaoAuthorizable. The DAO controlling this encoder instance
 ///      must grant permission for `setCampaignVault`.
 contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
-    /// @notice Permission ID required to call `setCampaignVault`.
-    bytes32 public constant SET_VAULT_PERMISSION_ID = keccak256("SET_VAULT_PERMISSION");
-
     /// @notice Mapping from campaignId to the vault address for that campaign.
     mapping(uint256 => address) public campaignVaults;
 
@@ -64,12 +61,7 @@ contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
         address, // _caller - not used in this specific encoder logic
         uint256 _campaignId,
         bytes memory
-    )
-        external
-        view
-        override
-        returns (Action[] memory actions)
-    {
+    ) external view override returns (Action[] memory actions) {
         if (_amount == 0) {
             revert AmountCannotBeZero();
         }
@@ -82,11 +74,14 @@ contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
         actions = new Action[](2);
 
         // Action 1: Approve the vault to spend the token
-        actions[0] =
-            Action({ to: address(_token), value: 0, data: abi.encodeCall(IERC20.approve, (vaultAddress, _amount)) });
+        actions[0] = Action({
+            to: address(_token),
+            value: 0,
+            data: abi.encodeCall(IERC20.approve, (vaultAddress, _amount))
+        });
 
         // Action 2: Call deposit on the vault
-        actions[1] = Action({ to: vaultAddress, value: 0, data: abi.encodeCall(IVault.deposit, (_amount, _recipient)) });
+        actions[1] = Action({to: vaultAddress, value: 0, data: abi.encodeCall(IVault.deposit, (_amount, _recipient))});
 
         return actions;
     }

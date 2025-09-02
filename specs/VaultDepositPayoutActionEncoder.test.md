@@ -374,14 +374,11 @@ function verifyApprovalAction(
 
 1. **Vault Interface**: The IVault interface is defined inline. Should this be moved to interfaces directory?
 
-2. **Permission Checks**: The SET_VAULT_PERMISSION_ID is defined but not used. Should setupCampaign check this
-   permission instead of just DAO/owner?
+2. **Claim Data**: The encoder doesn't use claim-time auxData. Is this intentional or should we plan for future use?
 
-3. **Claim Data**: The encoder doesn't use claim-time auxData. Is this intentional or should we plan for future use?
+3. **Error Handling**: Should the encoder validate that the vault address has code (is a contract)?
 
-4. **Error Handling**: Should the encoder validate that the vault address has code (is a contract)?
-
-5. **Action Ordering**: Is the order (approve then deposit) critical? Should we test reverse order fails?
+4. **Action Ordering**: Is the order (approve then deposit) critical? Should we test reverse order fails?
 
 ## Implementation Notes
 
