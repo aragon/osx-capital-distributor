@@ -2681,6 +2681,50 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         vm.stopPrank();
     }
+
+    /// @notice Test that claimCampaignPayoutToAddress reverts when payout address is zero
+    function test_ClaimPayoutToAddress_RevertOnZeroAddress() public {
+        mintTokensToDAO(2 ether);
+        vm.startPrank(address(createdDao));
+        uint256 campaignId = createBasicCampaign();
+        vm.stopPrank();
+
+        // Alice tries to claim her allocation to zero address
+        vm.startPrank(alice);
+
+        // Should revert with ZeroAddress error
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.ZeroAddress.selector, "_payoutAddress"));
+        capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, address(0), "", "");
+
+        // Verify no funds were claimed
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 0, "No claim should be recorded");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Fuzz test to ensure zero address always reverts regardless of parameters
+    function testFuzz_ClaimPayoutToAddress_AlwaysRevertsOnZeroAddress(
+        bytes memory strategyAuxData,
+        bytes memory encoderAuxData,
+        uint256 campaignId
+    )
+        public
+    {
+        // Setup a basic campaign
+        mintTokensToDAO(2 ether);
+        vm.startPrank(address(createdDao));
+        uint256 realCampaignId = createBasicCampaign();
+        vm.stopPrank();
+
+        // Use either the fuzzed campaignId or the real one
+        campaignId = campaignId % 2 == 0 ? realCampaignId : campaignId;
+
+        // Try to claim to zero address with fuzzed parameters
+        vm.startPrank(alice);
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.ZeroAddress.selector, "_payoutAddress"));
+        capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, address(0), strategyAuxData, encoderAuxData);
+        vm.stopPrank();
+    }
 }
 
 // Mock contracts for testing failures
