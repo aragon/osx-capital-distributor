@@ -541,6 +541,11 @@ contract CapitalDistributorPlugin is
         public
         returns (uint256 amountToSend)
     {
+        // Validate payout address is not zero to prevent burning tokens
+        if (_payoutAddress == address(0)) {
+            revert ZeroAddress("_payoutAddress");
+        }
+
         // Common validation
         Campaign storage campaign = _validateCampaignClaimEligibility(_campaignId);
 
