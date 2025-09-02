@@ -506,7 +506,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
         setupGaugeVotingScenario(1000, gaugeVotes);
 
         // Try to get claimable amount for non-existent campaign
-        vm.expectRevert(abi.encodeWithSelector(GaugeDistributionStrategy.CampaignNotFound.selector, 999));
+        vm.expectRevert(abi.encodeWithSelector(GaugeDistributionStrategy.CampaignAlreadyExists.selector));
         deployedStrategy.getTotalClaimableAmount(999, alice, "");
 
         // Verify eligibility check also handles non-existent campaigns
@@ -788,9 +788,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
         uint256 nonExistentCampaignId = 999;
 
         // Test getTotalClaimableAmount with non-existent campaign
-        vm.expectRevert(
-            abi.encodeWithSelector(GaugeDistributionStrategy.CampaignNotFound.selector, nonExistentCampaignId)
-        );
+        vm.expectRevert(abi.encodeWithSelector(GaugeDistributionStrategy.CampaignAlreadyExists.selector));
         deployedStrategy.getTotalClaimableAmount(nonExistentCampaignId, alice, "");
 
         // Test isGaugeEligible returns false (no error thrown)

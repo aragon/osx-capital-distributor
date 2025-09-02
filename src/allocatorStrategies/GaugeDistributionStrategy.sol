@@ -16,6 +16,7 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
     // =========================================================================
 
     error CampaignNotFound(uint256 campaignId);
+    error CampaignAlreadyExists();
     error EpochMismatch(uint256 campaignEpoch, uint256 currentEpoch);
     error VotingCurrentlyActive();
     error InvalidGaugeVoter();
@@ -89,7 +90,7 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
         GaugeAllocationCampaign storage campaign = campaigns[_campaignId];
 
         // Validate campaign exists
-        if (campaign.epochId == 0) revert CampaignNotFound(_campaignId);
+        if (campaign.epochId == 0) revert CampaignAlreadyExists();
 
         // Validate campaign epoch matches current epoch
         uint256 currentEpoch = gaugeVoter.epochId();
@@ -142,13 +143,13 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
     /// 2. Voting is not currently active (distribution period)
     /// 3. Current epoch matches campaign epoch
     function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) public override {
-        if (msg.sender != owner() && msg.sender != address(dao())) {
+        if (msg.sender != owner()) {
             revert IAllocatorStrategy.OnlyDAOAllowed(msg.sender);
         }
 
         // Campaign shouldn't already exist
         if (campaigns[_campaignId].epochId != 0) {
-            revert CampaignNotFound(_campaignId);
+            revert CampaignAlreadyExists();
         }
 
         // Decode distribution amount

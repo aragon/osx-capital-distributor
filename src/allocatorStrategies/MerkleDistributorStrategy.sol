@@ -80,7 +80,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
 
     /// @inheritdoc IAllocatorStrategy
     function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) public override {
-        if (msg.sender != owner() && msg.sender != address(dao())) {
+        if (msg.sender != owner()) {
             revert OnlyDAOAllowed(msg.sender);
         }
 
