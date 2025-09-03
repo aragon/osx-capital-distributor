@@ -527,9 +527,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         vm.expectEmit(true, true, false, true);
         emit MerkleDistributorStrategy.MerkleCampaignUpdated(campaignId, initialRoot, newRoot);
 
-        // Call directly on strategy but from plugin context
+        // Call directly on strategy but from DAO context
         vm.stopPrank();
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, newRootData
         );
@@ -571,9 +571,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, campaignId));
 
-        // Call directly on strategy but from plugin context
+        // Call directly on strategy but from DAO context
         vm.stopPrank();
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, newRootData
         );
@@ -611,9 +611,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Should revert with CampaignNotPaused since active campaigns cannot be updated
         vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, campaignId));
 
-        // Call directly on strategy but from plugin context
+        // Call directly on strategy but from DAO context
         vm.stopPrank();
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, newRootData
         );
@@ -650,7 +650,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         // Try to update while active (should fail)
         vm.stopPrank();
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, newRootData
         );
@@ -664,7 +664,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         vm.expectEmit(true, true, false, true);
         emit MerkleDistributorStrategy.MerkleCampaignUpdated(campaignId, initialRoot, newRoot);
 
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, newRootData
         );
@@ -685,7 +685,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, campaignId));
 
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, anotherRootData
         );
@@ -758,7 +758,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.InvalidMerkleRoot.selector));
 
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, invalidRootData
         );
@@ -827,7 +827,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.DuplicateMerkleRoot.selector, initialRoot));
 
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, duplicateRootData
         );
@@ -865,7 +865,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
             abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, nonExistentCampaignId)
         );
 
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             nonExistentCampaignId, newRootData
         );
@@ -997,7 +997,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, campaignId));
 
         vm.stopPrank();
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, newRootData
         );
@@ -1013,7 +1013,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         vm.expectEmit(true, true, false, true);
         emit MerkleDistributorStrategy.MerkleCampaignUpdated(campaignId, initialRoot, newRoot);
 
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, newRootData
         );

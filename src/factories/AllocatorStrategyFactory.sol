@@ -41,12 +41,6 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     /// @param strategy The address of the deployed strategy
     event StrategyDeployed(bytes32 indexed strategyId, address indexed strategy);
 
-    /// @notice Emitted when an existing strategy instance is retrieved
-    /// @param strategyId The unique identifier for the strategy type
-    /// @param strategy The address of the retrieved strategy
-    /// @param deploymentId The deployment identifier
-    event StrategyRetrieved(bytes32 indexed strategyId, address indexed strategy, bytes32 indexed deploymentId);
-
     /// @notice Emitted when a strategy type is registered with fee configuration
     /// @param strategyId The unique identifier for the strategy type
     /// @param feeRecipient The address where fees will be sent
@@ -169,7 +163,6 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
 
         strategy = deployedInstances[deploymentId];
         if (strategy != address(0)) {
-            emit StrategyRetrieved(_strategyTypeId, strategy, deploymentId);
             return strategy;
         }
 

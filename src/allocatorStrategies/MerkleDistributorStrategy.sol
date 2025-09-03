@@ -80,7 +80,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
 
     /// @inheritdoc IAllocatorStrategy
     function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) public override {
-        if (msg.sender != owner() && msg.sender != address(dao())) {
+        if (msg.sender != owner()) {
             revert OnlyDAOAllowed(msg.sender);
         }
 
@@ -143,7 +143,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     /// @param _campaignId The campaign ID to update
     /// @param _auxData The encoded data containing the new merkle root
     function updateCampaignMerkleRoot(uint256 _campaignId, bytes calldata _auxData) external {
-        if (msg.sender != owner() && msg.sender != address(dao())) {
+        if (msg.sender != address(dao())) {
             revert OnlyDAOAllowed(msg.sender);
         }
 

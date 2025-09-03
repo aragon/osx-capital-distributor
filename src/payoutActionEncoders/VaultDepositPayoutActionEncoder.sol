@@ -18,9 +18,6 @@ interface IVault {
 /// @dev This contract is DaoAuthorizable. The DAO controlling this encoder instance
 ///      must grant permission for `setCampaignVault`.
 contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
-    /// @notice Permission ID required to call `setCampaignVault`.
-    bytes32 public constant SET_VAULT_PERMISSION_ID = keccak256("SET_VAULT_PERMISSION");
-
     /// @notice Mapping from campaignId to the vault address for that campaign.
     mapping(uint256 => address) public campaignVaults;
 
@@ -33,13 +30,13 @@ contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
     error VaultNotSetForCampaign(uint256 campaignId);
     /// @notice Thrown if the vault address to be set is the zero address.
     error ZeroAddressNotAllowed();
-    /// @notice Thrown if the call is done by any address but the DAO
-    error OnlyDAO(address caller);
+    /// @notice Thrown if the call is done by any address but the Owner
+    error OnlyOwner(address caller);
 
     // @inheritdoc PayoutActionEncoderBase
     function setupCampaign(uint256 _campaignId, bytes calldata _auxData) external override {
-        if (msg.sender != address(dao()) && msg.sender != owner()) {
-            revert OnlyDAO(msg.sender);
+        if (msg.sender != owner()) {
+            revert OnlyOwner(msg.sender);
         }
         address vaultAddress = abi.decode(_auxData, (address));
         if (vaultAddress == address(0)) {
