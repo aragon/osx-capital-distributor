@@ -231,7 +231,7 @@ contract CapitalDistributorPlugin is
 
     /// @notice Thrown when invalid time bounds are provided for a campaign.
     error InvalidTimeBounds();
-    
+
     /// @notice Thrown when an invalid parameter is provided.
     /// @param parameter The name of the invalid parameter.
     error InvalidParameter(string parameter);
@@ -256,7 +256,7 @@ contract CapitalDistributorPlugin is
         if (address(_dao) == address(0)) {
             revert ZeroAddress("_dao");
         }
-        
+
         // Validate allocatorStrategyFactory
         if (address(_allocatorStrategyFactory) == address(0)) {
             revert ZeroAddress("_allocatorStrategyFactory");
@@ -264,12 +264,12 @@ contract CapitalDistributorPlugin is
         if (address(_allocatorStrategyFactory).code.length == 0) {
             revert InvalidParameter("_allocatorStrategyFactory");
         }
-        
+
         // Validate actionEncoderFactory (can be zero address)
         if (address(_actionEncoderFactory) != address(0) && address(_actionEncoderFactory).code.length == 0) {
             revert InvalidParameter("_actionEncoderFactory");
         }
-        
+
         __PluginUUPSUpgradeable_init(_dao);
         allocatorStrategyFactory = _allocatorStrategyFactory;
         actionEncoderFactory = _actionEncoderFactory;
@@ -424,13 +424,12 @@ contract CapitalDistributorPlugin is
         amountToSend = campaign.allocationStrategy.getTotalClaimableAmount(_campaignId, _recipient, _auxData);
     }
 
-    /// @notice Internal helper to validate campaign claim eligibility
-    /// @dev Checks campaign existence, state, and time bounds
+    /// @notice Internal helper to ensure a campaign is available for claims
+    /// @dev Checks campaign existence, state, and time bounds. Reverts if any check fails.
     /// @param _campaignId The campaign ID to validate
-    /// @return campaign The validated campaign storage reference
-    function _validateCampaignClaimEligibility(uint256 _campaignId) internal view returns (Campaign storage campaign) {
+    function _requireClaimAvailable(uint256 _campaignId) internal view {
         _requireCampaignExists(_campaignId);
-        campaign = campaigns[_campaignId];
+        Campaign storage campaign = campaigns[_campaignId];
 
         // Check if campaign is active
         if (campaign.state != CampaignState.ACTIVE) {
@@ -492,7 +491,11 @@ contract CapitalDistributorPlugin is
         public
         returns (uint256 amountToSend)
     {
-        Campaign storage campaign = _validateCampaignClaimEligibility(_campaignId);
+        // Validate campaign is available for claims
+        _requireClaimAvailable(_campaignId);
+
+        // Get the campaign reference
+        Campaign storage campaign = campaigns[_campaignId];
 
         uint256 alreadyClaimed = claimed[_campaignId][_recipient];
 
@@ -564,8 +567,11 @@ contract CapitalDistributorPlugin is
             revert ZeroAddress("_payoutAddress");
         }
 
-        // Common validation
-        Campaign storage campaign = _validateCampaignClaimEligibility(_campaignId);
+        // Validate campaign is available for claims
+        _requireClaimAvailable(_campaignId);
+
+        // Get the campaign reference
+        Campaign storage campaign = campaigns[_campaignId];
 
         // Important: The recipient is always msg.sender
         // This ensures only the rightful recipient can claim their allocation
