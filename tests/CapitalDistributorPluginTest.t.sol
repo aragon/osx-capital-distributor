@@ -2806,3 +2806,133 @@ contract MockFailingEncoder is IPayoutActionEncoder {
         return true;
     }
 }
+
+// ============================================
+// Tests for isCampaignPaused() function
+// ============================================
+
+contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPluginTest {
+    // Test that isCampaignPaused returns false for non-existent campaign
+    function test_isCampaignPaused_NonExistentCampaign() public {
+        // Test with campaign ID that doesn't exist
+        uint256 nonExistentId = 999;
+        assertFalse(capitalDistributorPlugin.isCampaignPaused(nonExistentId), "Non-existent campaign should return false");
+    }
+
+    // Test that isCampaignPaused returns false for an active campaign
+    function test_isCampaignPaused_ActiveCampaign() public {
+        // Create a campaign
+        vm.startPrank(address(createdDao));
+        uint256 campaignId = createBasicCampaign();
+        vm.stopPrank();
+
+        // Check that active campaign returns false
+        assertFalse(capitalDistributorPlugin.isCampaignPaused(campaignId), "Active campaign should return false");
+    }
+
+    // Test that isCampaignPaused returns true for a paused campaign within time bounds
+    function test_isCampaignPaused_PausedCampaignWithinBounds() public {
+        // Create a campaign
+        vm.startPrank(address(createdDao));
+        uint256 campaignId = createBasicCampaign();
+        
+        // Pause the campaign
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+        vm.stopPrank();
+
+        // Check that paused campaign returns true
+        assertTrue(capitalDistributorPlugin.isCampaignPaused(campaignId), "Paused campaign within bounds should return true");
+    }
+
+    // Test that isCampaignPaused returns false for a paused campaign before start time
+    function test_isCampaignPaused_PausedCampaignBeforeStartTime() public {
+        // Create campaign with future start time
+        vm.startPrank(address(createdDao));
+        uint256 campaignId = createCampaignWithParams(
+            false, // multipleClaimsAllowed
+            block.timestamp + 1 days, // startTime (future)
+            0 // endTime (no end)
+        );
+        
+        // Pause the campaign
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+        vm.stopPrank();
+
+        // Check that paused campaign before start time returns false
+        assertFalse(capitalDistributorPlugin.isCampaignPaused(campaignId), "Paused campaign before start time should return false");
+    }
+
+    // Test that isCampaignPaused returns false for a paused campaign after end time
+    function test_isCampaignPaused_PausedCampaignAfterEndTime() public {
+        // Create campaign with short duration
+        vm.startPrank(address(createdDao));
+        uint256 campaignId = createCampaignWithParams(
+            false, // multipleClaimsAllowed
+            block.timestamp, // startTime (now)
+            block.timestamp + 100 // endTime (100 seconds from now)
+        );
+        
+        // Pause the campaign
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+        vm.stopPrank();
+
+        // Warp past the end time
+        vm.warp(block.timestamp + 101);
+
+        // Check that paused campaign after end time returns false
+        assertFalse(capitalDistributorPlugin.isCampaignPaused(campaignId), "Paused campaign after end time should return false");
+    }
+
+    // Test that isCampaignPaused returns false for an ended campaign
+    function test_isCampaignPaused_EndedCampaign() public {
+        // Create a campaign
+        vm.startPrank(address(createdDao));
+        uint256 campaignId = createBasicCampaign();
+        
+        // End the campaign
+        capitalDistributorPlugin.endCampaign(campaignId);
+        vm.stopPrank();
+
+        // Check that ended campaign returns false
+        assertFalse(capitalDistributorPlugin.isCampaignPaused(campaignId), "Ended campaign should return false");
+    }
+
+    // Test edge case: campaign with no time restrictions (startTime = 0, endTime = 0)
+    function test_isCampaignPaused_NoTimeRestrictions() public {
+        // Create campaign with no time restrictions
+        vm.startPrank(address(createdDao));
+        uint256 campaignId = createCampaignWithParams(
+            false, // multipleClaimsAllowed
+            0, // startTime (no restriction)
+            0 // endTime (no restriction)
+        );
+        
+        // Pause the campaign
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+        vm.stopPrank();
+
+        // Check that paused campaign with no time restrictions returns true
+        assertTrue(capitalDistributorPlugin.isCampaignPaused(campaignId), "Paused campaign with no time restrictions should return true");
+    }
+
+    // Test multiple campaigns with different states
+    function test_isCampaignPaused_MultipleCampaigns() public {
+        vm.startPrank(address(createdDao));
+        
+        // Create multiple campaigns
+        uint256 activeCampaign = createBasicCampaign();
+        uint256 pausedCampaign = createBasicCampaign();
+        uint256 endedCampaign = createBasicCampaign();
+        
+        // Update their states
+        capitalDistributorPlugin.pauseCampaign(pausedCampaign);
+        capitalDistributorPlugin.endCampaign(endedCampaign);
+        
+        vm.stopPrank();
+
+        // Check each campaign
+        assertFalse(capitalDistributorPlugin.isCampaignPaused(activeCampaign), "Active campaign should return false");
+        assertTrue(capitalDistributorPlugin.isCampaignPaused(pausedCampaign), "Paused campaign should return true");
+        assertFalse(capitalDistributorPlugin.isCampaignPaused(endedCampaign), "Ended campaign should return false");
+    }
+}
