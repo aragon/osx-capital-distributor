@@ -187,7 +187,7 @@ contract CapitalDistributorPluginSetupTest is Test {
         // Get the helpers from installation
         IPluginSetup.PreparedSetupData memory installData;
         (pluginAddr, installData) = setup.prepareInstallation(address(dao), encodedParams);
-        
+
         // Create proper payload with the helper from installation
         address[] memory helpers = installData.helpers;
         assertEq(helpers.length, 1, "Should have 1 helper");
