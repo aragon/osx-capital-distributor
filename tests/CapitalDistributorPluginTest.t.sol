@@ -827,8 +827,10 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithParams(true, 0, 0); // multiple claims allowed
+        vm.stopPrank();
 
-        // First claim - strategy returns 1 ether
+        // Alice makes first claim - strategy returns 1 ether
+        vm.startPrank(alice);
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
         assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether after first claim");
 
@@ -884,12 +886,14 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign(); // multiple claims not allowed
+        vm.stopPrank();
 
-        // First claim succeeds
+        // Alice makes first claim - succeeds
+        vm.startPrank(alice);
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
         assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether");
 
-        // Second claim fails
+        // Alice tries second claim - fails
         vm.expectRevert(
             abi.encodeWithSelector(CapitalDistributorPlugin.MultipleClaimsNotAllowed.selector, campaignId, alice)
         );
@@ -925,8 +929,10 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = createZeroAmountCampaign();
+        vm.stopPrank();
 
-        // Try to claim without any funds
+        // Alice tries to claim without any funds
+        vm.startPrank(alice);
         vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.NoClaimableAmount.selector, campaignId, alice));
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
 
@@ -939,7 +945,10 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
+        vm.stopPrank();
 
+        // Alice claims her payout
+        vm.startPrank(alice);
         vm.expectEmit(true, true, true, true);
         emit CapitalDistributorPlugin.PayoutClaimed(campaignId, alice, 1 ether);
 
@@ -983,21 +992,21 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithParams(true, 0, 0); // multiple claims allowed
-
-        // DAO claims for alice
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
-        assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether");
-
         vm.stopPrank();
 
-        // Bob also claims for alice - should fail as max is reached
-        vm.startPrank(bob);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                CapitalDistributorPlugin.AlreadyClaimedMaxAmount.selector, campaignId, alice, 1 ether, 1 ether
-            )
-        );
+        // Alice claims her allocation
+        vm.startPrank(alice);
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+        assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether");
+        vm.stopPrank();
+
+        // Bob tries to send his allocation to alice address - but it goes to Bob's allocation
+        vm.startPrank(bob);
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
+        // Bob's funds go to alice's address, but it's Bob's allocation being claimed
+        assertEq(token.balanceOf(alice), 2 ether, "Alice should have 2 ether (her own + Bob's sent to her)");
+        assertEq(token.balanceOf(bob), 0, "Bob should have 0 ether (sent to alice)");
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, bob), 1 ether, "Bob's claim recorded");
 
         vm.stopPrank();
     }
@@ -1008,8 +1017,10 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithParams(true, 0, 0);
+        vm.stopPrank();
 
-        // First claim - claims 1 ether
+        // Alice makes first claim - claims 1 ether
+        vm.startPrank(alice);
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
         assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether");
 
@@ -1026,12 +1037,14 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithParams(true, 0, 0);
+        vm.stopPrank();
 
-        // Claim once
+        // Alice claims once
+        vm.startPrank(alice);
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
         assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether");
 
-        // Try to claim again - should revert as max is 1 ether per mock strategy
+        // Alice tries to claim again - should revert as max is 1 ether per mock strategy
         vm.expectRevert(
             abi.encodeWithSelector(
                 CapitalDistributorPlugin.AlreadyClaimedMaxAmount.selector, campaignId, alice, 1 ether, 1 ether
@@ -1106,15 +1119,18 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
+        vm.stopPrank();
 
-        // Claim with empty aux data
+        // Alice claims with empty aux data
+        vm.startPrank(alice);
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
         assertEq(token.balanceOf(alice), 1 ether, "Alice should have 1 ether");
+        vm.stopPrank();
 
-        // Claim with some aux data (mock strategy ignores it)
+        // Bob claims with some aux data (mock strategy ignores it)
+        vm.startPrank(bob);
         capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, "some-aux-data", "encoder-aux");
         assertEq(token.balanceOf(bob), 1 ether, "Bob should have 1 ether");
-
         vm.stopPrank();
     }
 
@@ -1152,8 +1168,10 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         // Create campaign ID 999 that returns 0 amount
         uint256 campaignId = createZeroAmountCampaign();
+        vm.stopPrank();
 
-        // This will fail with NoClaimableAmount because strategy returns 0
+        // Alice tries to claim - will fail with NoClaimableAmount because strategy returns 0
+        vm.startPrank(alice);
         vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.NoClaimableAmount.selector, campaignId, alice));
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
 
@@ -1394,11 +1412,13 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithParams(true, 0, 0);
+        vm.stopPrank();
 
         // Check initial claimed amount
         assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 0, "Initial claimed should be 0");
 
-        // Claim once - will claim 1 ether
+        // Alice claims once - will claim 1 ether
+        vm.startPrank(alice);
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
         assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 1 ether, "Claimed should be 1 ether");
 
@@ -1631,12 +1651,16 @@ contract CapitalDistributorPluginTest is AragonTest {
         // 3. Warp to active period
         vm.warp(startTime + 50);
         assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Should be active during period");
+        vm.stopPrank();
 
-        // 4. First claim - claims 1 ether
+        // 4. Alice claims - claims 1 ether
+        vm.startPrank(alice);
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
         assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 1 ether, "1 ether claimed");
+        vm.stopPrank();
 
         // 6. Deactivate campaign
+        vm.startPrank(address(createdDao));
         capitalDistributorPlugin.endCampaign(campaignId);
         assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Should be inactive after deactivation");
 
@@ -1819,18 +1843,21 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test campaign lifecycle with pause/resume
     function test_CampaignLifecycleWithPauseResume() public {
         mintTokensToDAO(2 ether);
-        vm.startPrank(address(createdDao));
 
+        vm.prank(address(createdDao));
         uint256 campaignId = createBasicCampaign();
 
         // 1. Claim while active
+        vm.prank(alice);
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
         assertEq(token.balanceOf(alice), 1 ether, "Alice should receive 1 ether");
 
         // 2. Pause campaign
+        vm.prank(address(createdDao));
         capitalDistributorPlugin.pauseCampaign(campaignId);
 
         // 3. Verify can't claim while paused
+        vm.prank(bob);
         vm.expectRevert(
             abi.encodeWithSelector(
                 CapitalDistributorPlugin.CampaignNotActive.selector,
@@ -1841,13 +1868,13 @@ contract CapitalDistributorPluginTest is AragonTest {
         capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, "", "");
 
         // 4. Resume campaign
+        vm.prank(address(createdDao));
         capitalDistributorPlugin.resumeCampaign(campaignId);
 
         // 5. Claim after resume
+        vm.prank(bob);
         capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, "", "");
         assertEq(token.balanceOf(bob), 1 ether, "Bob should receive 1 ether after resume");
-
-        vm.stopPrank();
     }
 
     /// @notice Test only authorized addresses can pause campaigns
@@ -1982,11 +2009,15 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithStrategy(toBytes32("fee-strategy"), bytes32(0), "", false);
+        vm.stopPrank();
 
         // Claim payout
         uint256 claimAmount = 1 ether;
         uint256 expectedFee = (claimAmount * feeBasisPoints) / 10_000;
         uint256 expectedRecipientAmount = claimAmount - expectedFee;
+
+        // Alice claims her payout
+        vm.startPrank(alice);
 
         // Expect events
         vm.expectEmit(true, true, true, true);
@@ -2016,8 +2047,10 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = createCampaignWithStrategy(toBytes32("zero-fee-strategy"), bytes32(0), "", false);
+        vm.stopPrank();
 
-        // Claim payout - should not emit FeeCollected event
+        // Alice claims payout - should not emit FeeCollected event
+        vm.startPrank(alice);
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
 
         // Verify alice receives full amount
@@ -2351,10 +2384,10 @@ contract CapitalDistributorPluginTest is AragonTest {
     }
 
     // ============================================
-    // T11: claimCampaignPayoutToAddress Tests
+    // T11: claimCampaignPayout Tests
     // ============================================
 
-    /// @notice Test basic functionality and security of claimCampaignPayoutToAddress
+    /// @notice Test basic functionality and security of claimCampaignPayout
     function test_ClaimPayoutToAddress_BasicFunctionality() public {
         mintTokensToDAO(2 ether);
         vm.startPrank(address(createdDao));
@@ -2371,7 +2404,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.expectEmit(true, true, true, true);
         emit CapitalDistributorPlugin.PayoutClaimed(campaignId, alice, 1 ether);
 
-        uint256 amountSent = capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, bob, "", "");
+        uint256 amountSent = capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, "", "");
 
         // Verify funds went to bob, not alice
         assertEq(token.balanceOf(alice), aliceInitialBalance, "Alice should not receive funds");
@@ -2397,7 +2430,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         // Bob can claim his allocation and redirect funds to Alice
         // (Mock strategy allows everyone to claim 1 ether)
         vm.startPrank(bob);
-        uint256 bobAmount = capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, alice, "", "");
+        uint256 bobAmount = capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
         assertEq(bobAmount, 1 ether, "Bob should claim 1 ether");
 
         // Verify funds went to Alice but claim is tracked against Bob
@@ -2410,19 +2443,19 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.expectRevert(
             abi.encodeWithSelector(CapitalDistributorPlugin.MultipleClaimsNotAllowed.selector, campaignId, bob)
         );
-        capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, alice, "", "");
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
         vm.stopPrank();
 
         // Alice can claim her own allocation and redirect to Bob
         vm.startPrank(alice);
-        uint256 aliceAmount = capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, bob, "", "");
+        uint256 aliceAmount = capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, "", "");
         assertEq(aliceAmount, 1 ether, "Alice should claim 1 ether");
 
         // Alice cannot claim again
         vm.expectRevert(
             abi.encodeWithSelector(CapitalDistributorPlugin.MultipleClaimsNotAllowed.selector, campaignId, alice)
         );
-        capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, bob, "", "");
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, "", "");
         vm.stopPrank();
 
         // Verify final state: funds crossed over but claims tracked to original senders
@@ -2432,7 +2465,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, bob), 1 ether, "Bob's claim tracked");
     }
 
-    /// @notice Test fee collection and proper event emission with claimCampaignPayoutToAddress
+    /// @notice Test fee collection and proper event emission with claimCampaignPayout
     function test_ClaimPayoutToAddress_WithFeesAndEvents() public {
         mintTokensToDAO(2 ether);
 
@@ -2468,7 +2501,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.expectEmit(true, true, true, true);
         emit CapitalDistributorPlugin.FeeCollected(campaignId, address(0x1234), 0.05 ether); // 5% fee
 
-        uint256 amountSent = capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, bob, "", "");
+        uint256 amountSent = capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, "", "");
 
         // Verify amounts
         assertEq(amountSent, 0.95 ether, "Should return amount after fee deduction");
@@ -2489,7 +2522,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.stopPrank();
     }
 
-    /// @notice Test campaign state validation and time bounds for claimCampaignPayoutToAddress
+    /// @notice Test campaign state validation and time bounds for claimCampaignPayout
     function test_ClaimPayoutToAddress_CampaignStateAndTimeBounds() public {
         mintTokensToDAO(2 ether);
         vm.startPrank(address(createdDao));
@@ -2516,13 +2549,13 @@ contract CapitalDistributorPluginTest is AragonTest {
                 block.timestamp + 200
             )
         );
-        capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, bob, "", "");
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, "", "");
 
         // Advance time to start
         vm.warp(block.timestamp + 100);
 
         // Claiming during active period should work
-        uint256 amount = capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, bob, "", "");
+        uint256 amount = capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, "", "");
         assertEq(amount, 1 ether, "Should claim successfully during active period");
         vm.stopPrank();
 
@@ -2535,7 +2568,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.expectRevert(
             abi.encodeWithSelector(CapitalDistributorPlugin.CampaignNotActive.selector, campaignId, uint8(1))
         ); // PAUSED = 1
-        capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, bob, "", "");
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, "", "");
         vm.stopPrank();
     }
 
@@ -2555,7 +2588,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         // Alice claims her allocation (1 ether) and sends to Bob
         vm.startPrank(alice);
-        uint256 aliceAmount = capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, bob, "", "");
+        uint256 aliceAmount = capitalDistributorPlugin.claimCampaignPayout(campaignId, bob, "", "");
         assertEq(aliceAmount, 1 ether, "Alice should claim 1 ether");
         assertEq(token.balanceOf(bob), 1 ether, "Bob should receive Alice's redirected funds");
         assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 1 ether, "Alice's claim tracked");
@@ -2563,7 +2596,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         // Bob claims his own allocation (1 ether) and sends to Alice
         vm.startPrank(bob);
-        uint256 bobAmount = capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, alice, "", "");
+        uint256 bobAmount = capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
         assertEq(bobAmount, 1 ether, "Bob should claim 1 ether");
         assertEq(token.balanceOf(alice), 1 ether, "Alice should receive Bob's redirected funds");
         assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, bob), 1 ether, "Bob's claim tracked");
@@ -2683,46 +2716,50 @@ contract CapitalDistributorPluginTest is AragonTest {
     }
 
     /// @notice Test that claimCampaignPayoutToAddress reverts when payout address is zero
-    function test_ClaimPayoutToAddress_RevertOnZeroAddress() public {
+    function test_ClaimPayoutToAddress_ZeroAddressSendsToMsgSender() public {
         mintTokensToDAO(2 ether);
         vm.startPrank(address(createdDao));
         uint256 campaignId = createBasicCampaign();
         vm.stopPrank();
 
-        // Alice tries to claim her allocation to zero address
+        // Alice claims her allocation with address(0) - should send to alice
         vm.startPrank(alice);
 
-        // Should revert with ZeroAddress error
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.ZeroAddress.selector, "_payoutAddress"));
-        capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, address(0), "", "");
+        uint256 aliceInitialBalance = token.balanceOf(alice);
 
-        // Verify no funds were claimed
-        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 0, "No claim should be recorded");
+        // Should send to msg.sender (alice) when payout address is zero
+        uint256 amountSent = capitalDistributorPlugin.claimCampaignPayout(campaignId, address(0), "", "");
+
+        // Verify funds went to alice
+        assertEq(token.balanceOf(alice), aliceInitialBalance + 1 ether, "Alice should receive funds");
+        assertEq(capitalDistributorPlugin.getClaimedAmount(campaignId, alice), 1 ether, "Claim should be recorded");
+        assertEq(amountSent, 1 ether, "Should return correct amount");
 
         vm.stopPrank();
     }
 
-    /// @notice Fuzz test to ensure zero address always reverts regardless of parameters
-    function testFuzz_ClaimPayoutToAddress_AlwaysRevertsOnZeroAddress(
+    /// @notice Fuzz test to ensure zero address sends to msg.sender
+    function testFuzz_ClaimPayoutToAddress_ZeroAddressSendsToMsgSender(
         bytes memory strategyAuxData,
-        bytes memory encoderAuxData,
-        uint256 campaignId
+        bytes memory encoderAuxData
     )
         public
     {
         // Setup a basic campaign
         mintTokensToDAO(2 ether);
         vm.startPrank(address(createdDao));
-        uint256 realCampaignId = createBasicCampaign();
+        uint256 campaignId = createBasicCampaign();
         vm.stopPrank();
 
-        // Use either the fuzzed campaignId or the real one
-        campaignId = campaignId % 2 == 0 ? realCampaignId : campaignId;
-
-        // Try to claim to zero address with fuzzed parameters
+        // Alice tries to claim with zero address - should succeed and send to alice
         vm.startPrank(alice);
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.ZeroAddress.selector, "_payoutAddress"));
-        capitalDistributorPlugin.claimCampaignPayoutToAddress(campaignId, address(0), strategyAuxData, encoderAuxData);
+        uint256 aliceInitialBalance = token.balanceOf(alice);
+
+        // Should not revert - address(0) means send to msg.sender
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, address(0), strategyAuxData, encoderAuxData);
+
+        // Verify funds went to alice
+        assertGe(token.balanceOf(alice), aliceInitialBalance, "Alice should receive funds or revert for other reasons");
         vm.stopPrank();
     }
 }
