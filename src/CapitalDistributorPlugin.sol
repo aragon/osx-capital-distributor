@@ -456,86 +456,14 @@ contract CapitalDistributorPlugin is
         // since it knows who the actual recipient is and can control event order
     }
 
-    /**
-     * @notice Sends the amount of tokens to the recipient of a campaign
-     * @param _campaignId The unique identifier for the campaign.
-     * @param _recipient The address to get the payout
-     * @param _strategyAuxData The data needed by the strategy to calculate the payout
-     * @param _encoderAuxData The data needed by the encoder to send the payout
-     * @return amountToSend The amount of tokens the recipient should get
-     */
-    function claimCampaignPayout(
-        uint256 _campaignId,
-        address _recipient,
-        bytes calldata _strategyAuxData,
-        bytes calldata _encoderAuxData
-    )
-        public
-        returns (uint256 amountToSend)
-    {
-        // Validate campaign is available for claims
-        _requireClaimAvailable(_campaignId);
-
-        // Get the campaign reference
-        Campaign storage campaign = campaigns[_campaignId];
-
-        uint256 alreadyClaimed = claimed[_campaignId][_recipient];
-
-        // Check if multiple claims are allowed first (fastest check)
-        if (!campaign.multipleClaimsAllowed && alreadyClaimed > 0) {
-            revert MultipleClaimsNotAllowed(_campaignId, _recipient);
-        }
-
-        uint256 totalAmountToSend =
-            campaign.allocationStrategy.getTotalClaimableAmount(_campaignId, _recipient, _strategyAuxData);
-
-        if (totalAmountToSend == 0) {
-            revert NoClaimableAmount(_campaignId, _recipient);
-        }
-
-        // Check if already claimed all payout assigned
-        if (alreadyClaimed >= totalAmountToSend) {
-            revert AlreadyClaimedMaxAmount(_campaignId, _recipient, alreadyClaimed, totalAmountToSend);
-        }
-
-        // Get fee configuration and calculate
-        (address feeRecipient, uint256 feeBasisPoints) = campaign.allocationStrategy.getFeeConfiguration();
-        uint256 feeAmount = 0;
-        amountToSend = totalAmountToSend - alreadyClaimed;
-        if (feeBasisPoints > 0 && feeRecipient != address(0)) {
-            feeAmount = (amountToSend * feeBasisPoints) / 10_000;
-            amountToSend = amountToSend - feeAmount;
-        }
-
-        claimed[_campaignId][_recipient] = totalAmountToSend;
-
-        // Execute payout using helper
-        _executePayout(
-            campaign,
-            _campaignId,
-            _recipient, // Send to recipient address
-            amountToSend,
-            feeRecipient,
-            feeAmount,
-            _encoderAuxData
-        );
-
-        emit PayoutClaimed(_campaignId, _recipient, amountToSend);
-        if (feeAmount > 0) {
-            emit FeeCollected(_campaignId, feeRecipient, feeAmount);
-        }
-    }
-
-    /// @notice Claims the caller's campaign payout and sends it to a specified address.
-    /// @dev Security: Only msg.sender can claim their own allocation. This prevents claiming
-    ///      on behalf of others while allowing redirection of one's own payout to a different
-    ///      address (e.g., a savings wallet, vault, or payment processor).
+    /// @notice Claims the caller's campaign payout.
+    /// @dev Only msg.sender can claim their own allocation. This prevents unauthorized claims.
     /// @param _campaignId The ID of the campaign to claim from.
-    /// @param _payoutAddress The address where the payout will be sent.
+    /// @param _payoutAddress The address where the payout will be sent (use address(0) to send to msg.sender).
     /// @param _strategyAuxData Auxiliary data for the allocation strategy.
     /// @param _encoderAuxData Auxiliary data for the action encoder.
-    /// @return amountToSend The amount of tokens sent to the payout address.
-    function claimCampaignPayoutToAddress(
+    /// @return amountToSend The amount of tokens sent.
+    function claimCampaignPayout(
         uint256 _campaignId,
         address _payoutAddress,
         bytes calldata _strategyAuxData,
@@ -544,9 +472,9 @@ contract CapitalDistributorPlugin is
         public
         returns (uint256 amountToSend)
     {
-        // Validate payout address is not zero to prevent burning tokens
+        // If payout address is zero, send to msg.sender
         if (_payoutAddress == address(0)) {
-            revert ZeroAddress("_payoutAddress");
+            _payoutAddress = msg.sender;
         }
 
         // Validate campaign is available for claims
@@ -594,11 +522,11 @@ contract CapitalDistributorPlugin is
         // Update claimed for the actual recipient (msg.sender), not the payout address
         claimed[_campaignId][recipient] = totalAmountToSend;
 
-        // Execute payout using helper - send to specified address
+        // Execute payout using helper
         _executePayout(
             campaign,
             _campaignId,
-            _payoutAddress, // Send to specified address
+            _payoutAddress,
             amountToSend,
             feeRecipient,
             feeAmount,
@@ -694,15 +622,16 @@ contract CapitalDistributorPlugin is
         emit CampaignEnded(_campaignId);
     }
 
-    /// @notice Claims payouts from multiple campaigns in a single transaction.
+    /// @notice Claims payouts from multiple campaigns for the caller in a single transaction.
+    /// @dev Only allows claiming your own allocations. Use address(0) in payoutAddresses to send to msg.sender.
     /// @param _campaignIds Array of campaign IDs to claim from.
-    /// @param _recipients Array of recipient addresses (must match campaignIds length).
+    /// @param _payoutAddresses Array of payout addresses (must match campaignIds length).
     /// @param _strategiesAuxData Array of auxiliary data for each claim (must match campaignIds length).
     /// @param _encodersAuxData Array of auxiliary data for each claim (must match campaignIds length).
     /// @return amounts Array of amounts claimed for each campaign.
     function batchClaimCampaignPayout(
         uint256[] calldata _campaignIds,
-        address[] calldata _recipients,
+        address[] calldata _payoutAddresses,
         bytes[] calldata _strategiesAuxData,
         bytes[] calldata _encodersAuxData
     )
@@ -710,7 +639,7 @@ contract CapitalDistributorPlugin is
         returns (uint256[] memory amounts)
     {
         uint256 length = _campaignIds.length;
-        if (length != _recipients.length || length != _strategiesAuxData.length || length != _encodersAuxData.length) {
+        if (length != _payoutAddresses.length || length != _strategiesAuxData.length || length != _encodersAuxData.length) {
             revert ArrayLengthMismatch();
         }
 
@@ -718,7 +647,7 @@ contract CapitalDistributorPlugin is
 
         for (uint256 i = 0; i < length; ++i) {
             amounts[i] =
-                claimCampaignPayout(_campaignIds[i], _recipients[i], _strategiesAuxData[i], _encodersAuxData[i]);
+                claimCampaignPayout(_campaignIds[i], _payoutAddresses[i], _strategiesAuxData[i], _encodersAuxData[i]);
         }
 
         return amounts;
