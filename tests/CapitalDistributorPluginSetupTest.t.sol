@@ -83,8 +83,10 @@ contract CapitalDistributorPluginSetupTest is Test {
         assertNotEq(pluginAddr, address(0));
         assertTrue(pluginAddr.code.length > 0);
 
-        // It should return a list with 0 helpers (empty array)
-        assertEq(preparedSetupData.helpers.length, 0, "helpers length should be 0");
+        // It should return a list with 1 helper (the execute condition)
+        assertEq(preparedSetupData.helpers.length, 1, "helpers length should be 1");
+        address executeCondition = preparedSetupData.helpers[0];
+        assertNotEq(executeCondition, address(0), "execute condition should not be zero");
 
         // It all plugins use the same implementation
         address pluginImplementation = _getImplementation(pluginAddr);
@@ -97,7 +99,7 @@ contract CapitalDistributorPluginSetupTest is Test {
         assertEq(address(plugin.dao()), address(dao));
 
         // It the list of permissions should match
-        assertEq(preparedSetupData.permissions.length, 4, "permissions length mismatch");
+        assertEq(preparedSetupData.permissions.length, 5, "permissions length mismatch");
 
         // 0. DAO can upgrade the plugin
         _assertPermission(
@@ -109,13 +111,13 @@ contract CapitalDistributorPluginSetupTest is Test {
             UPGRADE_PLUGIN_PERMISSION_ID
         );
 
-        // 1. Plugin can execute on DAO
+        // 1. Plugin can execute on DAO (with condition)
         _assertPermission(
             preparedSetupData.permissions[1],
-            PermissionLib.Operation.Grant,
+            PermissionLib.Operation.GrantWithCondition,
             address(dao),
             pluginAddr,
-            PermissionLib.NO_CONDITION,
+            executeCondition,
             EXECUTE_PERMISSION_ID
         );
 
@@ -137,6 +139,16 @@ contract CapitalDistributorPluginSetupTest is Test {
             address(dao),
             PermissionLib.NO_CONDITION,
             SET_METADATA_PERMISSION_ID
+        );
+
+        // 4. The DAO can manage allowed actions on the execute condition
+        _assertPermission(
+            preparedSetupData.permissions[4],
+            PermissionLib.Operation.Grant,
+            executeCondition,
+            address(dao),
+            PermissionLib.NO_CONDITION,
+            setup.MANAGE_SELECTORS_PERMISSION_ID()
         );
     }
 
@@ -172,8 +184,14 @@ contract CapitalDistributorPluginSetupTest is Test {
     function test_WhenPreparingAnUninstallation() external whenPreparingAnUninstallation {
         // It generates a correct list of permission changes
 
-        // Create proper payload with 0 helpers as expected
-        address[] memory helpers = new address[](0);
+        // Get the helpers from installation
+        IPluginSetup.PreparedSetupData memory installData;
+        (pluginAddr, installData) = setup.prepareInstallation(address(dao), encodedParams);
+
+        // Create proper payload with the helper from installation
+        address[] memory helpers = installData.helpers;
+        assertEq(helpers.length, 1, "Should have 1 helper");
+        address executeCondition = helpers[0];
 
         IPluginSetup.SetupPayload memory payload =
             IPluginSetup.SetupPayload({ plugin: pluginAddr, currentHelpers: helpers, data: "" });
@@ -181,7 +199,7 @@ contract CapitalDistributorPluginSetupTest is Test {
         PermissionLib.MultiTargetPermission[] memory revokePermissions =
             setup.prepareUninstallation(address(dao), payload);
 
-        assertEq(revokePermissions.length, 4, "uninstallation permissions length mismatch");
+        assertEq(revokePermissions.length, 5, "uninstallation permissions length mismatch");
 
         // 0. Revoke DAO can create campaigns
         _assertPermission(
@@ -203,13 +221,13 @@ contract CapitalDistributorPluginSetupTest is Test {
             UPGRADE_PLUGIN_PERMISSION_ID
         );
 
-        // 2. Revoke Plugin can execute on DAO
+        // 2. Revoke Plugin can execute on DAO (with condition)
         _assertPermission(
             revokePermissions[2],
             PermissionLib.Operation.Revoke,
             address(dao),
             pluginAddr,
-            PermissionLib.NO_CONDITION,
+            executeCondition,
             EXECUTE_PERMISSION_ID
         );
 
@@ -222,27 +240,38 @@ contract CapitalDistributorPluginSetupTest is Test {
             PermissionLib.NO_CONDITION,
             SET_METADATA_PERMISSION_ID
         );
+
+        // 4. Revoke DAO can manage actions on execute condition
+        _assertPermission(
+            revokePermissions[4],
+            PermissionLib.Operation.Revoke,
+            executeCondition,
+            address(dao),
+            PermissionLib.NO_CONDITION,
+            setup.MANAGE_SELECTORS_PERMISSION_ID()
+        );
     }
 
-    function test_RevertGiven_AListOfHelpersWithMoreThanZero() external whenPreparingAnUninstallation {
-        // It should revert
+    function test_RevertGiven_WrongHelpersCount() external whenPreparingAnUninstallation {
+        // It should revert with wrong helper count
 
-        // Case 1: One helper
-        address[] memory wrongHelpers2 = new address[](1);
+        // Case 1: Zero helpers (should have 1)
+        address[] memory wrongHelpers1 = new address[](0);
+        IPluginSetup.SetupPayload memory payload1 =
+            IPluginSetup.SetupPayload({ plugin: pluginAddr, currentHelpers: wrongHelpers1, data: "" });
+
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.WrongHelpersArrayLength.selector, 0));
+        setup.prepareUninstallation(address(dao), payload1);
+
+        // Case 2: 2 helpers (should have 1)
+        address[] memory wrongHelpers2 = new address[](2);
         wrongHelpers2[0] = address(0x1);
+        wrongHelpers2[1] = address(0x2);
         IPluginSetup.SetupPayload memory payload2 =
             IPluginSetup.SetupPayload({ plugin: pluginAddr, currentHelpers: wrongHelpers2, data: "" });
 
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.WrongHelpersArrayLength.selector, 1));
-        setup.prepareUninstallation(address(dao), payload2);
-
-        // Case 2: 2 helpers
-        address[] memory wrongHelpers3 = new address[](2);
-        IPluginSetup.SetupPayload memory payload3 =
-            IPluginSetup.SetupPayload({ plugin: pluginAddr, currentHelpers: wrongHelpers3, data: "" });
-
         vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.WrongHelpersArrayLength.selector, 2));
-        setup.prepareUninstallation(address(dao), payload3);
+        setup.prepareUninstallation(address(dao), payload2);
     }
 
     function test_PrepareUpdate_Reverts() external {

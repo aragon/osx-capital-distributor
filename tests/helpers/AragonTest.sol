@@ -36,6 +36,7 @@ contract AragonTest is Test {
     AllocatorStrategyFactory public allocatorStrategyFactory;
     ActionEncoderFactory public actionEncoderFactory;
 
+    address[] public conditions;
     address[] pluginAddress;
 
     DAO createdDao;
@@ -71,16 +72,12 @@ contract AragonTest is Test {
         DAOFactory.PluginSettings[] memory pluginSettings = getPluginSettings(pluginRepo);
 
         // 6. Deploying the DAO
-        vm.recordLogs();
-        (createdDao,) = DAOFactory(deployment.daoFactory).createDao(daoSettings, pluginSettings);
+        DAOFactory.InstalledPlugin[] memory installedPlugins;
+        (createdDao, installedPlugins) = DAOFactory(deployment.daoFactory).createDao(daoSettings, pluginSettings);
 
-        // 7. Getting the Plugin Address
-        Vm.Log[] memory logEntries = vm.getRecordedLogs();
-
-        for (uint256 i = 0; i < logEntries.length; i++) {
-            if (logEntries[i].topics[0] == keccak256("InstallationApplied(address,address,bytes32,bytes32)")) {
-                pluginAddress.push(address(uint160(uint256(logEntries[i].topics[2]))));
-            }
+        for (uint256 i = 0; i < installedPlugins.length; i++) {
+            pluginAddress.push(installedPlugins[i].plugin);
+            conditions.push(installedPlugins[i].preparedSetupData.helpers[0]);
         }
 
         // 8. Deploying the action encoders and adding them

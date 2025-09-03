@@ -2,27 +2,33 @@
 pragma solidity >=0.8.29 <0.9.0;
 
 import { Vm } from "forge-std/Vm.sol";
-import { Action } from "@aragon/commons/executors/IExecutor.sol";
 
 import { IPayoutActionEncoder } from "../src/interfaces/IPayoutActionEncoder.sol";
 import { CapitalDistributorPlugin } from "../src/CapitalDistributorPlugin.sol";
 import { AragonTest } from "./helpers/AragonTest.sol";
 import { IAllocatorStrategy } from "../src/interfaces/IAllocatorStrategy.sol";
 import { AllocatorStrategyMock } from "./mocks/AllocatorStrategyMock.sol";
-import { VaultDepositPayoutActionEncoder } from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
+import {
+    VaultDepositPayoutActionEncoder, IVault
+} from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
 import { IAllocatorStrategyFactory } from "../src/interfaces/IAllocatorStrategyFactory.sol";
 import { IActionEncoderFactory } from "../src/interfaces/IActionEncoderFactory.sol";
+
+import { Action } from "@aragon/commons/executors/IExecutor.sol";
+import { ExecuteSelectorCondition } from "@aragon/conditions/ExecuteSelectorCondition.sol";
+
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 import { MintableERC20 } from "./mocks/MintableERC20.sol";
 import { ERC4626Mock } from "./mocks/ERC4626Mock.sol";
 import { BadERC20Mock } from "./mocks/BadERC20Mock.sol";
-import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /// @title CapitalDistributorPluginTest
 /// @notice Comprehensive test suite for CapitalDistributorPlugin functionality
 /// @dev Tests campaign creation, payout claiming, and all edge cases for maximum coverage
 contract CapitalDistributorPluginTest is AragonTest {
     CapitalDistributorPlugin capitalDistributorPlugin;
+    ExecuteSelectorCondition condition;
     AllocatorStrategyMock strategy;
     MintableERC20 token;
     BadERC20Mock badToken;
@@ -32,6 +38,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Sets up the test environment with required contracts and configurations
     function setUp() public virtual {
         capitalDistributorPlugin = CapitalDistributorPlugin(pluginAddress[0]);
+        condition = ExecuteSelectorCondition(conditions[0]);
         token = new MintableERC20();
         badToken = new BadERC20Mock();
         strategy = new AllocatorStrategyMock();
@@ -43,6 +50,14 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         // Mint some bad tokens to the DAO for testing
         badToken.mint(address(createdDao), 1000 ether);
+
+        // Add token transfer permission to the plugin
+        ExecuteSelectorCondition.SelectorTarget memory selectorToAllow =
+            ExecuteSelectorCondition.SelectorTarget({ where: address(token), selectors: new bytes4[](1) });
+        selectorToAllow.selectors[0] = IERC20.transfer.selector;
+
+        vm.prank(address(createdDao));
+        condition.allowSelectors(selectorToAllow);
     }
 
     // ============================================
@@ -2093,6 +2108,21 @@ contract CapitalDistributorPluginTest is AragonTest {
         address feeRecipient = makeAddr("feeRecipient");
         uint256 feeBasisPoints = 300; // 3%
 
+        // Add vault deposit permission to the plugin
+        ExecuteSelectorCondition.SelectorTarget memory selectorToAllow =
+            ExecuteSelectorCondition.SelectorTarget({ where: address(vaultToSendTokens), selectors: new bytes4[](1) });
+        selectorToAllow.selectors[0] = IVault.deposit.selector;
+
+        vm.prank(address(createdDao));
+        condition.allowSelectors(selectorToAllow);
+
+        // Add token approve permission to the plugin
+        selectorToAllow = ExecuteSelectorCondition.SelectorTarget({ where: address(token), selectors: new bytes4[](1) });
+        selectorToAllow.selectors[0] = IERC20.approve.selector;
+
+        vm.prank(address(createdDao));
+        condition.allowSelectors(selectorToAllow);
+
         allocatorStrategyFactory.registerStrategyType(
             toBytes32("encoder-fee-strategy"), address(strategy), "", feeRecipient, feeBasisPoints
         );
@@ -2816,7 +2846,9 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
     function test_isCampaignPaused_NonExistentCampaign() public {
         // Test with campaign ID that doesn't exist
         uint256 nonExistentId = 999;
-        assertFalse(capitalDistributorPlugin.isCampaignPaused(nonExistentId), "Non-existent campaign should return false");
+        assertFalse(
+            capitalDistributorPlugin.isCampaignPaused(nonExistentId), "Non-existent campaign should return false"
+        );
     }
 
     // Test that isCampaignPaused returns false for an active campaign
@@ -2835,13 +2867,15 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         // Create a campaign
         vm.startPrank(address(createdDao));
         uint256 campaignId = createBasicCampaign();
-        
+
         // Pause the campaign
         capitalDistributorPlugin.pauseCampaign(campaignId);
         vm.stopPrank();
 
         // Check that paused campaign returns true
-        assertTrue(capitalDistributorPlugin.isCampaignPaused(campaignId), "Paused campaign within bounds should return true");
+        assertTrue(
+            capitalDistributorPlugin.isCampaignPaused(campaignId), "Paused campaign within bounds should return true"
+        );
     }
 
     // Test that isCampaignPaused returns false for a paused campaign before start time
@@ -2853,13 +2887,16 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
             block.timestamp + 1 days, // startTime (future)
             0 // endTime (no end)
         );
-        
+
         // Pause the campaign
         capitalDistributorPlugin.pauseCampaign(campaignId);
         vm.stopPrank();
 
         // Check that paused campaign before start time returns false
-        assertFalse(capitalDistributorPlugin.isCampaignPaused(campaignId), "Paused campaign before start time should return false");
+        assertFalse(
+            capitalDistributorPlugin.isCampaignPaused(campaignId),
+            "Paused campaign before start time should return false"
+        );
     }
 
     // Test that isCampaignPaused returns false for a paused campaign after end time
@@ -2871,7 +2908,7 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
             block.timestamp, // startTime (now)
             block.timestamp + 100 // endTime (100 seconds from now)
         );
-        
+
         // Pause the campaign
         capitalDistributorPlugin.pauseCampaign(campaignId);
         vm.stopPrank();
@@ -2880,7 +2917,9 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         vm.warp(block.timestamp + 101);
 
         // Check that paused campaign after end time returns false
-        assertFalse(capitalDistributorPlugin.isCampaignPaused(campaignId), "Paused campaign after end time should return false");
+        assertFalse(
+            capitalDistributorPlugin.isCampaignPaused(campaignId), "Paused campaign after end time should return false"
+        );
     }
 
     // Test that isCampaignPaused returns false for an ended campaign
@@ -2888,7 +2927,7 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         // Create a campaign
         vm.startPrank(address(createdDao));
         uint256 campaignId = createBasicCampaign();
-        
+
         // End the campaign
         capitalDistributorPlugin.endCampaign(campaignId);
         vm.stopPrank();
@@ -2906,28 +2945,31 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
             0, // startTime (no restriction)
             0 // endTime (no restriction)
         );
-        
+
         // Pause the campaign
         capitalDistributorPlugin.pauseCampaign(campaignId);
         vm.stopPrank();
 
         // Check that paused campaign with no time restrictions returns true
-        assertTrue(capitalDistributorPlugin.isCampaignPaused(campaignId), "Paused campaign with no time restrictions should return true");
+        assertTrue(
+            capitalDistributorPlugin.isCampaignPaused(campaignId),
+            "Paused campaign with no time restrictions should return true"
+        );
     }
 
     // Test multiple campaigns with different states
     function test_isCampaignPaused_MultipleCampaigns() public {
         vm.startPrank(address(createdDao));
-        
+
         // Create multiple campaigns
         uint256 activeCampaign = createBasicCampaign();
         uint256 pausedCampaign = createBasicCampaign();
         uint256 endedCampaign = createBasicCampaign();
-        
+
         // Update their states
         capitalDistributorPlugin.pauseCampaign(pausedCampaign);
         capitalDistributorPlugin.endCampaign(endedCampaign);
-        
+
         vm.stopPrank();
 
         // Check each campaign
