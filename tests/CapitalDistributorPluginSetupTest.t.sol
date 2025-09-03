@@ -325,6 +325,45 @@ contract CapitalDistributorPluginSetupTest is Test {
         assertEq(address(decodedEncoder), _encoderFactory);
     }
 
+    function test_EncodeInstallationParams_Success() external view {
+        // Test parameter encoding
+        address testStrategyFactory = address(0x1234);
+        address testEncoderFactory = address(0x5678);
+
+        bytes memory encoded = setup.encodeInstallationParams(testStrategyFactory, testEncoderFactory);
+        bytes memory expectedEncoding = abi.encode(testStrategyFactory, testEncoderFactory);
+
+        assertEq(encoded, expectedEncoding);
+    }
+
+    function test_EncodeDecodeInstallationParams_RoundTrip() external view {
+        // Test that encode/decode work together correctly
+        address testStrategyFactory = address(0xABCD);
+        address testEncoderFactory = address(0xEF01);
+
+        // Encode the parameters
+        bytes memory encoded = setup.encodeInstallationParams(testStrategyFactory, testEncoderFactory);
+
+        // Decode the parameters
+        (AllocatorStrategyFactory decodedStrategy, ActionEncoderFactory decodedEncoder) =
+            setup.decodeInstallationParams(encoded);
+
+        // Verify round trip
+        assertEq(address(decodedStrategy), testStrategyFactory);
+        assertEq(address(decodedEncoder), testEncoderFactory);
+    }
+
+    function testFuzz_EncodeDecodeInstallationParams(address _strategyFactory, address _encoderFactory) external view {
+        // Fuzz test encode/decode round trip
+        bytes memory encoded = setup.encodeInstallationParams(_strategyFactory, _encoderFactory);
+
+        (AllocatorStrategyFactory decodedStrategy, ActionEncoderFactory decodedEncoder) =
+            setup.decodeInstallationParams(encoded);
+
+        assertEq(address(decodedStrategy), _strategyFactory);
+        assertEq(address(decodedEncoder), _encoderFactory);
+    }
+
     // ============================================
     // Helper Functions
     // ============================================
