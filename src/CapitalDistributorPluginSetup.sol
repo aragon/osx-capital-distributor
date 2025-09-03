@@ -174,6 +174,21 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
         revert NotImplemented();
     }
 
+    /// @notice Encodes the installation parameters into a byte array
+    /// @param _strategiesFactory The address of the allocator strategy factory
+    /// @param _actionEncoderFactory The address of the action encoder factory
+    /// @return The encoded installation parameters
+    function encodeInstallationParams(
+        address _strategiesFactory,
+        address _actionEncoderFactory
+    )
+        public
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(_strategiesFactory, _actionEncoderFactory);
+    }
+
     /// @notice Decodes the given byte array into the original installation parameters
     function decodeInstallationParams(bytes memory _data)
         public
