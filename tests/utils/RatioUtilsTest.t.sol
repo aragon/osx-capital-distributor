@@ -4,6 +4,13 @@ pragma solidity ^0.8.29;
 import { Test } from "forge-std/Test.sol";
 import { RatioUtils } from "../../src/utils/RatioUtils.sol";
 
+/// Need to wrap to test reverts as otherwise too high up the callstack
+contract WrappedLib {
+    function applyBasisPointsCeiled(uint256 _value, uint256 _basisPoints) public pure returns (uint256 result) {
+        result = RatioUtils.applyBasisPointsCeiled(_value, _basisPoints);
+    }
+}
+
 /// @title RatioUtilsTest
 /// @notice Test suite for the RatioUtils library
 contract RatioUtilsTest is Test {
@@ -23,8 +30,9 @@ contract RatioUtilsTest is Test {
 
     /// @notice Test applyBasisPointsCeiled reverts when ratio exceeds limit
     function test_ApplyBasisPointsCeiled_RevertWhenExceedsLimit() public {
+        WrappedLib wrappedLib = new WrappedLib();
         vm.expectRevert(abi.encodeWithSelector(RatioUtils.RatioOutOfBounds.selector, 10_000, 15_000));
-        RatioUtils.applyBasisPointsCeiled(1000, 15_000);
+        wrappedLib.applyBasisPointsCeiled(1000, 15_000);
     }
 
     /// @notice Fuzz test for applyBasisPointsCeiled

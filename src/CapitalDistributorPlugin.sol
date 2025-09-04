@@ -259,7 +259,7 @@ contract CapitalDistributorPlugin is
         }
 
         // Validate allocatorStrategyFactory
-        if (address(_allocatorStrategyFactory) == address(0) && address(_allocatorStrategyFactory).code.length == 0) {
+        if (address(_allocatorStrategyFactory) == address(0) || address(_allocatorStrategyFactory).code.length == 0) {
             revert InvalidParameter("_allocatorStrategyFactory");
         }
 
