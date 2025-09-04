@@ -16,6 +16,7 @@ import { IAllocatorStrategy } from "./interfaces/IAllocatorStrategy.sol";
 import { IPayoutActionEncoder } from "./interfaces/IPayoutActionEncoder.sol";
 import { AllocatorStrategyFactory } from "./factories/AllocatorStrategyFactory.sol";
 import { ActionEncoderFactory } from "./factories/ActionEncoderFactory.sol";
+import { RatioUtils } from "./utils/RatioUtils.sol";
 
 /// @title CapitalDistributorPlugin
 /// @author AragonX - 2025
@@ -518,7 +519,7 @@ contract CapitalDistributorPlugin is
         uint256 feeAmount = 0;
         amountToSend = totalAmountToSend - alreadyClaimed;
         if (feeBasisPoints > 0 && feeRecipient != address(0)) {
-            feeAmount = (amountToSend * feeBasisPoints) / 10_000;
+            feeAmount = RatioUtils.applyBasisPointsCeiled(amountToSend, feeBasisPoints);
             amountToSend = amountToSend - feeAmount;
         }
 
@@ -601,7 +602,7 @@ contract CapitalDistributorPlugin is
             (feeRecipient, feeBasisPoints) = campaign.allocationStrategy.getFeeConfiguration();
             amountToSend = totalAmountToSend - alreadyClaimed;
             if (feeBasisPoints > 0 && feeRecipient != address(0)) {
-                feeAmount = (amountToSend * feeBasisPoints) / 10_000;
+                feeAmount = RatioUtils.applyBasisPointsCeiled(amountToSend, feeBasisPoints);
                 amountToSend = amountToSend - feeAmount;
             }
         }

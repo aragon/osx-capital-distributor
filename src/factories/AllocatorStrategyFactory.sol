@@ -15,6 +15,9 @@ import { FactoryBase } from "./FactoryBase.sol";
 contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     using Clones for address;
 
+    /// @notice Maximum fee in basis points (10% = 1000 basis points).
+    uint256 public constant MAX_FEE_BASIS_POINTS = 1000;
+
     /// @notice Fee configuration for a strategy type
     struct FeeConfig {
         address recipient; // Where fees are sent
@@ -91,9 +94,9 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         if (_feeBasisPoints > 0 && _feeRecipient == address(0)) {
             revert InvalidFeeRecipient();
         }
-        if (_feeBasisPoints > 1000) {
+        if (_feeBasisPoints > MAX_FEE_BASIS_POINTS) {
             // Max 10%
-            revert ExcessiveFee(_feeBasisPoints, 1000);
+            revert ExcessiveFee(_feeBasisPoints, MAX_FEE_BASIS_POINTS);
         }
 
         // Validate that the implementation supports the IAllocatorStrategy interface
