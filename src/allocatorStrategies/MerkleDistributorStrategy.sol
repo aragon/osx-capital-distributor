@@ -52,9 +52,9 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     }
 
     /// @notice Decodes the auxiliary data for claiming an allocation
-    /// @param _auxData The encoded data containing the merkle proof and claimed amount
+    /// @param _auxData The encoded data containing the merkle proof and claimable amount
     /// @return merkleProof The merkle proof for the claim
-    /// @return amount The amount being claimed
+    /// @return amount The claimable amount
     function decodeClaimData(bytes calldata _auxData)
         internal
         pure

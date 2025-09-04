@@ -322,7 +322,7 @@ contract ConcreteFactoryBase is FactoryBase {
         pure
         returns (bytes32)
     {
-        return _computeParamsHash(_typeId, _dao, _auxData);
+        return _computeDeploymentId(_typeId, _dao, _auxData);
     }
 }
 

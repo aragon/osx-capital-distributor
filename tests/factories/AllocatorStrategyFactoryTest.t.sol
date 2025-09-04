@@ -167,7 +167,7 @@ contract AllocatorStrategyFactoryTest is Test {
         assertEq(factory.instanceToType(strategy), MERKLE_STRATEGY_ID);
 
         // Verify strategy was properly initialized
-        assertEq(IAllocatorStrategy(strategy).strategyTypeId(), MERKLE_STRATEGY_ID);
+        assertEq(IAllocatorStrategy(strategy).strategyId(), MERKLE_STRATEGY_ID);
     }
 
     /// @notice Test deployment with non-existent strategy type
@@ -258,14 +258,14 @@ contract AllocatorStrategyFactoryTest is Test {
     /// INSTANCE EXISTS TESTS
     /// ===============================
 
-    /// @notice Test instanceExists returns correct values
-    function test_InstanceExists() public {
+    /// @notice Test hasDeployment returns correct values
+    function test_HasDeployment() public {
         factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
 
         bytes memory auxData = abi.encode(bytes32(keccak256("test-merkle-root")));
 
         // Should not exist initially
-        (bool exists, address strategy) = factory.instanceExists(MERKLE_STRATEGY_ID, dao, auxData);
+        (bool exists, address strategy) = factory.hasDeployment(MERKLE_STRATEGY_ID, dao, auxData);
         assertFalse(exists);
         assertEq(strategy, address(0));
 
@@ -273,7 +273,7 @@ contract AllocatorStrategyFactoryTest is Test {
         address deployedStrategy = factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
 
         // Should exist after deployment
-        (exists, strategy) = factory.instanceExists(MERKLE_STRATEGY_ID, dao, auxData);
+        (exists, strategy) = factory.hasDeployment(MERKLE_STRATEGY_ID, dao, auxData);
         assertTrue(exists);
         assertEq(strategy, deployedStrategy);
     }
@@ -375,7 +375,7 @@ contract AllocatorStrategyFactoryTest is Test {
         assertTrue(strategy != address(0));
 
         // Verify the strategy was initialized with correct parameters
-        assertEq(IAllocatorStrategy(strategy).strategyTypeId(), MOCK_STRATEGY_ID);
+        assertEq(IAllocatorStrategy(strategy).strategyId(), MOCK_STRATEGY_ID);
     }
 
     /// ===============================
@@ -404,9 +404,9 @@ contract AllocatorStrategyFactoryTest is Test {
 
         // Instance exists check gas test
         gasStart = gasleft();
-        factory.instanceExists(MERKLE_STRATEGY_ID, dao, auxData);
+        factory.hasDeployment(MERKLE_STRATEGY_ID, dao, auxData);
         gasUsed = gasStart - gasleft();
-        console2.log("Gas used for instanceExists:", gasUsed);
+        console2.log("Gas used for hasDeployment:", gasUsed);
         assertTrue(gasUsed < 10_000);
     }
 
@@ -698,7 +698,7 @@ contract AllocatorStrategyFactoryTest is Test {
 /// @notice Malicious implementation that supports interface but fails during initialization
 contract MaliciousImplementation is IAllocatorStrategy {
     function initialize(
-        bytes32, // strategyTypeId
+        bytes32, // strategyId
         address, // dao
         address, // deployer
         bytes calldata // auxData
@@ -709,7 +709,7 @@ contract MaliciousImplementation is IAllocatorStrategy {
         revert("Malicious implementation");
     }
 
-    function strategyTypeId() external view returns (bytes32) {
+    function strategyId() external view returns (bytes32) {
         return bytes32(0);
     }
 

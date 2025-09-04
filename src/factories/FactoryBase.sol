@@ -135,18 +135,18 @@ abstract contract FactoryBase is ReentrancyGuard {
     /// @notice Computes a hash for deployment parameters with additional data
     /// @param _typeId The type identifier
     /// @param _dao The DAO address
-    /// @param _auxData Additional data to include in the hash
-    /// @return paramsHash The computed hash
-    function _computeParamsHash(
+    /// @param _deploymentParams Additional data to include in the hash
+    /// @return deploymentId The computed hash
+    function _computeDeploymentId(
         bytes32 _typeId,
         IDAO _dao,
-        bytes memory _auxData
+        bytes memory _deploymentParams
     )
         internal
         pure
-        returns (bytes32 paramsHash)
+        returns (bytes32 deploymentId)
     {
-        return keccak256(abi.encode(_typeId, address(_dao), _auxData));
+        return keccak256(abi.encode(_typeId, address(_dao), _deploymentParams));
     }
 
     /// @notice Gets the registered type information

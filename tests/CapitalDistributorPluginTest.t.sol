@@ -1420,13 +1420,13 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.stopPrank();
     }
 
-    /// @notice Test getCampaignStrategyId function
-    function test_GetCampaignStrategyId() public {
+    /// @notice Test getCampaignstrategyId function
+    function test_GetCampaignstrategyId() public {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
-        bytes32 strategyId = capitalDistributorPlugin.getCampaignStrategyId(campaignId);
+        bytes32 strategyId = capitalDistributorPlugin.getCampaignstrategyId(campaignId);
         assertEq(strategyId, toBytes32("mock-strategy"), "Strategy ID should match");
 
         vm.stopPrank();
@@ -2785,7 +2785,7 @@ contract MockFailingStrategy is IAllocatorStrategy {
         return (address(0), 0);
     }
 
-    function strategyTypeId() external pure returns (bytes32) {
+    function strategyId() external pure returns (bytes32) {
         return bytes32(0);
     }
 

@@ -43,12 +43,12 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
     // =========================================================================
 
     /// @notice Initializes the strategy with gauge voting plugin reference
-    /// @param _strategyTypeId Strategy type identifier
+    /// @param _strategyId Strategy type identifier
     /// @param _dao DAO instance
     /// @param _plugin Capital distributor plugin address
     /// @param _auxData Encoded (IAddressGaugeVoter gaugeVoter)
-    function initialize(bytes32 _strategyTypeId, IDAO _dao, address _plugin, bytes calldata _auxData) public override {
-        super.initialize(_strategyTypeId, _dao, _plugin, _auxData);
+    function initialize(bytes32 _strategyId, IDAO _dao, address _plugin, bytes calldata _auxData) public override {
+        super.initialize(_strategyId, _dao, _plugin, _auxData);
 
         IAddressGaugeVoter _gaugeVoter = abi.decode(_auxData, (IAddressGaugeVoter));
         if (address(_gaugeVoter) == address(0)) revert InvalidGaugeVoter();

@@ -278,14 +278,14 @@ contract ActionEncoderFactoryTest is Test {
     /// INSTANCE EXISTS TESTS
     /// ===============================
 
-    /// @notice Test instanceExists returns correct values
-    function test_InstanceExists() public {
+    /// @notice Test hasDeployment returns correct values
+    function test_HasDeployment() public {
         factory.registerActionEncoder(VAULT_ENCODER_ID, address(vaultImplementation), VAULT_METADATA);
 
         bytes memory auxData = abi.encode(address(0x123));
 
         // Should not exist initially
-        (bool exists, IPayoutActionEncoder encoder) = factory.instanceExists(VAULT_ENCODER_ID, dao, auxData);
+        (bool exists, IPayoutActionEncoder encoder) = factory.hasDeployment(VAULT_ENCODER_ID, dao, auxData);
         assertFalse(exists);
         assertEq(address(encoder), address(0));
 
@@ -293,7 +293,7 @@ contract ActionEncoderFactoryTest is Test {
         IPayoutActionEncoder deployedEncoder = factory.deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
 
         // Should exist after deployment
-        (exists, encoder) = factory.instanceExists(VAULT_ENCODER_ID, dao, auxData);
+        (exists, encoder) = factory.hasDeployment(VAULT_ENCODER_ID, dao, auxData);
         assertTrue(exists);
         assertEq(address(encoder), address(deployedEncoder));
     }
@@ -439,9 +439,9 @@ contract ActionEncoderFactoryTest is Test {
 
         // Instance exists check gas test
         gasStart = gasleft();
-        factory.instanceExists(VAULT_ENCODER_ID, dao, auxData);
+        factory.hasDeployment(VAULT_ENCODER_ID, dao, auxData);
         gasUsed = gasStart - gasleft();
-        console2.log("Gas used for instanceExists:", gasUsed);
+        console2.log("Gas used for hasDeployment:", gasUsed);
         assertTrue(gasUsed < 10_000);
     }
 
