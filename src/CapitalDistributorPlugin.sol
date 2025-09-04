@@ -676,6 +676,11 @@ contract CapitalDistributorPlugin is
             revert InvalidStateTransition(_campaignId, campaign.state, CampaignState.PAUSED);
         }
 
+        // Prevent pausing campaigns that have already ended due to time
+        if (campaign.endTime > 0 && block.timestamp >= campaign.endTime) {
+            revert CampaignOutsideTimeBounds(_campaignId, block.timestamp, campaign.startTime, campaign.endTime);
+        }
+
         campaign.state = CampaignState.PAUSED;
         emit CampaignPaused(_campaignId);
     }
@@ -691,6 +696,11 @@ contract CapitalDistributorPlugin is
             revert InvalidStateTransition(_campaignId, campaign.state, CampaignState.ACTIVE);
         }
 
+        // Prevent resuming campaigns that have already ended due to time
+        if (campaign.endTime > 0 && block.timestamp >= campaign.endTime) {
+            revert CampaignOutsideTimeBounds(_campaignId, block.timestamp, campaign.startTime, campaign.endTime);
+        }
+
         campaign.state = CampaignState.ACTIVE;
         emit CampaignResumed(_campaignId);
     }
@@ -704,6 +714,11 @@ contract CapitalDistributorPlugin is
 
         if (campaign.state == CampaignState.ENDED) {
             revert InvalidStateTransition(_campaignId, campaign.state, CampaignState.ENDED);
+        }
+
+        // Prevent ending campaigns that have already ended due to time
+        if (campaign.endTime > 0 && block.timestamp >= campaign.endTime) {
+            revert CampaignOutsideTimeBounds(_campaignId, block.timestamp, campaign.startTime, campaign.endTime);
         }
 
         campaign.state = CampaignState.ENDED;
