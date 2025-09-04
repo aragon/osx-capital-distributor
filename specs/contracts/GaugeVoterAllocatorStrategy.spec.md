@@ -64,7 +64,8 @@ struct GaugeAllocationCampaign {
 
 ### getTotalClaimableAmount(uint256 \_campaignId, address \_account, bytes calldata \_auxData) → uint256
 
-### getTotalClaimableAmount(uint256 _campaignId, address _account, bytes calldata _auxData) → uint256
+### getTotalClaimableAmount(uint256 \_campaignId, address \_account, bytes calldata \_auxData) → uint256
+
 - **Access**: External view
 - **Description**: Calculates the claimable amount for a user based on their gauge voting participation
 - **Parameters**:
@@ -179,7 +180,8 @@ error InvalidDistributionAmount();
 1. Strategy is deployed and initialized with gauge voting plugin reference
 2. DAO creates campaign through `setAllocationCampaign` with distribution amount (can be created anytime)
 3. Campaign stores current epoch ID and distribution amount
-4. Users can check their allocation with `getTotalClaimableAmount` (only works when campaign has started, in same epoch, and voting is inactive)
+4. Users can check their allocation with `getTotalClaimableAmount` (only works when campaign has started, in same epoch,
+   and voting is inactive)
 5. Users claim through the capital distributor plugin (not directly through strategy)
 6. Plugin calls strategy to verify amounts during claim process
 
@@ -206,7 +208,7 @@ error InvalidDistributionAmount();
 
 - [x] initialize() takes IAddressGaugeVoter in \_auxData and validates != address(0)
 - [x] setAllocationCampaign() can be called anytime and stores current epochId
-- [x] setAllocationCampaign() takes only uint256 totalDistributionAmount in _auxData
+- [x] setAllocationCampaign() takes only uint256 totalDistributionAmount in \_auxData
 - [x] getTotalClaimableAmount() validates epoch match, voting inactive, and calculates proportionally
 - [x] getInitializationEncodingTypes() returns "address" (IAddressGaugeVoter)
 - [x] getCreationEncodingTypes() returns "uint256" only
