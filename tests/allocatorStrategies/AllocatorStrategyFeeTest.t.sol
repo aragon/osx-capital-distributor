@@ -120,9 +120,8 @@ contract AllocatorStrategyFeeTest is AragonTest {
         assertEq(basisPoints, feeBasisPoints);
 
         // Test with non-existent strategy
-        (recipient, basisPoints) = allocatorStrategyFactory.getStrategyFeeByInstance(address(0xdead));
-        assertEq(recipient, address(0));
-        assertEq(basisPoints, 0);
+        vm.expectRevert(abi.encodeWithSelector(AllocatorStrategyFactory.StrategyNotFound.selector, address(0xdead)));
+        allocatorStrategyFactory.getStrategyFeeByInstance(address(0xdead));
     }
 
     /// @notice Test claiming with fees

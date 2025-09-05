@@ -556,9 +556,8 @@ contract AllocatorStrategyFactoryTest is Test {
     function test_GetStrategyFeeByInstance_NonExistentStrategy() public {
         address nonExistentStrategy = makeAddr("nonExistentStrategy");
 
-        (address recipient, uint256 basisPoints) = factory.getStrategyFeeByInstance(nonExistentStrategy);
-        assertEq(recipient, address(0));
-        assertEq(basisPoints, 0);
+        vm.expectRevert(abi.encodeWithSelector(AllocatorStrategyFactory.StrategyNotFound.selector, nonExistentStrategy));
+        factory.getStrategyFeeByInstance(nonExistentStrategy);
     }
 
     /// @notice Test getStrategyFeeByInstance with strategy not deployed by factory
@@ -566,9 +565,8 @@ contract AllocatorStrategyFactoryTest is Test {
         // Deploy a strategy outside of factory
         AllocatorStrategyMock externalStrategy = new AllocatorStrategyMock();
 
-        (address recipient, uint256 basisPoints) = factory.getStrategyFeeByInstance(address(externalStrategy));
-        assertEq(recipient, address(0));
-        assertEq(basisPoints, 0);
+        vm.expectRevert(abi.encodeWithSelector(AllocatorStrategyFactory.StrategyNotFound.selector, address(externalStrategy)));
+        factory.getStrategyFeeByInstance(address(externalStrategy));
     }
 
     /// @notice Test fee configuration persistence across deployments

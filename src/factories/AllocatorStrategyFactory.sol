@@ -58,6 +58,10 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     /// @param maximum The maximum allowed fee basis points
     error ExcessiveFee(uint256 provided, uint256 maximum);
 
+    /// @notice Error thrown when querying fee for a strategy not deployed by this factory
+    /// @param strategyInstance The strategy instance address that was not found
+    error StrategyNotFound(address strategyInstance);
+
     /**
      * @notice Registers a new strategy type in the factory.
      * @param _strategyId Unique identifier for the strategy type.
@@ -214,7 +218,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     {
         bytes32 typeId = instanceToType[_strategyInstance];
         if (typeId == bytes32(0)) {
-            return (address(0), 0); // Strategy not found or not deployed by this factory
+            revert StrategyNotFound(_strategyInstance);
         }
         FeeConfig memory feeConfig = strategyFees[typeId];
         return (feeConfig.recipient, feeConfig.basisPoints);
