@@ -101,4 +101,14 @@ contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
     function decodeSetupCampaignParams(bytes memory _data) public pure returns (address vaultAddress) {
         return abi.decode(_data, (address));
     }
+
+    /// @inheritdoc PayoutActionEncoderBase
+    function getCreationEncodingTypes() external pure override returns (string memory types) {
+        return "address"; // vaultAddress
+    }
+
+    /// @inheritdoc PayoutActionEncoderBase
+    function getClaimEncodingTypes() external pure override returns (string memory types) {
+        return ""; // This encoder doesn't use encoderAuxData in buildActions
+    }
 }

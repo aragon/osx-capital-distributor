@@ -57,7 +57,7 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
     }
 
     // =========================================================================
-    // Encoder/Decoder Functions
+    // View Functions
     // =========================================================================
 
     /// @notice Encodes the initialization parameters for this strategy
@@ -84,7 +84,11 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
     /// @notice Decodes the parameters for setting up an allocation campaign
     /// @param _data The encoded parameters
     /// @return totalDistributionAmount The total amount to distribute in the campaign
-    function decodeSetAllocationCampaignParams(bytes memory _data) public pure returns (uint256 totalDistributionAmount) {
+    function decodeSetAllocationCampaignParams(bytes memory _data)
+        public
+        pure
+        returns (uint256 totalDistributionAmount)
+    {
         return abi.decode(_data, (uint256));
     }
 
@@ -94,9 +98,20 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
         return "";
     }
 
-    // =========================================================================
-    // View Functions
-    // =========================================================================
+    /// @inheritdoc IAllocatorStrategy
+    function getInitializationEncodingTypes() external pure override returns (string memory types) {
+        return "address"; // IAddressGaugeVoter
+    }
+
+    /// @inheritdoc IAllocatorStrategy
+    function getCreationEncodingTypes() external pure override returns (string memory types) {
+        return "uint256"; // totalDistributionAmount
+    }
+
+    /// @inheritdoc IAllocatorStrategy
+    function getClaimEncodingTypes() external pure override returns (string memory types) {
+        return ""; // No auxiliary data needed for claiming
+    }
 
     /// @inheritdoc IAllocatorStrategy
     function getTotalClaimableAmount(

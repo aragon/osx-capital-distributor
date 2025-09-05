@@ -229,4 +229,14 @@ contract SablierLinearPayoutActionEncoder is PayoutActionEncoderBase {
     function decodeSetupCampaignParams(bytes memory _data) public pure returns (StreamConfig memory config) {
         return abi.decode(_data, (StreamConfig));
     }
+
+    /// @inheritdoc PayoutActionEncoderBase
+    function getCreationEncodingTypes() external pure override returns (string memory types) {
+        return "address,uint40,uint40,uint128,uint128,bool,bool,address,uint256"; // StreamConfig fields
+    }
+
+    /// @inheritdoc PayoutActionEncoderBase
+    function getClaimEncodingTypes() external pure override returns (string memory types) {
+        return ""; // This encoder doesn't use encoderAuxData in buildActions
+    }
 }

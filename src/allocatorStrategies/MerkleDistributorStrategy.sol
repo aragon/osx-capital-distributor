@@ -44,10 +44,6 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     /// @notice Thrown when trying to update a campaign that is not active
     error CampaignNotPaused(uint256 campaignId);
 
-    // =========================================================================
-    // Public Encoder/Decoder Functions
-    // =========================================================================
-
     /// @notice Encodes the initialization parameters for this strategy
     /// @dev This strategy doesn't use initialization parameters
     /// @return Empty bytes as no initialization data is needed
@@ -77,12 +73,27 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
         return abi.encode(_merkleProof, _amount);
     }
 
-    /// @notice Decodes the claim parameters for verifying an allocation
-    /// @param _data The encoded parameters
+    /// @notice Decodes the auxiliary data for claiming an allocation
+    /// @param _data The encoded data containing the merkle proof and claimable amount
     /// @return merkleProof The merkle proof for the claim
     /// @return amount The claimable amount
     function decodeClaimParams(bytes memory _data) public pure returns (bytes32[] memory merkleProof, uint256 amount) {
         return abi.decode(_data, (bytes32[], uint256));
+    }
+
+    /// @inheritdoc IAllocatorStrategy
+    function getInitializationEncodingTypes() external pure override returns (string memory types) {
+        return ""; // This strategy doesn't use auxData for initialization
+    }
+
+    /// @inheritdoc IAllocatorStrategy
+    function getCreationEncodingTypes() external pure override returns (string memory types) {
+        return "bytes32"; // merkleRoot
+    }
+
+    /// @inheritdoc IAllocatorStrategy
+    function getClaimEncodingTypes() external pure override returns (string memory types) {
+        return "bytes32[],uint256"; // merkleProof, amount
     }
 
     /// @inheritdoc IAllocatorStrategy
