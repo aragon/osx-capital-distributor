@@ -44,38 +44,45 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     /// @notice Thrown when trying to update a campaign that is not active
     error CampaignNotPaused(uint256 campaignId);
 
-    /// @notice Decodes the auxiliary data for setting up a merkle campaign
-    /// @param _auxData The encoded data containing the merkle root
-    /// @return merkleRoot The merkle root for the campaign
-    function decodeCampaignSetupData(bytes calldata _auxData) internal pure returns (bytes32 merkleRoot) {
-        return abi.decode(_auxData, (bytes32));
+    // =========================================================================
+    // Public Encoder/Decoder Functions
+    // =========================================================================
+
+    /// @notice Encodes the initialization parameters for this strategy
+    /// @dev This strategy doesn't use initialization parameters
+    /// @return Empty bytes as no initialization data is needed
+    function encodeInitializationParams() external pure returns (bytes memory) {
+        return "";
     }
 
-    /// @notice Decodes the auxiliary data for claiming an allocation
-    /// @param _auxData The encoded data containing the merkle proof and claimable amount
+    /// @notice Encodes the parameters for setting up an allocation campaign
+    /// @param _merkleRoot The merkle root for the campaign
+    /// @return The encoded parameters
+    function encodeSetAllocationCampaignParams(bytes32 _merkleRoot) external pure returns (bytes memory) {
+        return abi.encode(_merkleRoot);
+    }
+
+    /// @notice Decodes the parameters for setting up an allocation campaign
+    /// @param _data The encoded parameters
+    /// @return merkleRoot The merkle root for the campaign
+    function decodeSetAllocationCampaignParams(bytes memory _data) public pure returns (bytes32 merkleRoot) {
+        return abi.decode(_data, (bytes32));
+    }
+
+    /// @notice Encodes the claim parameters for verifying an allocation
+    /// @param _merkleProof The merkle proof for the claim
+    /// @param _amount The claimable amount
+    /// @return The encoded parameters
+    function encodeClaimParams(bytes32[] memory _merkleProof, uint256 _amount) external pure returns (bytes memory) {
+        return abi.encode(_merkleProof, _amount);
+    }
+
+    /// @notice Decodes the claim parameters for verifying an allocation
+    /// @param _data The encoded parameters
     /// @return merkleProof The merkle proof for the claim
     /// @return amount The claimable amount
-    function decodeClaimData(bytes calldata _auxData)
-        internal
-        pure
-        returns (bytes32[] memory merkleProof, uint256 amount)
-    {
-        return abi.decode(_auxData, (bytes32[], uint256));
-    }
-
-    /// @inheritdoc IAllocatorStrategy
-    function getInitializationEncodingTypes() external pure override returns (string memory types) {
-        return ""; // This strategy doesn't use auxData for initialization
-    }
-
-    /// @inheritdoc IAllocatorStrategy
-    function getCreationEncodingTypes() external pure override returns (string memory types) {
-        return "bytes32"; // merkleRoot
-    }
-
-    /// @inheritdoc IAllocatorStrategy
-    function getClaimEncodingTypes() external pure override returns (string memory types) {
-        return "bytes32[],uint256"; // merkleProof, amount
+    function decodeClaimParams(bytes memory _data) public pure returns (bytes32[] memory merkleProof, uint256 amount) {
+        return abi.decode(_data, (bytes32[], uint256));
     }
 
     /// @inheritdoc IAllocatorStrategy
@@ -89,7 +96,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
             revert MerkleCampaignAlreadyExists(_campaignId);
         }
 
-        bytes32 merkleRoot = decodeCampaignSetupData(_auxData);
+        bytes32 merkleRoot = decodeSetAllocationCampaignParams(_auxData);
 
         if (merkleRoot == bytes32(0)) {
             revert InvalidMerkleRoot();
@@ -119,7 +126,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
             return 0; // Campaign doesn't exist
         }
 
-        (bytes32[] memory merkleProof, uint256 claimAmount) = decodeClaimData(_auxData);
+        (bytes32[] memory merkleProof, uint256 claimAmount) = decodeClaimParams(_auxData);
 
         // Create the leaf node: keccak256(abi.encodePacked(account, amount))
         bytes32 leaf = keccak256(abi.encodePacked(_account, claimAmount));
@@ -159,7 +166,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
             revert CampaignNotFound(_campaignId);
         }
 
-        bytes32 newMerkleRoot = decodeCampaignSetupData(_auxData);
+        bytes32 newMerkleRoot = decodeSetAllocationCampaignParams(_auxData);
 
         if (newMerkleRoot == bytes32(0)) {
             revert InvalidMerkleRoot();

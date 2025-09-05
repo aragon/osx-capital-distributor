@@ -13,15 +13,6 @@ interface IPayoutActionEncoder {
     /// @return The encoder ID.
     function encoderId() external view returns (bytes32);
 
-    /// @notice Returns the Solidity types expected for campaign setup auxiliary data.
-    /// @return types Comma-separated string of Solidity type strings expected for setupCampaign _auxData parameter.
-    function getCreationEncodingTypes() external view returns (string memory types);
-
-    /// @notice Returns the Solidity types expected for buildActions auxiliary data.
-    /// @return types Comma-separated string of Solidity type strings expected for buildActions _encoderAuxData
-    /// parameter.
-    function getClaimEncodingTypes() external view returns (string memory types);
-
     /**
      * @notice Call to setup the ActionEncoder for the campaign
      * @param _campaignId The ID of the campaign for which this payout is being made.

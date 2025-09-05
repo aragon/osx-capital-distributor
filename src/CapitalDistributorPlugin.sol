@@ -774,50 +774,6 @@ contract CapitalDistributorPlugin is
         return true;
     }
 
-    /// @notice Gets the strategy initialization encoding types for a strategy type
-    /// @param _strategyId The strategy type ID
-    /// @return types Comma-separated string of Solidity type strings expected for strategy initialization
-    function getStrategyInitializationEncodingTypes(bytes32 _strategyId) external view returns (string memory types) {
-        // Get the implementation address from the factory's registeredTypes mapping
-        (address implementation,) = allocatorStrategyFactory.registeredTypes(_strategyId);
-        require(implementation != address(0), "Strategy type not found");
-
-        // Query the implementation directly for encoding types
-        return IAllocatorStrategy(implementation).getInitializationEncodingTypes();
-    }
-
-    /// @notice Gets the strategy creation encoding types for a campaign
-    /// @param _campaignId The campaign ID
-    /// @return types Comma-separated string of Solidity type strings expected for strategy creation
-    function getStrategyCreationEncodingTypes(uint256 _campaignId) external view returns (string memory types) {
-        _requireCampaignExists(_campaignId);
-        return campaigns[_campaignId].allocationStrategy.getCreationEncodingTypes();
-    }
-
-    /// @notice Gets the strategy claim encoding types for a campaign
-    /// @param _campaignId The campaign ID
-    /// @return types Comma-separated string of Solidity type strings expected for strategy claiming
-    function getStrategyClaimEncodingTypes(uint256 _campaignId) external view returns (string memory types) {
-        _requireCampaignExists(_campaignId);
-        return campaigns[_campaignId].allocationStrategy.getClaimEncodingTypes();
-    }
-
-    /// @notice Gets the encoder creation encoding types for a campaign
-    /// @param _campaignId The campaign ID
-    /// @return types Comma-separated string of Solidity type strings expected for encoder creation
-    function getEncoderCreationEncodingTypes(uint256 _campaignId) external view returns (string memory types) {
-        _requireCampaignExists(_campaignId);
-        return campaigns[_campaignId].actionEncoder.getCreationEncodingTypes();
-    }
-
-    /// @notice Gets the encoder claim encoding types for a campaign
-    /// @param _campaignId The campaign ID
-    /// @return types Comma-separated string of Solidity type strings expected for encoder claiming
-    function getEncoderClaimEncodingTypes(uint256 _campaignId) external view returns (string memory types) {
-        _requireCampaignExists(_campaignId);
-        return campaigns[_campaignId].actionEncoder.getClaimEncodingTypes();
-    }
-
     /// @notice Checks if this or the parent contract supports an interface by its ID.
     /// @param _interfaceId The ID of the interface.
     /// @return Returns `true` if the interface is supported.

@@ -49,11 +49,6 @@ abstract contract PayoutActionEncoderBase is
     // =========================================================================
     // View Functions
     // =========================================================================
-    /// @inheritdoc IPayoutActionEncoder
-    function getCreationEncodingTypes() external view virtual override returns (string memory types);
-
-    /// @inheritdoc IPayoutActionEncoder
-    function getClaimEncodingTypes() external view virtual override returns (string memory types);
 
     /// @inheritdoc IPayoutActionEncoder
     function setupCampaign(uint256 _campaignId, bytes calldata _auxData) external virtual override;

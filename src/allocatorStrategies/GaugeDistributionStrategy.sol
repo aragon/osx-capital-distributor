@@ -50,31 +50,53 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
     function initialize(bytes32 _strategyId, IDAO _dao, address _plugin, bytes calldata _auxData) public override {
         super.initialize(_strategyId, _dao, _plugin, _auxData);
 
-        IAddressGaugeVoter _gaugeVoter = abi.decode(_auxData, (IAddressGaugeVoter));
+        IAddressGaugeVoter _gaugeVoter = decodeInitializationParams(_auxData);
         if (address(_gaugeVoter) == address(0)) revert InvalidGaugeVoter();
 
         gaugeVoter = _gaugeVoter;
     }
 
     // =========================================================================
-    // View Functions
+    // Encoder/Decoder Functions
     // =========================================================================
 
-    /// @notice Returns encoding types for strategy initialization
-    /// @return types Comma-separated string of Solidity type strings for initialization auxData
-    function getInitializationEncodingTypes() external pure override returns (string memory types) {
-        return "address"; // IAddressGaugeVoter
+    /// @notice Encodes the initialization parameters for this strategy
+    /// @param _gaugeVoter The address of the gauge voter contract
+    /// @return The encoded parameters
+    function encodeInitializationParams(IAddressGaugeVoter _gaugeVoter) external pure returns (bytes memory) {
+        return abi.encode(_gaugeVoter);
     }
 
-    /// @inheritdoc IAllocatorStrategy
-    function getCreationEncodingTypes() external pure override returns (string memory types) {
-        return "uint256"; // totalDistributionAmount
+    /// @notice Decodes the initialization parameters for this strategy
+    /// @param _data The encoded parameters
+    /// @return _gaugeVoter The address of the gauge voter contract
+    function decodeInitializationParams(bytes memory _data) public pure returns (IAddressGaugeVoter _gaugeVoter) {
+        return abi.decode(_data, (IAddressGaugeVoter));
     }
 
-    /// @inheritdoc IAllocatorStrategy
-    function getClaimEncodingTypes() external pure override returns (string memory types) {
-        return ""; // No auxiliary data needed for claiming
+    /// @notice Encodes the parameters for setting up an allocation campaign
+    /// @param _totalDistributionAmount The total amount to distribute in the campaign
+    /// @return The encoded parameters
+    function encodeSetAllocationCampaignParams(uint256 _totalDistributionAmount) external pure returns (bytes memory) {
+        return abi.encode(_totalDistributionAmount);
     }
+
+    /// @notice Decodes the parameters for setting up an allocation campaign
+    /// @param _data The encoded parameters
+    /// @return totalDistributionAmount The total amount to distribute in the campaign
+    function decodeSetAllocationCampaignParams(bytes memory _data) public pure returns (uint256 totalDistributionAmount) {
+        return abi.decode(_data, (uint256));
+    }
+
+    /// @notice No encoding needed for claim parameters in this strategy
+    /// @return Empty bytes as no auxiliary data is needed
+    function encodeClaimParams() external pure returns (bytes memory) {
+        return "";
+    }
+
+    // =========================================================================
+    // View Functions
+    // =========================================================================
 
     /// @inheritdoc IAllocatorStrategy
     function getTotalClaimableAmount(
@@ -153,7 +175,7 @@ contract GaugeDistributionStrategy is AllocatorStrategyBase {
         }
 
         // Decode distribution amount
-        uint256 totalDistributionAmount = abi.decode(_auxData, (uint256));
+        uint256 totalDistributionAmount = decodeSetAllocationCampaignParams(_auxData);
         if (totalDistributionAmount == 0) revert InvalidDistributionAmount();
 
         // Create new campaign
