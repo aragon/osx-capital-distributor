@@ -45,7 +45,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     function test_CreateCampaign() public {
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -71,7 +71,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     function test_CannotCreateCampaignWithoutPermissions() public {
         vm.startPrank(address(alice));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         vm.expectRevert();
@@ -94,7 +94,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     function test_PayoutIsSent() public {
         token.mint(address(createdDao), 1 ether);
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -121,7 +121,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
     function test_PayoutIsSentToVault() public {
         token.mint(address(createdDao), 1 ether);
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         // Add vault deposit permission to the plugin

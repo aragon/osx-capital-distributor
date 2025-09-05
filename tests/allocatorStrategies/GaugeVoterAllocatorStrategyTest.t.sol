@@ -84,7 +84,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
         returns (uint256 campaignId)
     {
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = abi.encode(address(mockGaugeVoter));
         bytes memory allocationCampaignAuxData = abi.encode(_distributionAmount);
 
@@ -159,7 +159,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
     /// @notice Test basic campaign creation works
     function testInitialization() public {
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = abi.encode(address(mockGaugeVoter));
         bytes memory allocationCampaignAuxData = abi.encode(DEFAULT_DISTRIBUTION_AMOUNT);
 
@@ -670,7 +670,7 @@ contract GaugeDistributionStrategyTest is AragonTest {
     function testInvalidDistributionAmount() public {
         // Try to create campaign with zero distribution amount
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = abi.encode(address(mockGaugeVoter));
         bytes memory allocationCampaignAuxData = abi.encode(0); // Zero distribution amount
 

@@ -292,6 +292,9 @@ contract CapitalDistributorPlugin is
         returns (uint256 id)
     {
         // Input validation
+        if (_metadataURI.length == 0) {
+            revert EmptyMetadataURI();
+        }
         if (address(_payout.token) == address(0)) {
             revert ZeroAddress("_token");
         }
