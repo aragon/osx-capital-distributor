@@ -197,7 +197,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         strategy = deployedInstances[deploymentId];
         // Avoid redundant comparison by using inline assembly for gas optimization
         assembly {
-            exists := iszero(iszero(strategy))
+            exists := gt(strategy, 0)
         }
     }
 
