@@ -713,6 +713,18 @@ contract MaliciousImplementation is IAllocatorStrategy {
         return bytes32(0);
     }
 
+    function getInitializationEncodingTypes() external pure returns (string memory) {
+        return "";
+    }
+
+    function getCreationEncodingTypes() external pure returns (string memory) {
+        return "";
+    }
+
+    function getClaimEncodingTypes() external pure returns (string memory) {
+        return "";
+    }
+
     function setAllocationCampaign(uint256, bytes calldata) external pure {
         // Do nothing
     }

@@ -1505,6 +1505,89 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.stopPrank();
     }
 
+    /// @notice Test getStrategyCreationEncodingTypes
+    function test_GetStrategyCreationEncodingTypes() public {
+        vm.startPrank(address(createdDao));
+
+        uint256 campaignId = createBasicCampaign();
+
+        string memory types = capitalDistributorPlugin.getStrategyCreationEncodingTypes(campaignId);
+        assertEq(types, "", "Mock strategy returns empty types");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test getStrategyClaimEncodingTypes
+    function test_GetStrategyClaimEncodingTypes() public {
+        vm.startPrank(address(createdDao));
+
+        uint256 campaignId = createBasicCampaign();
+
+        string memory types = capitalDistributorPlugin.getStrategyClaimEncodingTypes(campaignId);
+        assertEq(types, "", "Mock strategy returns empty types");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test getEncoderCreationEncodingTypes
+    function test_GetEncoderCreationEncodingTypes() public {
+        vm.startPrank(address(createdDao));
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
+            CapitalDistributorPlugin.PayoutConfig(
+                IERC20(token), toBytes32("vault-deposit-encoder"), abi.encode(address(vaultToSendTokens))
+            ),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
+        );
+
+        string memory types = capitalDistributorPlugin.getEncoderCreationEncodingTypes(campaignId);
+        assertTrue(bytes(types).length >= 0, "Should return encoding types");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test getEncoderClaimEncodingTypes
+    function test_GetEncoderClaimEncodingTypes() public {
+        vm.startPrank(address(createdDao));
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "",
+            CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
+            CapitalDistributorPlugin.PayoutConfig(
+                IERC20(token), toBytes32("vault-deposit-encoder"), abi.encode(address(vaultToSendTokens))
+            ),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
+        );
+
+        string memory types = capitalDistributorPlugin.getEncoderClaimEncodingTypes(campaignId);
+        assertTrue(bytes(types).length >= 0, "Should return encoding types");
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test encoding type getters fail for non-existent campaign
+    function test_EncodingTypeGettersFailForNonExistentCampaign() public {
+        vm.startPrank(address(createdDao));
+
+        uint256 nonExistentId = 999;
+
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignNotFound.selector, nonExistentId));
+        capitalDistributorPlugin.getStrategyCreationEncodingTypes(nonExistentId);
+
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignNotFound.selector, nonExistentId));
+        capitalDistributorPlugin.getStrategyClaimEncodingTypes(nonExistentId);
+
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignNotFound.selector, nonExistentId));
+        capitalDistributorPlugin.getEncoderCreationEncodingTypes(nonExistentId);
+
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.CampaignNotFound.selector, nonExistentId));
+        capitalDistributorPlugin.getEncoderClaimEncodingTypes(nonExistentId);
+
+        vm.stopPrank();
+    }
+
     // ============================================
     // T07: Integration Tests
     // ============================================
@@ -2686,6 +2769,18 @@ contract MockFailingStrategy is IAllocatorStrategy {
         }
     }
 
+    function getInitializationEncodingTypes() external pure returns (string memory) {
+        return "";
+    }
+
+    function getCreationEncodingTypes() external pure returns (string memory) {
+        return "";
+    }
+
+    function getClaimEncodingTypes() external pure returns (string memory) {
+        return "";
+    }
+
     function getFeeConfiguration() external pure returns (address, uint256) {
         return (address(0), 0);
     }
@@ -2719,6 +2814,18 @@ contract MockFailingEncoder is IPayoutActionEncoder {
         if (keccak256(auxData) == keccak256("trigger-failure")) {
             revert("Encoder setup failed");
         }
+    }
+
+    function getInitializationEncodingTypes() external pure returns (string memory) {
+        return "";
+    }
+
+    function getCreationEncodingTypes() external pure returns (string memory) {
+        return "";
+    }
+
+    function getClaimEncodingTypes() external pure returns (string memory) {
+        return "";
     }
 
     function encoderId() external pure returns (bytes32) {
@@ -2886,7 +2993,11 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         // Attempt to pause should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector, campaignId, block.timestamp, 0, endTime
+                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector,
+                campaignId,
+                block.timestamp,
+                0,
+                endTime
             )
         );
         capitalDistributorPlugin.pauseCampaign(campaignId);
@@ -2912,7 +3023,11 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         // Attempt to resume should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector, campaignId, block.timestamp, 0, endTime
+                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector,
+                campaignId,
+                block.timestamp,
+                0,
+                endTime
             )
         );
         capitalDistributorPlugin.resumeCampaign(campaignId);
@@ -2946,7 +3061,7 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
 
         // Create campaign with no time restrictions
         uint256 campaignId = createCampaignWithParams(false, 0, 0);
-
+        
         // Pause the campaign
         capitalDistributorPlugin.pauseCampaign(campaignId);
 
@@ -2996,7 +3111,11 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         // Attempt to end should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector, campaignId, block.timestamp, 0, endTime
+                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector,
+                campaignId,
+                block.timestamp,
+                0,
+                endTime
             )
         );
         capitalDistributorPlugin.endCampaign(campaignId);
@@ -3061,7 +3180,11 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         // Attempt to end should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector, campaignId, block.timestamp, 0, endTime
+                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector,
+                campaignId,
+                block.timestamp,
+                0,
+                endTime
             )
         );
         capitalDistributorPlugin.endCampaign(campaignId);

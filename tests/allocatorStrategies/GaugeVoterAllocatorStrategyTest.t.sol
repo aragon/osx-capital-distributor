@@ -222,6 +222,19 @@ contract GaugeDistributionStrategyTest is AragonTest {
         assertTrue(deployedStrategy.isGaugeEligible(campaignId, alice), "Gauge (alice) should be eligible");
     }
 
+    /// @notice Test all encoding type functions return correct values
+    function testGetEncodingTypes() public {
+        // Create a campaign to deploy the strategy
+        uint256 campaignId = createTestCampaign();
+        GaugeDistributionStrategy deployedStrategy = getDeployedStrategy(campaignId);
+
+        assertEq(
+            deployedStrategy.getInitializationEncodingTypes(), "address", "Initialization encoding types incorrect"
+        );
+        assertEq(deployedStrategy.getCreationEncodingTypes(), "uint256", "Creation encoding types incorrect");
+        assertEq(deployedStrategy.getClaimEncodingTypes(), "", "Claim encoding types should be empty");
+    }
+
     /// @notice Test end-to-end plugin integration workflow for gauge distribution
     function testPluginIntegration() public {
         // Setup voting scenario for gauges

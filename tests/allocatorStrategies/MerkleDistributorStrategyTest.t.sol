@@ -1116,4 +1116,14 @@ contract MerkleDistributorStrategyTest is AragonTest {
         uint256 claimableAmount = capitalDistributorPlugin.getCampaignPayout(campaignId, alice, invalidClaimData);
         assertEq(claimableAmount, 0, "Should return 0 for invalid proof");
     }
+
+    function test_EncodingTypesReturnCorrectStrings() public {
+        MerkleDistributorStrategy testStrategy = new MerkleDistributorStrategy();
+
+        string memory creationTypes = testStrategy.getCreationEncodingTypes();
+        string memory claimTypes = testStrategy.getClaimEncodingTypes();
+
+        assertEq(creationTypes, "bytes32", "Creation encoding should be bytes32");
+        assertEq(claimTypes, "bytes32[],uint256", "Claim encoding should be bytes32[],uint256");
+    }
 }
