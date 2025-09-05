@@ -149,13 +149,6 @@ abstract contract FactoryBase is ReentrancyGuard {
         return keccak256(abi.encode(_typeId, address(_dao), _deploymentParams));
     }
 
-    /// @notice Gets the registered type information
-    /// @param _typeId The type identifier
-    /// @return registeredType The registered type data
-    function getRegisteredType(bytes32 _typeId) external view returns (RegisteredType memory registeredType) {
-        return registeredTypes[_typeId];
-    }
-
     /// @notice Checks if a type is registered
     /// @param _typeId The type identifier to check
     /// @return isRegistered True if the type is registered, false otherwise

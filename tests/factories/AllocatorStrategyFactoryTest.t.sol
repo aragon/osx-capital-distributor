@@ -88,9 +88,9 @@ contract AllocatorStrategyFactoryTest is Test {
 
         factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
 
-        FactoryBase.RegisteredType memory registeredType = factory.getRegisteredType(MERKLE_STRATEGY_ID);
-        assertEq(registeredType.implementation, address(merkleImplementation));
-        assertEq(registeredType.metadata, MERKLE_METADATA);
+        (address implementation, string memory metadata) = factory.registeredTypes(MERKLE_STRATEGY_ID);
+        assertEq(implementation, address(merkleImplementation));
+        assertEq(metadata, MERKLE_METADATA);
         assertTrue(factory.isTypeRegistered(MERKLE_STRATEGY_ID));
 
         vm.stopPrank();
@@ -104,11 +104,11 @@ contract AllocatorStrategyFactoryTest is Test {
         assertTrue(factory.isTypeRegistered(MERKLE_STRATEGY_ID));
         assertTrue(factory.isTypeRegistered(MOCK_STRATEGY_ID));
 
-        FactoryBase.RegisteredType memory merkleType = factory.getRegisteredType(MERKLE_STRATEGY_ID);
-        FactoryBase.RegisteredType memory mockType = factory.getRegisteredType(MOCK_STRATEGY_ID);
+        (address merkleImpl, ) = factory.registeredTypes(MERKLE_STRATEGY_ID);
+        (address mockImpl, ) = factory.registeredTypes(MOCK_STRATEGY_ID);
 
-        assertEq(merkleType.implementation, address(merkleImplementation));
-        assertEq(mockType.implementation, address(mockImplementation));
+        assertEq(merkleImpl, address(merkleImplementation));
+        assertEq(mockImpl, address(mockImplementation));
     }
 
     /// @notice Test registration with empty strategy ID
@@ -637,9 +637,9 @@ contract AllocatorStrategyFactoryTest is Test {
         factory.registerStrategyType(strategyId, address(mockImplementation), metadata, address(0), 0);
         assertTrue(factory.isTypeRegistered(strategyId));
 
-        FactoryBase.RegisteredType memory registeredType = factory.getRegisteredType(strategyId);
-        assertEq(registeredType.implementation, address(mockImplementation));
-        assertEq(registeredType.metadata, metadata);
+        (address regImpl, string memory regMeta) = factory.registeredTypes(strategyId);
+        assertEq(regImpl, address(mockImplementation));
+        assertEq(regMeta, metadata);
     }
 
     /// @notice Fuzz test for hash computation
