@@ -48,19 +48,4 @@ contract ConfigurableAllocatorStrategyMock is AllocatorStrategyBase {
 
         return amount;
     }
-
-    /// @inheritdoc IAllocatorStrategy
-    function getInitializationEncodingTypes() external pure override returns (string memory types) {
-        return ""; // This strategy doesn't use auxData for initialization
-    }
-
-    /// @inheritdoc IAllocatorStrategy
-    function getCreationEncodingTypes() external pure override returns (string memory types) {
-        return "";
-    }
-
-    /// @inheritdoc IAllocatorStrategy
-    function getClaimEncodingTypes() external pure override returns (string memory types) {
-        return "";
-    }
 }

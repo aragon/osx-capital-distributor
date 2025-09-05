@@ -387,20 +387,6 @@ contract ActionEncoderFactoryTest is Test {
     /// INTEGRATION TESTS WITH REAL IMPLEMENTATIONS
     /// ===============================
 
-    /// @notice Test integration with VaultDepositPayoutActionEncoder
-    function test_Integration_VaultDepositEncoder() public {
-        factory.registerActionEncoder(VAULT_ENCODER_ID, address(vaultImplementation), VAULT_METADATA);
-
-        bytes memory auxData = abi.encode(address(0x123)); // Mock vault address
-
-        IPayoutActionEncoder encoder = factory.deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
-
-        // Test that the encoder can be used
-        assertEq(encoder.getCreationEncodingTypes(), "address");
-        assertEq(encoder.getClaimEncodingTypes(), "");
-        assertEq(encoder.encoderId(), VAULT_ENCODER_ID);
-    }
-
     /// @notice Test integration with SablierLinearPayoutActionEncoder
     function test_Integration_SablierLinearEncoder() public {
         factory.registerActionEncoder(SABLIER_ENCODER_ID, address(sablierImplementation), SABLIER_METADATA);
@@ -548,14 +534,6 @@ contract ActionEncoderMock is PayoutActionEncoderBase {
         _disableInitializers();
     }
 
-    function getCreationEncodingTypes() external pure override returns (string memory types) {
-        return "address,string";
-    }
-
-    function getClaimEncodingTypes() external pure override returns (string memory types) {
-        return "uint256,bytes32";
-    }
-
     function setupCampaign(uint256, bytes calldata) external pure override {
         // Mock implementation - do nothing
     }
@@ -599,14 +577,6 @@ contract MaliciousActionEncoder is IPayoutActionEncoder, IERC165 {
 
     function encoderId() external pure returns (bytes32) {
         return bytes32(0);
-    }
-
-    function getCreationEncodingTypes() external pure returns (string memory) {
-        return "";
-    }
-
-    function getClaimEncodingTypes() external pure returns (string memory) {
-        return "";
     }
 
     function setupCampaign(uint256, bytes calldata) external pure {

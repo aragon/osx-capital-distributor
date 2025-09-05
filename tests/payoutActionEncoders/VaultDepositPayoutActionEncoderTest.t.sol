@@ -286,14 +286,6 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
     // Encoding Tests
     // ============================================
 
-    function test_GetCreationEncodingTypes() public {
-        assertEq(encoder.getCreationEncodingTypes(), "address");
-    }
-
-    function test_GetClaimEncodingTypes() public {
-        assertEq(encoder.getClaimEncodingTypes(), "");
-    }
-
     function test_CreationAuxDataDecoding() public {
         address testVault = makeAddr("testVault");
         bytes memory auxData = abi.encode(testVault);
