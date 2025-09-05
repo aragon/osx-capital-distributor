@@ -74,38 +74,44 @@ abstract contract FactoryBase is ReentrancyGuard {
     /// @param _metadata The metadata for the type
     /// @dev This function handles the common registration logic
     function _registerType(bytes32 _typeId, address _implementation, string calldata _metadata) internal {
-        _validateRegistration(_typeId, _implementation, registeredTypes[_typeId].implementation);
-
-        // Validate that the implementation is a contract
-        if (_implementation.code.length == 0) {
-            revert InvalidImplementation(_implementation, "Implementation must be a deployed contract");
-        }
+        _checkRegistrationParams(_typeId, _implementation, registeredTypes[_typeId].implementation);
 
         registeredTypes[_typeId] = RegisteredType({ implementation: _implementation, metadata: _metadata });
 
         emit TypeRegistered(_typeId, _implementation, _metadata, msg.sender);
     }
 
-    /// @notice Internal function to validate registration parameters
+    /// @notice Internal function to validate parameters for a new type registration
     /// @param _typeId The type ID to register
     /// @param _implementation The implementation address
     /// @param _existingImplementation The existing implementation address (zero if not registered)
-    function _validateRegistration(
+    /// @dev Consolidates all validation checks for registering a new type
+    function _checkRegistrationParams(
         bytes32 _typeId,
         address _implementation,
         address _existingImplementation
     )
         internal
-        pure
+        view
     {
+        // Check for empty type ID
         if (_typeId == bytes32(0)) {
             revert EmptyTypeId();
         }
+
+        // Check for zero implementation address
         if (_implementation == address(0)) {
             revert InvalidImplementation(_implementation, "Implementation address cannot be zero");
         }
+
+        // Check if type is already registered
         if (_existingImplementation != address(0)) {
             revert AlreadyRegistered(_typeId);
+        }
+
+        // Check that the implementation is a deployed contract
+        if (_implementation.code.length == 0) {
+            revert InvalidImplementation(_implementation, "Implementation must be a deployed contract");
         }
     }
 

@@ -110,15 +110,15 @@ contract FactoryBaseTest is Test {
         assertTrue(factory.isTypeRegistered(TYPE_ID_1));
         assertTrue(factory.isTypeRegistered(TYPE_ID_2));
 
-        (address impl1, ) = factory.registeredTypes(TYPE_ID_1);
-        (address impl2, ) = factory.registeredTypes(TYPE_ID_2);
+        (address impl1,) = factory.registeredTypes(TYPE_ID_1);
+        (address impl2,) = factory.registeredTypes(TYPE_ID_2);
 
         assertEq(impl1, implementation1);
         assertEq(impl2, implementation2);
     }
 
     /// @notice Test validation function directly
-    function test_ValidateRegistration() public {
+    function test_checkRegistrationParams() public {
         factory.exposedValidateRegistration(TYPE_ID_1, implementation1, address(0));
 
         vm.expectRevert(FactoryBase.EmptyTypeId.selector);
@@ -297,9 +297,9 @@ contract ConcreteFactoryBase is FactoryBase {
         address _existingImplementation
     )
         external
-        pure
+        view
     {
-        _validateRegistration(_typeId, _implementation, _existingImplementation);
+        _checkRegistrationParams(_typeId, _implementation, _existingImplementation);
     }
 
     function exposedDeployAndInitialize(
