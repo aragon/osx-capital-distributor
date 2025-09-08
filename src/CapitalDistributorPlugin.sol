@@ -753,6 +753,11 @@ contract CapitalDistributorPlugin is
     function _isCampaignWithinTimeBounds(Campaign storage _campaign) internal view returns (bool) {
         uint256 currentTime = block.timestamp;
 
+        // Check campaign exists
+        if (address(_campaign.allocationStrategy) == address(0)) {
+            return false;
+        }
+
         // Check start time (0 means no start restriction)
         if (_campaign.startTime > 0 && currentTime < _campaign.startTime) {
             return false;
