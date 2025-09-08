@@ -1530,7 +1530,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(
                 IERC20(token), toBytes32("vault-deposit-encoder"), abi.encode(address(vaultToSendTokens))
@@ -1549,7 +1549,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(
                 IERC20(token), toBytes32("vault-deposit-encoder"), abi.encode(address(vaultToSendTokens))

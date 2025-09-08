@@ -10,7 +10,6 @@ import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
 import { VaultDepositPayoutActionEncoder } from "../../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
-import { SablierLinearPayoutActionEncoder } from "../../src/payoutActionEncoders/SablierLinearPayoutActionEncoder.sol";
 import { PayoutActionEncoderBase } from "../../src/payoutActionEncoders/PayoutActionEncoderBase.sol";
 import { Action } from "@aragon/commons/executors/IExecutor.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
@@ -30,18 +29,15 @@ contract ActionEncoderFactoryTest is Test {
     address maliciousActor = makeAddr("malicious");
 
     VaultDepositPayoutActionEncoder vaultImplementation;
-    SablierLinearPayoutActionEncoder sablierImplementation;
     ActionEncoderMock mockImplementation;
     address maliciousImplementation;
 
     bytes32 constant VAULT_ENCODER_ID = keccak256("vault-deposit-encoder");
-    bytes32 constant SABLIER_ENCODER_ID = keccak256("sablier-linear-encoder");
     bytes32 constant MOCK_ENCODER_ID = keccak256("mock-encoder");
     bytes32 constant MALICIOUS_ENCODER_ID = keccak256("malicious-encoder");
     bytes32 constant EMPTY_ENCODER_ID = bytes32(0);
 
     string constant VAULT_METADATA = "Vault Deposit Payout Action Encoder";
-    string constant SABLIER_METADATA = "Sablier Linear Stream Payout Action Encoder";
     string constant MOCK_METADATA = "Mock Action Encoder for Testing";
     string constant MALICIOUS_METADATA = "Malicious Action Encoder";
 
@@ -62,7 +58,6 @@ contract ActionEncoderFactoryTest is Test {
 
         // Deploy encoder implementations
         vaultImplementation = new VaultDepositPayoutActionEncoder();
-        sablierImplementation = new SablierLinearPayoutActionEncoder();
         mockImplementation = new ActionEncoderMock();
         maliciousImplementation = address(new MaliciousActionEncoder());
 
@@ -74,7 +69,6 @@ contract ActionEncoderFactoryTest is Test {
         vm.label(charlie, "Charlie");
         vm.label(maliciousActor, "MaliciousActor");
         vm.label(address(vaultImplementation), "VaultImplementation");
-        vm.label(address(sablierImplementation), "SablierImplementation");
         vm.label(address(mockImplementation), "MockImplementation");
         vm.label(maliciousImplementation, "MaliciousImplementation");
     }
@@ -106,16 +100,12 @@ contract ActionEncoderFactoryTest is Test {
     /// @notice Test multiple action encoder type registrations
     function test_RegisterActionEncoder_Multiple() public {
         factory.registerActionEncoder(VAULT_ENCODER_ID, address(vaultImplementation), VAULT_METADATA);
-        factory.registerActionEncoder(SABLIER_ENCODER_ID, address(sablierImplementation), SABLIER_METADATA);
 
         assertTrue(factory.isTypeRegistered(VAULT_ENCODER_ID));
-        assertTrue(factory.isTypeRegistered(SABLIER_ENCODER_ID));
 
         (address vaultImpl,) = factory.registeredTypes(VAULT_ENCODER_ID);
-        (address sablierImpl,) = factory.registeredTypes(SABLIER_ENCODER_ID);
 
         assertEq(vaultImpl, address(vaultImplementation));
-        assertEq(sablierImpl, address(sablierImplementation));
     }
 
     /// @notice Test registration with empty encoder ID
@@ -399,18 +389,6 @@ contract ActionEncoderFactoryTest is Test {
         assertEq(encoder.getCreationEncodingTypes(), "address");
         assertEq(encoder.getClaimEncodingTypes(), "");
         assertEq(encoder.encoderId(), VAULT_ENCODER_ID);
-    }
-
-    /// @notice Test integration with SablierLinearPayoutActionEncoder
-    function test_Integration_SablierLinearEncoder() public {
-        factory.registerActionEncoder(SABLIER_ENCODER_ID, address(sablierImplementation), SABLIER_METADATA);
-
-        bytes memory auxData = ""; // Sablier encoder doesn't need creation auxData
-
-        IPayoutActionEncoder encoder = factory.deployActionEncoder(SABLIER_ENCODER_ID, dao, auxData);
-
-        // Test that the encoder can be used
-        assertEq(encoder.encoderId(), SABLIER_ENCODER_ID);
     }
 
     /// ===============================
