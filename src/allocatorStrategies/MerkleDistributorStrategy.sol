@@ -82,18 +82,21 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     }
 
     /// @inheritdoc IAllocatorStrategy
+    /// @return types Empty string as this strategy doesn't use auxData for initialization
     function getInitializationEncodingTypes() external pure override returns (string memory types) {
-        return ""; // This strategy doesn't use auxData for initialization
+        return "";
     }
 
     /// @inheritdoc IAllocatorStrategy
+    /// @return types The encoding type for merkleRoot parameter
     function getCreationEncodingTypes() external pure override returns (string memory types) {
-        return "bytes32"; // merkleRoot
+        return "bytes32";
     }
 
     /// @inheritdoc IAllocatorStrategy
+    /// @return types The encoding types for merkleProof and amount parameters
     function getClaimEncodingTypes() external pure override returns (string memory types) {
-        return "bytes32[],uint256"; // merkleProof, amount
+        return "bytes32[],uint256";
     }
 
     /// @inheritdoc IAllocatorStrategy

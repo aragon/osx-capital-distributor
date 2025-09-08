@@ -63,8 +63,8 @@ abstract contract PayoutActionEncoderBase is
         IERC20 _token,
         address _recipient,
         uint256 _amount,
-        address _caller, // Added for context, might be useful for builders
-        uint256 _campaignId, // Added for context
+        address _caller,
+        uint256 _campaignId,
         bytes calldata _encoderAuxData
     )
         external
