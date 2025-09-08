@@ -60,11 +60,11 @@ contract CapitalDistributorPluginInitializeTest is Test {
     function test_InitializeWithValidParametersAndZeroActionEncoder() public {
         // This test expects zero address to fail based on current implementation
         CapitalDistributorPlugin implementation = new CapitalDistributorPlugin();
-        
+
         bytes memory initData = abi.encodeCall(
             CapitalDistributorPlugin.initialize, (dao, allocatorStrategyFactory, ActionEncoderFactory(address(0)))
         );
-        
+
         vm.expectRevert(
             abi.encodeWithSelector(CapitalDistributorPlugin.InvalidParameter.selector, "_actionEncoderFactory")
         );

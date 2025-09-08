@@ -30,7 +30,13 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
     /// @param _encoderId The unique identifier for the action encoder
     /// @param _encoderImplementation The address of the implementation contract
     /// @param _metadata Human-readable metadata describing the action encoder
-    function registerActionEncoder(bytes32 _encoderId, address _encoderImplementation, string calldata _metadata) external {
+    function registerActionEncoder(
+        bytes32 _encoderId,
+        address _encoderImplementation,
+        string calldata _metadata
+    )
+        external
+    {
         // Validate basic requirements first
         if (_encoderId == bytes32(0)) {
             revert EmptyTypeId();
@@ -46,15 +52,18 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
         }
 
         // Validate that the implementation supports the IPayoutActionEncoder interface
-        try IERC165(_encoderImplementation).supportsInterface(type(IPayoutActionEncoder).interfaceId) returns (bool supported)
-        {
+        try IERC165(_encoderImplementation).supportsInterface(type(IPayoutActionEncoder).interfaceId) returns (
+            bool supported
+        ) {
             if (!supported) {
                 revert InvalidImplementation(
                     _encoderImplementation, "Implementation must support IPayoutActionEncoder interface"
                 );
             }
         } catch {
-            revert InvalidImplementation(_encoderImplementation, "Implementation must support IPayoutActionEncoder interface");
+            revert InvalidImplementation(
+                _encoderImplementation, "Implementation must support IPayoutActionEncoder interface"
+            );
         }
 
         // Register the type

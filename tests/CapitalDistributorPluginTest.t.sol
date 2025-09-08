@@ -514,7 +514,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         for (uint256 i = 0; i < 3; i++) {
             campaignIds[i] = capitalDistributorPlugin.createCampaign(
-            "ipfs://mock-campaign-metadata",
+                "ipfs://mock-campaign-metadata",
                 CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
                 CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
                 CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -2989,11 +2989,7 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         // Attempt to pause should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector,
-                campaignId,
-                block.timestamp,
-                0,
-                endTime
+                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector, campaignId, block.timestamp, 0, endTime
             )
         );
         capitalDistributorPlugin.pauseCampaign(campaignId);
@@ -3019,11 +3015,7 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         // Attempt to resume should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector,
-                campaignId,
-                block.timestamp,
-                0,
-                endTime
+                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector, campaignId, block.timestamp, 0, endTime
             )
         );
         capitalDistributorPlugin.resumeCampaign(campaignId);
@@ -3057,7 +3049,7 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
 
         // Create campaign with no time restrictions
         uint256 campaignId = createCampaignWithParams(false, 0, 0);
-        
+
         // Pause the campaign
         capitalDistributorPlugin.pauseCampaign(campaignId);
 
@@ -3107,11 +3099,7 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         // Attempt to end should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector,
-                campaignId,
-                block.timestamp,
-                0,
-                endTime
+                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector, campaignId, block.timestamp, 0, endTime
             )
         );
         capitalDistributorPlugin.endCampaign(campaignId);
@@ -3176,11 +3164,7 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         // Attempt to end should revert
         vm.expectRevert(
             abi.encodeWithSelector(
-                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector,
-                campaignId,
-                block.timestamp,
-                0,
-                endTime
+                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector, campaignId, block.timestamp, 0, endTime
             )
         );
         capitalDistributorPlugin.endCampaign(campaignId);
