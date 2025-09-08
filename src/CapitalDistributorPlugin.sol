@@ -264,7 +264,7 @@ contract CapitalDistributorPlugin is
         }
 
         // Validate actionEncoderFactory (can be zero address)
-        if (address(_actionEncoderFactory) != address(0) && address(_actionEncoderFactory).code.length == 0) {
+        if (address(_actionEncoderFactory) == address(0) || address(_actionEncoderFactory).code.length == 0) {
             revert InvalidParameter("_actionEncoderFactory");
         }
 
