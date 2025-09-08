@@ -16,14 +16,14 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     using Clones for address;
 
     /// @notice Maximum fee in basis points (10% = 1000 basis points).
-    uint256 public constant MAX_FEE_BASIS_POINTS = 1000;
+    uint32 public constant MAX_FEE_BASIS_POINTS = 1000;
 
     /// @notice Fee configuration for a strategy type
     /// @param recipient Where fees are sent
     /// @param basisPoints Fee percentage in basis points (e.g., 250 = 2.5%, max 1000 = 10%)
     struct FeeConfig {
         address recipient;
-        uint256 basisPoints;
+        uint32 basisPoints;
     }
 
     /// @notice Maps deployment parameters hash to deployed strategy addresses.
@@ -50,7 +50,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     /// @param strategyId The unique identifier for the strategy type
     /// @param feeRecipient The address where fees will be sent
     /// @param feeBasisPoints The fee percentage in basis points
-    event StrategyFeeConfigured(bytes32 indexed strategyId, address indexed feeRecipient, uint256 feeBasisPoints);
+    event StrategyFeeConfigured(bytes32 indexed strategyId, address indexed feeRecipient, uint32 feeBasisPoints);
 
     /// @notice Error thrown when fee recipient is zero address
     error InvalidFeeRecipient();
@@ -58,7 +58,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     /// @notice Error thrown when fee basis points exceed maximum allowed
     /// @param provided The provided fee basis points
     /// @param maximum The maximum allowed fee basis points
-    error ExcessiveFee(uint256 provided, uint256 maximum);
+    error ExcessiveFee(uint32 provided, uint32 maximum);
 
     /// @notice Error thrown when querying fee for a strategy not deployed by this factory
     /// @param strategyInstance The strategy instance address that was not found
@@ -78,7 +78,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         address _strategyImplementation,
         string calldata _metadata,
         address _feeRecipient,
-        uint256 _feeBasisPoints
+        uint32 _feeBasisPoints
     )
         external
     {
@@ -216,7 +216,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     function getStrategyFeeByInstance(address _strategyInstance)
         external
         view
-        returns (address recipient, uint256 basisPoints)
+        returns (address recipient, uint32 basisPoints)
     {
         bytes32 typeId = instanceToType[_strategyInstance];
         if (typeId == bytes32(0)) {

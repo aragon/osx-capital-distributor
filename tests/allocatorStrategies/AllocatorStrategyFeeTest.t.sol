@@ -24,7 +24,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
     string constant MERKLE_METADATA = "Merkle Tree Distribution Strategy";
 
     // Test events
-    event StrategyFeeConfigured(bytes32 indexed strategyId, address indexed feeRecipient, uint256 feeBasisPoints);
+    event StrategyFeeConfigured(bytes32 indexed strategyId, address indexed feeRecipient, uint32 feeBasisPoints);
     event PayoutClaimed(uint256 indexed campaignId, address indexed recipient, uint256 amount);
     event FeeCollected(uint256 indexed campaignId, address indexed feeRecipient, uint256 feeAmount);
 
@@ -51,7 +51,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
 
     /// @notice Test registering a strategy with fee configuration
     function test_RegisterStrategyWithFee() public {
-        uint256 feeBasisPoints = 250; // 2.5%
+        uint32 feeBasisPoints = 250; // 2.5%
 
         vm.expectEmit(true, true, false, true);
         emit StrategyFeeConfigured(MERKLE_STRATEGY_ID, feeCollector, feeBasisPoints);
@@ -61,7 +61,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
         );
 
         // Verify fee configuration
-        (address recipient, uint256 basisPoints) = allocatorStrategyFactory.strategyFees(MERKLE_STRATEGY_ID);
+        (address recipient, uint32 basisPoints) = allocatorStrategyFactory.strategyFees(MERKLE_STRATEGY_ID);
         assertEq(recipient, feeCollector);
         assertEq(basisPoints, feeBasisPoints);
     }
@@ -73,7 +73,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
         );
 
         // Verify fee configuration
-        (address recipient, uint256 basisPoints) = allocatorStrategyFactory.strategyFees(MERKLE_STRATEGY_ID);
+        (address recipient, uint32 basisPoints) = allocatorStrategyFactory.strategyFees(MERKLE_STRATEGY_ID);
         assertEq(recipient, address(0));
         assertEq(basisPoints, 0);
     }
@@ -103,7 +103,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
 
     /// @notice Test getting fee configuration for a deployed strategy
     function test_GetStrategyFeeByInstance() public {
-        uint256 feeBasisPoints = 300; // 3%
+        uint32 feeBasisPoints = 300; // 3%
 
         // Register strategy with fee
         allocatorStrategyFactory.registerStrategyType(
@@ -115,7 +115,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
             allocatorStrategyFactory.deployStrategy(MERKLE_STRATEGY_ID, createdDao, abi.encode(bytes32(0)));
 
         // Get fee configuration by instance
-        (address recipient, uint256 basisPoints) = allocatorStrategyFactory.getStrategyFeeByInstance(strategy);
+        (address recipient, uint32 basisPoints) = allocatorStrategyFactory.getStrategyFeeByInstance(strategy);
         assertEq(recipient, feeCollector);
         assertEq(basisPoints, feeBasisPoints);
 
@@ -126,7 +126,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
 
     /// @notice Test claiming with fees
     function test_ClaimWithFees() public {
-        uint256 feeBasisPoints = 500; // 5%
+        uint32 feeBasisPoints = 500; // 5%
         uint256 claimAmount = 1000 ether;
         uint256 expectedFee = (claimAmount * feeBasisPoints) / 10_000;
         uint256 expectedRecipientAmount = claimAmount - expectedFee;

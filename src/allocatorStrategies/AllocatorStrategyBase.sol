@@ -81,7 +81,7 @@ abstract contract AllocatorStrategyBase is
         returns (uint256 amount);
 
     /// @inheritdoc IAllocatorStrategy
-    function getFeeConfiguration() public view virtual override returns (address recipient, uint256 basisPoints) {
+    function getFeeConfiguration() public view virtual override returns (address recipient, uint32 basisPoints) {
         // Call the factory to get fee configuration for this instance
         return IAllocatorStrategyFactory(factory).getStrategyFeeByInstance(address(this));
     }

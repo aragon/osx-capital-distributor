@@ -48,7 +48,7 @@ contract AllocatorStrategyFactoryTest is Test {
     event InstanceDeployed(
         bytes32 indexed typeId, address indexed instance, bytes32 indexed deploymentId, address deployer
     );
-    event StrategyFeeConfigured(bytes32 indexed strategyId, address indexed feeRecipient, uint256 feeBasisPoints);
+    event StrategyFeeConfigured(bytes32 indexed strategyId, address indexed feeRecipient, uint32 feeBasisPoints);
 
     function setUp() public {
         factory = new AllocatorStrategyFactory();
@@ -467,7 +467,7 @@ contract AllocatorStrategyFactoryTest is Test {
     /// @notice Test registering strategy with valid fee configuration
     function test_RegisterStrategyWithFeeConfiguration() public {
         address feeRecipient = makeAddr("feeRecipient");
-        uint256 feeBasisPoints = 500; // 5%
+        uint32 feeBasisPoints = 500; // 5%
 
         vm.expectEmit(true, true, false, true);
         emit StrategyFeeConfigured(MERKLE_STRATEGY_ID, feeRecipient, feeBasisPoints);
@@ -477,7 +477,7 @@ contract AllocatorStrategyFactoryTest is Test {
         );
 
         // Verify fee configuration
-        (address recipient, uint256 basisPoints) = factory.strategyFees(MERKLE_STRATEGY_ID);
+        (address recipient, uint32 basisPoints) = factory.strategyFees(MERKLE_STRATEGY_ID);
         assertEq(recipient, feeRecipient);
         assertEq(basisPoints, feeBasisPoints);
     }
@@ -487,7 +487,7 @@ contract AllocatorStrategyFactoryTest is Test {
         factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
 
         // Verify no fee configuration
-        (address recipient, uint256 basisPoints) = factory.strategyFees(MERKLE_STRATEGY_ID);
+        (address recipient, uint32 basisPoints) = factory.strategyFees(MERKLE_STRATEGY_ID);
         assertEq(recipient, address(0));
         assertEq(basisPoints, 0);
     }
@@ -495,14 +495,14 @@ contract AllocatorStrategyFactoryTest is Test {
     /// @notice Test registering strategy with maximum fee (10%)
     function test_RegisterStrategyWithMaximumFee() public {
         address feeRecipient = makeAddr("feeRecipient");
-        uint256 maxFeeBasisPoints = 1000; // 10%
+        uint32 maxFeeBasisPoints = 1000; // 10%
 
         factory.registerStrategyType(
             MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, feeRecipient, maxFeeBasisPoints
         );
 
         // Verify fee configuration
-        (address recipient, uint256 basisPoints) = factory.strategyFees(MERKLE_STRATEGY_ID);
+        (address recipient, uint32 basisPoints) = factory.strategyFees(MERKLE_STRATEGY_ID);
         assertEq(recipient, feeRecipient);
         assertEq(basisPoints, maxFeeBasisPoints);
     }
@@ -510,7 +510,7 @@ contract AllocatorStrategyFactoryTest is Test {
     /// @notice Test registering strategy with excessive fee
     function test_RegisterStrategyWithExcessiveFee_Reverts() public {
         address feeRecipient = makeAddr("feeRecipient");
-        uint256 excessiveFeeBasisPoints = 1001; // 10.01%
+        uint32 excessiveFeeBasisPoints = 1001; // 10.01%
 
         vm.expectRevert(
             abi.encodeWithSelector(AllocatorStrategyFactory.ExcessiveFee.selector, excessiveFeeBasisPoints, 1000)
@@ -523,7 +523,7 @@ contract AllocatorStrategyFactoryTest is Test {
 
     /// @notice Test registering strategy with fee but no recipient
     function test_RegisterStrategyWithFeeButNoRecipient_Reverts() public {
-        uint256 feeBasisPoints = 500; // 5%
+        uint32 feeBasisPoints = 500; // 5%
 
         vm.expectRevert(AllocatorStrategyFactory.InvalidFeeRecipient.selector);
 
@@ -535,7 +535,7 @@ contract AllocatorStrategyFactoryTest is Test {
     /// @notice Test getStrategyFeeByInstance with valid strategy
     function test_GetStrategyFeeByInstance_ValidStrategy() public {
         address feeRecipient = makeAddr("feeRecipient");
-        uint256 feeBasisPoints = 250; // 2.5%
+        uint32 feeBasisPoints = 250; // 2.5%
 
         // Register strategy with fee
         factory.registerStrategyType(
@@ -547,7 +547,7 @@ contract AllocatorStrategyFactoryTest is Test {
         address strategy = factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
 
         // Get fee by instance
-        (address recipient, uint256 basisPoints) = factory.getStrategyFeeByInstance(strategy);
+        (address recipient, uint32 basisPoints) = factory.getStrategyFeeByInstance(strategy);
         assertEq(recipient, feeRecipient);
         assertEq(basisPoints, feeBasisPoints);
     }
@@ -574,7 +574,7 @@ contract AllocatorStrategyFactoryTest is Test {
     /// @notice Test fee configuration persistence across deployments
     function test_FeeConfigurationPersistenceAcrossDeployments() public {
         address feeRecipient = makeAddr("feeRecipient");
-        uint256 feeBasisPoints = 300; // 3%
+        uint32 feeBasisPoints = 300; // 3%
 
         // Register strategy with fee
         factory.registerStrategyType(
@@ -589,8 +589,8 @@ contract AllocatorStrategyFactoryTest is Test {
         address strategy2 = factory.deployStrategy(MERKLE_STRATEGY_ID, dao2, auxData2);
 
         // Both should have same fee configuration
-        (address recipient1, uint256 basisPoints1) = factory.getStrategyFeeByInstance(strategy1);
-        (address recipient2, uint256 basisPoints2) = factory.getStrategyFeeByInstance(strategy2);
+        (address recipient1, uint32 basisPoints1) = factory.getStrategyFeeByInstance(strategy1);
+        (address recipient2, uint32 basisPoints2) = factory.getStrategyFeeByInstance(strategy2);
 
         assertEq(recipient1, feeRecipient);
         assertEq(basisPoints1, feeBasisPoints);
@@ -602,8 +602,8 @@ contract AllocatorStrategyFactoryTest is Test {
     function test_MultipleStrategiesWithDifferentFees() public {
         address feeRecipient1 = makeAddr("feeRecipient1");
         address feeRecipient2 = makeAddr("feeRecipient2");
-        uint256 feeBasisPoints1 = 100; // 1%
-        uint256 feeBasisPoints2 = 750; // 7.5%
+        uint32 feeBasisPoints1 = 100; // 1%
+        uint32 feeBasisPoints2 = 750; // 7.5%
 
         // Register two strategies with different fees
         factory.registerStrategyType(
@@ -615,8 +615,8 @@ contract AllocatorStrategyFactoryTest is Test {
         );
 
         // Verify different fee configurations
-        (address recipient1, uint256 basisPoints1) = factory.strategyFees(MERKLE_STRATEGY_ID);
-        (address recipient2, uint256 basisPoints2) = factory.strategyFees(MOCK_STRATEGY_ID);
+        (address recipient1, uint32 basisPoints1) = factory.strategyFees(MERKLE_STRATEGY_ID);
+        (address recipient2, uint32 basisPoints2) = factory.strategyFees(MOCK_STRATEGY_ID);
 
         assertEq(recipient1, feeRecipient1);
         assertEq(basisPoints1, feeBasisPoints1);
@@ -671,7 +671,7 @@ contract AllocatorStrategyFactoryTest is Test {
     }
 
     /// @notice Fuzz test for fee configuration
-    function testFuzz_FeeConfiguration(bytes32 strategyId, address feeRecipient, uint256 feeBasisPoints) public {
+    function testFuzz_FeeConfiguration(bytes32 strategyId, address feeRecipient, uint32 feeBasisPoints) public {
         vm.assume(strategyId != bytes32(0));
         vm.assume(feeBasisPoints <= 1000); // Max 10%
 
@@ -688,7 +688,7 @@ contract AllocatorStrategyFactoryTest is Test {
             );
 
             // Verify fee configuration
-            (address recipient, uint256 basisPoints) = factory.strategyFees(strategyId);
+            (address recipient, uint32 basisPoints) = factory.strategyFees(strategyId);
             assertEq(recipient, feeRecipient);
             assertEq(basisPoints, feeBasisPoints);
         }
@@ -733,7 +733,7 @@ contract MaliciousImplementation is IAllocatorStrategy {
         return 0;
     }
 
-    function getFeeConfiguration() external pure returns (address recipient, uint256 basisPoints) {
+    function getFeeConfiguration() external pure returns (address recipient, uint32 basisPoints) {
         return (address(0), 0);
     }
 
