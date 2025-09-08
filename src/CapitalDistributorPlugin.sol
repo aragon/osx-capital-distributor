@@ -379,7 +379,7 @@ contract CapitalDistributorPlugin is
     ///      If the call succeeds, it indicates a non-compliant token that could be exploited.
     /// @param _token The token to validate
     function _validateTokenBehavior(IERC20 _token) internal view {
-        (bool success, bytes memory data) =
+        (bool success,) =
             address(_token).staticcall(abi.encodeCall(IERC20.transferFrom, (address(0), address(this), 1)));
 
         if (success) {
