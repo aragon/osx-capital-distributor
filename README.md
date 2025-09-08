@@ -82,7 +82,6 @@ struct Campaign {
     IAllocatorStrategy strategy;     // Allocation logic
     IERC20 token;                    // Token to distribute
     IPayoutActionEncoder encoder;    // Payout method
-    bool multipleClaimsAllowed;      // Allow multiple claims per user
     CampaignState state;             // ACTIVE, PAUSED, ENDED
     uint256 startTime;               // Campaign start timestamp
     uint256 endTime;                 // Campaign end timestamp

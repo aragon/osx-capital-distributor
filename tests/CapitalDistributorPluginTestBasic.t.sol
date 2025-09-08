@@ -60,7 +60,7 @@ contract CapitalDistributorPluginTest is AragonTest {
                 bytes32(0),
                 metadata // Doesn't have to be metadata, just empty bytes
             ),
-            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
+            CapitalDistributorPlugin.CampaignSettings(0, 0)
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
@@ -87,7 +87,7 @@ contract CapitalDistributorPluginTest is AragonTest {
                 bytes32(0),
                 metadata // Doesn't have to be metadata, just empty bytes
             ),
-            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
+            CapitalDistributorPlugin.CampaignSettings(0, 0)
         );
     }
 
@@ -109,7 +109,7 @@ contract CapitalDistributorPluginTest is AragonTest {
                 bytes32(0),
                 metadata // Doesn't have to be metadata, just empty bytes
             ),
-            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
+            CapitalDistributorPlugin.CampaignSettings(0, 0)
         );
 
         assertEq(token.balanceOf(address(createdDao)), 1 ether, "DAO doesn't have funds");
@@ -152,7 +152,7 @@ contract CapitalDistributorPluginTest is AragonTest {
             CapitalDistributorPlugin.PayoutConfig(
                 IERC20(token), toBytes32("vault-deposit-encoder"), abi.encode(address(vaultToSendTokens))
             ),
-            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
+            CapitalDistributorPlugin.CampaignSettings(0, 0)
         );
 
         assertEq(token.balanceOf(address(createdDao)), 1 ether, "DAO doesn't have funds");

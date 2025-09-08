@@ -27,7 +27,7 @@ contract CampaignStateManagementTest is AragonTest {
             "ipfs://test",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
-            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
+            CapitalDistributorPlugin.CampaignSettings(0, 0)
         );
         vm.stopPrank();
     }

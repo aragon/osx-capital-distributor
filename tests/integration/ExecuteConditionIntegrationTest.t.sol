@@ -97,7 +97,7 @@ contract ExecuteConditionIntegrationTest is Test {
             "ipfs://test-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(bytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(token, bytes32(0), ""),
-            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
+            CapitalDistributorPlugin.CampaignSettings(0, 0)
         );
         vm.stopPrank();
 
@@ -120,7 +120,7 @@ contract ExecuteConditionIntegrationTest is Test {
             "ipfs://test-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(bytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(token, bytes32(0), ""),
-            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
+            CapitalDistributorPlugin.CampaignSettings(0, 0)
         );
 
         // Setup allocation for alice

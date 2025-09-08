@@ -60,7 +60,6 @@ contract CapitalDistributorPlugin is
      * @param allocationStrategy The contract address responsible for determining allocation logic.
      * @param token The address of the token that will be used for the payouts
      * @param actionEncoder The logic to execute when claiming the payout
-     * @param multipleClaimsAllowed Whether recipients can claim multiple times for this campaign
      * @param state The current state of the campaign (ACTIVE, PAUSED, or ENDED)
      * @param startTime The timestamp when the campaign becomes active (0 means no start time restriction)
      * @param endTime The timestamp when the campaign ends (0 means no end time restriction)
@@ -70,7 +69,6 @@ contract CapitalDistributorPlugin is
         IAllocatorStrategy allocationStrategy;
         IERC20 token;
         IPayoutActionEncoder actionEncoder;
-        bool multipleClaimsAllowed;
         CampaignState state;
         uint64 startTime;
         uint64 endTime;
@@ -85,7 +83,7 @@ contract CapitalDistributorPlugin is
      * @notice Stores all campaign configurations, mapping a campaign ID to its Campaign struct.
      * The public visibility automatically creates a getter function:
      * `function campaigns(uint256 _campaignId) external view returns (bytes memory metadataURI, address
-     * allocationStrategy, address token, address actionEncoder, bool multipleClaimsAllowed, CampaignState state)`
+     * allocationStrategy, address token, address actionEncoder, CampaignState state)`
      */
     mapping(uint256 campaignId => Campaign) public campaigns;
 
@@ -115,12 +113,10 @@ contract CapitalDistributorPlugin is
 
     /**
      * @notice Campaign settings for time bounds and claim behavior
-     * @param multipleClaimsAllowed Whether recipients can claim multiple times for this campaign
      * @param startTime The timestamp when the campaign becomes active (0 means no start time restriction)
      * @param endTime The timestamp when the campaign ends (0 means no end time restriction)
      */
     struct CampaignSettings {
-        bool multipleClaimsAllowed;
         uint64 startTime;
         uint64 endTime;
     }
@@ -132,7 +128,8 @@ contract CapitalDistributorPlugin is
      * @param allocationStrategy The allocation strategy address for the campaign.
      * @param token The token address for the campaign.
      * @param actionEncoder The default payout action encoder for the campaign.
-     * @param multipleClaimsAllowed Whether multiple claims are allowed for this campaign.
+     * @param startTime The timestamp when the campaign becomes active (0 means no start time restriction)
+     * @param endTime The timestamp when the campaign ends (0 means no end time restriction)
      */
     event CampaignCreated(
         uint256 indexed campaignId,
@@ -140,7 +137,6 @@ contract CapitalDistributorPlugin is
         address indexed allocationStrategy,
         IERC20 token,
         IPayoutActionEncoder actionEncoder,
-        bool multipleClaimsAllowed,
         uint64 startTime,
         uint64 endTime
     );
@@ -191,11 +187,6 @@ contract CapitalDistributorPlugin is
     /// @param alreadyClaimed The amount already claimed.
     /// @param maxClaimable The maximum amount claimable.
     error AlreadyClaimedMaxAmount(uint256 campaignId, address recipient, uint256 alreadyClaimed, uint256 maxClaimable);
-
-    /// @notice Thrown when multiple claims are not allowed but recipient has already claimed.
-    /// @param campaignId The ID of the campaign.
-    /// @param recipient The address that tried to claim again.
-    error MultipleClaimsNotAllowed(uint256 campaignId, address recipient);
 
     /// @notice Thrown when no claimable amount is available for the recipient.
     /// @param campaignId The ID of the campaign.
@@ -356,7 +347,6 @@ contract CapitalDistributorPlugin is
         // Set campaign fields
         campaign.metadataUri = _metadataURI;
         campaign.token = _payout.token;
-        campaign.multipleClaimsAllowed = _settings.multipleClaimsAllowed;
         campaign.state = CampaignState.ACTIVE;
         campaign.startTime = _settings.startTime;
         campaign.endTime = _settings.endTime;
@@ -367,7 +357,6 @@ contract CapitalDistributorPlugin is
             address(campaign.allocationStrategy),
             _payout.token,
             campaign.actionEncoder,
-            _settings.multipleClaimsAllowed,
             _settings.startTime,
             _settings.endTime
         );
@@ -516,19 +505,14 @@ contract CapitalDistributorPlugin is
         // Get the campaign reference
         Campaign storage campaign = campaigns[_campaignId];
 
-        uint256 alreadyClaimed = claimed[_campaignId][_recipient];
-
-        // Check if multiple claims are allowed first (fastest check)
-        if (!campaign.multipleClaimsAllowed && alreadyClaimed > 0) {
-            revert MultipleClaimsNotAllowed(_campaignId, _recipient);
-        }
-
         uint256 totalAmountToSend =
             campaign.allocationStrategy.getTotalClaimableAmount(_campaignId, _recipient, _strategyAuxData);
 
         if (totalAmountToSend == 0) {
             revert NoClaimableAmount(_campaignId, _recipient);
         }
+
+        uint256 alreadyClaimed = claimed[_campaignId][_recipient];
 
         // Check if already claimed all payout assigned
         if (alreadyClaimed >= totalAmountToSend) {
@@ -588,13 +572,6 @@ contract CapitalDistributorPlugin is
         // This ensures only the rightful recipient can claim their allocation
         address recipient = msg.sender;
 
-        uint256 alreadyClaimed = claimed[_campaignId][recipient];
-
-        // Check multiple claims allowed
-        if (!campaign.multipleClaimsAllowed && alreadyClaimed > 0) {
-            revert MultipleClaimsNotAllowed(_campaignId, recipient);
-        }
-
         // Get claimable amount for msg.sender (not the payout address)
         uint256 totalAmountToSend =
             campaign.allocationStrategy.getTotalClaimableAmount(_campaignId, recipient, _strategyAuxData);
@@ -602,6 +579,8 @@ contract CapitalDistributorPlugin is
         if (totalAmountToSend == 0) {
             revert NoClaimableAmount(_campaignId, recipient);
         }
+
+        uint256 alreadyClaimed = claimed[_campaignId][recipient];
 
         if (alreadyClaimed >= totalAmountToSend) {
             revert AlreadyClaimedMaxAmount(_campaignId, recipient, alreadyClaimed, totalAmountToSend);
