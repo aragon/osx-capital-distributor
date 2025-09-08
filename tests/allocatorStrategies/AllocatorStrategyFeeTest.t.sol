@@ -149,7 +149,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
                 bytes32(0), // Direct transfer
                 bytes("")
             ),
-            CapitalDistributorPlugin.CampaignSettings(true, 0, 0)
+            CapitalDistributorPlugin.CampaignSettings(0, 0)
         );
         vm.stopPrank();
 
@@ -193,7 +193,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
                 MERKLE_STRATEGY_ID, abi.encode(merkleRoot), abi.encode(merkleRoot, 0)
             ),
             CapitalDistributorPlugin.PayoutConfig(token, bytes32(0), bytes("")),
-            CapitalDistributorPlugin.CampaignSettings(true, 0, 0)
+            CapitalDistributorPlugin.CampaignSettings(0, 0)
         );
         vm.stopPrank();
 
