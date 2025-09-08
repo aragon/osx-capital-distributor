@@ -88,8 +88,8 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Helper function to create a campaign with custom parameters
     function createCampaignWithParams(
         bool multipleClaimsAllowed,
-        uint256 startTime,
-        uint256 endTime
+        uint64 startTime,
+        uint64 endTime
     )
         internal
         returns (uint256)
@@ -203,7 +203,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     function test_CreateCampaignWithStartTime() public {
         vm.startPrank(address(createdDao));
 
-        uint256 startTime = block.timestamp + 1000;
+        uint64 startTime = uint64(block.timestamp + 1000);
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             "ipfs://mock-campaign-metadata",
@@ -224,7 +224,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     function test_CreateCampaignWithEndTime() public {
         vm.startPrank(address(createdDao));
 
-        uint256 endTime = block.timestamp + 2000;
+        uint64 endTime = uint64(block.timestamp + 2000);
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             "ipfs://mock-campaign-metadata",
@@ -290,8 +290,8 @@ contract CapitalDistributorPluginTest is AragonTest {
     function test_CreateCampaignFailsWithInvalidTimeBounds() public {
         vm.startPrank(address(createdDao));
 
-        uint256 startTime = block.timestamp + 2000;
-        uint256 endTime = block.timestamp + 1000; // End time before start time
+        uint64 startTime = uint64(block.timestamp + 2000);
+        uint64 endTime = uint64(block.timestamp + 1000); // End time before start time
 
         vm.expectRevert(CapitalDistributorPlugin.InvalidTimeBounds.selector);
         capitalDistributorPlugin.createCampaign(
@@ -345,7 +345,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     function test_CreateCampaignWithFutureStartTime() public {
         vm.startPrank(address(createdDao));
 
-        uint256 futureStartTime = block.timestamp + 86_400; // 1 day in the future
+        uint64 futureStartTime = uint64(block.timestamp + 86_400); // 1 day in the future
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             "ipfs://mock-campaign-metadata",
@@ -364,7 +364,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     function test_CreateCampaignWithPastEndTime() public {
         vm.startPrank(address(createdDao));
 
-        uint256 pastEndTime = block.timestamp - 86_400; // 1 day in the past
+        uint64 pastEndTime = uint64(block.timestamp - 86_400); // 1 day in the past
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             "ipfs://mock-campaign-metadata",
@@ -460,8 +460,8 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         bytes memory metadata = "test-metadata";
         bool multipleClaimsAllowed = true;
-        uint256 startTime = block.timestamp + 1000;
-        uint256 endTime = block.timestamp + 2000;
+        uint64 startTime = uint64(block.timestamp + 1000);
+        uint64 endTime = uint64(block.timestamp + 2000);
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
@@ -591,8 +591,8 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         bytes memory metadata = "comprehensive-metadata";
         bool multipleClaimsAllowed = true;
-        uint256 startTime = block.timestamp + 1000;
-        uint256 endTime = block.timestamp + 2000;
+        uint64 startTime = uint64(block.timestamp + 1000);
+        uint64 endTime = uint64(block.timestamp + 2000);
 
         vm.recordLogs();
 
@@ -610,7 +610,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         for (uint256 i = 0; i < logs.length; i++) {
             if (
                 logs[i].topics[0]
-                    == keccak256("CampaignCreated(uint256,bytes,address,address,address,bool,uint256,uint256)")
+                    == keccak256("CampaignCreated(uint256,bytes,address,address,address,bool,uint64,uint64)")
             ) {
                 eventFound = true;
                 // Verify the campaign ID matches
@@ -643,8 +643,8 @@ contract CapitalDistributorPluginTest is AragonTest {
     function test_CreateCampaignWithBothTimes() public {
         vm.startPrank(address(createdDao));
 
-        uint256 startTime = block.timestamp + 1000;
-        uint256 endTime = block.timestamp + 2000;
+        uint64 startTime = uint64(block.timestamp + 1000);
+        uint64 endTime = uint64(block.timestamp + 2000);
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             "ipfs://mock-campaign-metadata",
@@ -666,7 +666,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     function test_CreateCampaignFailsWithEqualTimes() public {
         vm.startPrank(address(createdDao));
 
-        uint256 sameTime = block.timestamp + 1000;
+        uint64 sameTime = uint64(block.timestamp + 1000);
 
         vm.expectRevert(CapitalDistributorPlugin.InvalidTimeBounds.selector);
         capitalDistributorPlugin.createCampaign(
@@ -740,8 +740,8 @@ contract CapitalDistributorPluginTest is AragonTest {
     function test_CreateCampaignWithMaximumTimeValues() public {
         vm.startPrank(address(createdDao));
 
-        uint256 maxStartTime = type(uint256).max - 1000;
-        uint256 maxEndTime = type(uint256).max;
+        uint64 maxStartTime = type(uint64).max - 1000;
+        uint64 maxEndTime = type(uint64).max;
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             "ipfs://mock-campaign-metadata",
@@ -858,7 +858,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         mintTokensToDAO(1 ether);
         vm.startPrank(address(createdDao));
 
-        uint256 futureStart = block.timestamp + 1000;
+        uint64 futureStart = uint64(block.timestamp + 1000);
         uint256 campaignId = createCampaignWithParams(false, futureStart, 0);
 
         vm.expectRevert(
@@ -876,7 +876,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         mintTokensToDAO(1 ether);
         vm.startPrank(address(createdDao));
 
-        uint256 pastEnd = block.timestamp - 1;
+        uint64 pastEnd = uint64(block.timestamp - 1);
         uint256 campaignId = createCampaignWithParams(false, 0, pastEnd);
 
         vm.expectRevert(
@@ -1058,7 +1058,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         mintTokensToDAO(1 ether);
         vm.startPrank(address(createdDao));
 
-        uint256 startTime = block.timestamp + 100;
+        uint64 startTime = uint64(block.timestamp + 100);
         uint256 campaignId = createCampaignWithParams(false, startTime, 0);
 
         // Warp to exact start time
@@ -1076,7 +1076,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         mintTokensToDAO(1 ether);
         vm.startPrank(address(createdDao));
 
-        uint256 endTime = block.timestamp + 100;
+        uint64 endTime = uint64(block.timestamp + 100);
         uint256 campaignId = createCampaignWithParams(false, 0, endTime);
 
         // Warp to one second before end time
@@ -1094,7 +1094,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         mintTokensToDAO(1 ether);
         vm.startPrank(address(createdDao));
 
-        uint256 endTime = block.timestamp + 100;
+        uint64 endTime = uint64(block.timestamp + 100);
         uint256 campaignId = createCampaignWithParams(false, 0, endTime);
 
         // Warp to exact end time
@@ -1134,7 +1134,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         mintTokensToDAO(1 ether);
         vm.startPrank(address(createdDao));
 
-        uint256 endTime = block.timestamp + 100;
+        uint64 endTime = uint64(block.timestamp + 100);
         uint256 campaignId = createCampaignWithParams(false, 0, endTime);
 
         // Verify campaign is active
@@ -1481,18 +1481,18 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         // Future campaign
-        uint256 futureStart = block.timestamp + 1000;
+        uint64 futureStart = uint64(block.timestamp + 1000);
         uint256 futureCampaignId = createCampaignWithParams(false, futureStart, 0);
         assertFalse(capitalDistributorPlugin.isCampaignActive(futureCampaignId), "Future campaign should be inactive");
 
         // Expired campaign
-        uint256 pastEnd = block.timestamp - 1;
+        uint64 pastEnd = uint64(block.timestamp - 1);
         uint256 expiredCampaignId = createCampaignWithParams(false, 0, pastEnd);
         assertFalse(capitalDistributorPlugin.isCampaignActive(expiredCampaignId), "Expired campaign should be inactive");
 
         // Active campaign with time bounds
-        uint256 activeStart = block.timestamp - 100;
-        uint256 activeEnd = block.timestamp + 100;
+        uint64 activeStart = uint64(block.timestamp - 100);
+        uint64 activeEnd = uint64(block.timestamp + 100);
         uint256 activeCampaignId = createCampaignWithParams(false, activeStart, activeEnd);
         assertTrue(
             capitalDistributorPlugin.isCampaignActive(activeCampaignId), "Campaign within bounds should be active"
@@ -1632,8 +1632,8 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         // 1. Create campaign with time bounds
-        uint256 startTime = block.timestamp + 100;
-        uint256 endTime = block.timestamp + 200;
+        uint64 startTime = uint64(block.timestamp + 100);
+        uint64 endTime = uint64(block.timestamp + 200);
         uint256 campaignId = createCampaignWithParams(true, startTime, endTime);
 
         // 2. Verify not active before start
@@ -2527,8 +2527,8 @@ contract CapitalDistributorPluginTest is AragonTest {
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(
                 false,
-                block.timestamp + 100, // Start time
-                block.timestamp + 200 // End time
+                uint64(block.timestamp + 100), // Start time
+                uint64(block.timestamp + 200) // End time
             )
         );
 
@@ -2880,7 +2880,7 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         vm.startPrank(address(createdDao));
         uint256 campaignId = createCampaignWithParams(
             false, // multipleClaimsAllowed
-            block.timestamp + 1 days, // startTime (future)
+            uint64(block.timestamp + 1 days), // startTime (future)
             0 // endTime (no end)
         );
 
@@ -2901,8 +2901,8 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         vm.startPrank(address(createdDao));
         uint256 campaignId = createCampaignWithParams(
             false, // multipleClaimsAllowed
-            block.timestamp, // startTime (now)
-            block.timestamp + 100 // endTime (100 seconds from now)
+            uint64(block.timestamp), // startTime (now)
+            uint64(block.timestamp + 100) // endTime (100 seconds from now)
         );
 
         // Pause the campaign
@@ -2980,7 +2980,7 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         vm.startPrank(address(createdDao));
 
         // Create campaign that ends in 100 seconds
-        uint256 endTime = block.timestamp + 100;
+        uint64 endTime = uint64(block.timestamp + 100);
         uint256 campaignId = createCampaignWithParams(false, 0, endTime);
 
         // Warp to after end time
@@ -3003,7 +3003,7 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         vm.startPrank(address(createdDao));
 
         // Create campaign that ends in 100 seconds
-        uint256 endTime = block.timestamp + 100;
+        uint64 endTime = uint64(block.timestamp + 100);
         uint256 campaignId = createCampaignWithParams(false, 0, endTime);
 
         // Pause campaign while it's active
@@ -3070,7 +3070,7 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         vm.startPrank(address(createdDao));
 
         // Create campaign that ends in 100 seconds
-        uint256 endTime = block.timestamp + 100;
+        uint64 endTime = uint64(block.timestamp + 100);
         uint256 campaignId = createCampaignWithParams(false, 0, endTime);
 
         // Warp to one second before end time
@@ -3090,7 +3090,7 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         vm.startPrank(address(createdDao));
 
         // Create campaign that ends in 100 seconds
-        uint256 endTime = block.timestamp + 100;
+        uint64 endTime = uint64(block.timestamp + 100);
         uint256 campaignId = createCampaignWithParams(false, 0, endTime);
 
         // Warp to after end time
@@ -3132,7 +3132,7 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         vm.startPrank(address(createdDao));
 
         // Create campaign that ends in 100 seconds
-        uint256 endTime = block.timestamp + 100;
+        uint64 endTime = uint64(block.timestamp + 100);
         uint256 campaignId = createCampaignWithParams(false, 0, endTime);
 
         // Warp to one second before end time
@@ -3152,7 +3152,7 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         vm.startPrank(address(createdDao));
 
         // Create campaign that ends in 100 seconds
-        uint256 endTime = block.timestamp + 100;
+        uint64 endTime = uint64(block.timestamp + 100);
         uint256 campaignId = createCampaignWithParams(false, 0, endTime);
 
         // Pause the campaign while it's active

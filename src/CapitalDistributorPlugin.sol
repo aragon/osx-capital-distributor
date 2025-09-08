@@ -70,8 +70,8 @@ contract CapitalDistributorPlugin is
         IPayoutActionEncoder actionEncoder;
         bool multipleClaimsAllowed;
         CampaignState state;
-        uint256 startTime; // 0 means no start time restriction
-        uint256 endTime; // 0 means no end time restriction
+        uint64 startTime; // 0 means no start time restriction
+        uint64 endTime; // 0 means no end time restriction
     }
 
     /**
@@ -119,8 +119,8 @@ contract CapitalDistributorPlugin is
      */
     struct CampaignSettings {
         bool multipleClaimsAllowed;
-        uint256 startTime;
-        uint256 endTime;
+        uint64 startTime;
+        uint64 endTime;
     }
 
     /**
@@ -139,8 +139,8 @@ contract CapitalDistributorPlugin is
         IERC20 token,
         IPayoutActionEncoder actionEncoder,
         bool multipleClaimsAllowed,
-        uint256 startTime,
-        uint256 endTime
+        uint64 startTime,
+        uint64 endTime
     );
 
     /// @notice Emitted when a payout is successfully claimed.
@@ -225,7 +225,7 @@ contract CapitalDistributorPlugin is
     /// @param currentTime The current block timestamp.
     /// @param startTime The campaign start time (0 if no restriction).
     /// @param endTime The campaign end time (0 if no restriction).
-    error CampaignOutsideTimeBounds(uint256 campaignId, uint256 currentTime, uint256 startTime, uint256 endTime);
+    error CampaignOutsideTimeBounds(uint256 campaignId, uint256 currentTime, uint64 startTime, uint64 endTime);
 
     /// @notice Thrown when array parameters have mismatched lengths.
     error ArrayLengthMismatch();
