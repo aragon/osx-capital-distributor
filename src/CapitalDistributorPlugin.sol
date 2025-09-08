@@ -35,11 +35,13 @@ contract CapitalDistributorPlugin is
     bytes32 public constant CAMPAIGN_MANAGER_PERMISSION_ID = keccak256("CAMPAIGN_MANAGER_PERMISSION");
 
     /// @notice Represents the different states a campaign can be in
+    /// @dev ACTIVE: Normal operation, claims allowed
+    /// @dev PAUSED: Temporarily paused (for updates), can be resumed
+    /// @dev ENDED: Permanently ended, cannot be resumed
     enum CampaignState {
-        ACTIVE, // Normal operation, claims allowed
-        PAUSED, // Temporarily paused (for updates), can be resumed
-        ENDED // Permanently ended, cannot be resumed
-
+        ACTIVE,
+        PAUSED,
+        ENDED
     }
 
     /// @notice The AllocatorStrategyFactory instance used to deploy strategies.
@@ -70,8 +72,8 @@ contract CapitalDistributorPlugin is
         IPayoutActionEncoder actionEncoder;
         bool multipleClaimsAllowed;
         CampaignState state;
-        uint256 startTime; // 0 means no start time restriction
-        uint256 endTime; // 0 means no end time restriction
+        uint256 startTime;
+        uint256 endTime;
     }
 
     /**
@@ -276,10 +278,18 @@ contract CapitalDistributorPlugin is
     /**
      * @notice Creates the details for a specific campaign.
      * @dev This function allows an authorized address to configure a new campaign.
+     *      Input validation:
+     *      - Token address must not be zero
+     *      - If both startTime and endTime are set, startTime must be before endTime
+     *      - Empty metadata URIs will revert with EmptyMetadataURI
+     *
+     *      The function deploys and sets up both the allocation strategy and action encoder (if specified).
+     *      Campaign IDs are assigned sequentially starting from 0.
      * @param _metadataURI URI pointing to the campaign's metadata (e.g., IPFS hash).
      * @param _strategy The strategy configuration.
      * @param _payout The payout configuration.
      * @param _settings The campaign settings (time bounds and claim behavior).
+     * @return id The ID of the newly created campaign
      */
     function createCampaign(
         bytes calldata _metadataURI,
@@ -295,6 +305,7 @@ contract CapitalDistributorPlugin is
         if (_metadataURI.length == 0) {
             revert EmptyMetadataURI();
         }
+
         if (address(_payout.token) == address(0)) {
             revert ZeroAddress("_token");
         }
@@ -333,9 +344,8 @@ contract CapitalDistributorPlugin is
             );
             campaign.actionEncoder = actionEncoder;
 
-            try actionEncoder.setupCampaign(id, _payout.actionEncoderInitData) {
-                // Action encoder setup successful
-            } catch {
+            try actionEncoder.setupCampaign(id, _payout.actionEncoderInitData) { }
+            catch {
                 revert ExternalCallFailed(address(actionEncoder), "setupCampaign");
             }
         } else {
@@ -351,7 +361,6 @@ contract CapitalDistributorPlugin is
         campaign.startTime = _settings.startTime;
         campaign.endTime = _settings.endTime;
 
-        // Emit event
         emit CampaignCreated(
             id,
             _metadataURI,
@@ -364,14 +373,17 @@ contract CapitalDistributorPlugin is
         );
     }
 
+    /// @notice Validates that a token behaves correctly for safe transfers
+    /// @dev Tests that the token properly reverts on invalid transfers by attempting
+    ///      to transferFrom address(0). This should ALWAYS fail for any legitimate token.
+    ///      If the call succeeds, it indicates a non-compliant token that could be exploited.
+    /// @param _token The token to validate
     function _validateTokenBehavior(IERC20 _token) internal view {
-        // Try to transferFrom address(0) to this plugin
-        // This should ALWAYS fail for any legitimate token
         (bool success, bytes memory data) =
             address(_token).staticcall(abi.encodeCall(IERC20.transferFrom, (address(0), address(this), 1)));
 
         if (success) {
-            // If the call succeeded, for whatever reason, it should revert as well
+            // If the call succeeded, for whatever reason, it should revert
             revert InvalidToken(address(_token));
         }
     }
@@ -437,7 +449,6 @@ contract CapitalDistributorPlugin is
             revert CampaignNotActive(_campaignId, campaign.state);
         }
 
-        // Check if campaign is within time bounds
         if (!_isCampaignWithinTimeBounds(campaign)) {
             revert CampaignOutsideTimeBounds(_campaignId, block.timestamp, campaign.startTime, campaign.endTime);
         }
@@ -477,11 +488,18 @@ contract CapitalDistributorPlugin is
 
     /**
      * @notice Sends the amount of tokens to the recipient of a campaign
+     * @dev Validation steps:
+     *      1. Campaign must exist, be active, and within time bounds
+     *      2. If multiple claims not allowed, recipient must not have claimed before
+     *      3. Recipient must have a non-zero claimable amount
+     *      4. Recipient cannot claim more than their total allocation
+     *
+     *      Fees are automatically deducted from the payout if configured in the strategy.
      * @param _campaignId The unique identifier for the campaign.
      * @param _recipient The address to get the payout
      * @param _strategyAuxData The data needed by the strategy to calculate the payout
      * @param _encoderAuxData The data needed by the encoder to send the payout
-     * @return amountToSend The amount of tokens the recipient should get
+     * @return amountToSend The amount of tokens the recipient should get (after fees)
      */
     function claimCampaignPayout(
         uint256 _campaignId,
@@ -529,15 +547,7 @@ contract CapitalDistributorPlugin is
         claimed[_campaignId][_recipient] = totalAmountToSend;
 
         // Execute payout using helper
-        _executePayout(
-            campaign,
-            _campaignId,
-            _recipient, // Send to recipient address
-            amountToSend,
-            feeRecipient,
-            feeAmount,
-            _encoderAuxData
-        );
+        _executePayout(campaign, _campaignId, _recipient, amountToSend, feeRecipient, feeAmount, _encoderAuxData);
 
         emit PayoutClaimed(_campaignId, _recipient, amountToSend);
         if (feeAmount > 0) {

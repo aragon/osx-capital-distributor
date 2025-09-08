@@ -19,9 +19,11 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     uint256 public constant MAX_FEE_BASIS_POINTS = 1000;
 
     /// @notice Fee configuration for a strategy type
+    /// @param recipient Where fees are sent
+    /// @param basisPoints Fee percentage in basis points (e.g., 250 = 2.5%, max 1000 = 10%)
     struct FeeConfig {
-        address recipient; // Where fees are sent
-        uint256 basisPoints; // Fee percentage (e.g., 250 = 2.5%, max 1000 = 10%)
+        address recipient;
+        uint256 basisPoints;
     }
 
     /// @notice Maps deployment parameters hash to deployed strategy addresses.

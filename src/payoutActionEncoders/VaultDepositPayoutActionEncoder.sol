@@ -58,7 +58,7 @@ contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
         IERC20 _token,
         address _recipient,
         uint256 _amount,
-        address, // _caller - not used in this specific encoder logic
+        address,
         uint256 _campaignId,
         bytes memory
     )
@@ -103,12 +103,14 @@ contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
     }
 
     /// @inheritdoc PayoutActionEncoderBase
+    /// @return types The encoding type for vaultAddress parameter
     function getCreationEncodingTypes() external pure override returns (string memory types) {
-        return "address"; // vaultAddress
+        return "address";
     }
 
     /// @inheritdoc PayoutActionEncoderBase
+    /// @return types Empty string as this encoder doesn't use encoderAuxData in buildActions
     function getClaimEncodingTypes() external pure override returns (string memory types) {
-        return ""; // This encoder doesn't use encoderAuxData in buildActions
+        return "";
     }
 }
