@@ -367,7 +367,7 @@ contract CapitalDistributorPlugin is
     function _validateTokenBehavior(IERC20 _token) internal view {
         // Try to transferFrom address(0) to this plugin
         // This should ALWAYS fail for any legitimate token
-        (bool success, bytes memory data) =
+        (bool success,) =
             address(_token).staticcall(abi.encodeCall(IERC20.transferFrom, (address(0), address(this), 1)));
 
         if (success) {
