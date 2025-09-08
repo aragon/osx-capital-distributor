@@ -1982,7 +1982,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     function test_ClaimWithFeeConfiguration() public {
         // Register a strategy with fee configuration
         address feeRecipient = makeAddr("feeRecipient");
-        uint256 feeBasisPoints = 500; // 5%
+        uint32 feeBasisPoints = 500; // 5%
 
         allocatorStrategyFactory.registerStrategyType(
             toBytes32("fee-strategy"), address(strategy), "", feeRecipient, feeBasisPoints
@@ -1996,7 +1996,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         // Claim payout
         uint256 claimAmount = 1 ether;
-        uint256 expectedFee = (claimAmount * feeBasisPoints) / 10_000;
+        uint256 expectedFee = (claimAmount * uint256(feeBasisPoints)) / 10_000;
         uint256 expectedRecipientAmount = claimAmount - expectedFee;
 
         // Expect events
@@ -2041,7 +2041,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     function test_ClaimWithMaximumFee() public {
         // Register a strategy with maximum allowed fee (10%)
         address feeRecipient = makeAddr("feeRecipient");
-        uint256 feeBasisPoints = 1000; // 10%
+        uint32 feeBasisPoints = 1000; // 10%
 
         allocatorStrategyFactory.registerStrategyType(
             toBytes32("max-fee-strategy"), address(strategy), "", feeRecipient, feeBasisPoints
@@ -2067,7 +2067,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     function test_FeeCalculationAccuracy() public {
         // Register a strategy with 2.5% fee
         address feeRecipient = makeAddr("feeRecipient");
-        uint256 feeBasisPoints = 250; // 2.5%
+        uint32 feeBasisPoints = 250; // 2.5%
 
         allocatorStrategyFactory.registerStrategyType(
             toBytes32("accuracy-fee-strategy"), address(strategy), "", feeRecipient, feeBasisPoints
@@ -2084,7 +2084,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         // Calculate expected values for 1 ether
         uint256 claimAmount = 1 ether;
-        uint256 expectedFee = (claimAmount * feeBasisPoints) / 10_000;
+        uint256 expectedFee = (claimAmount * uint256(feeBasisPoints)) / 10_000;
         uint256 expectedRecipient = claimAmount - expectedFee;
 
         // Verify
@@ -2102,7 +2102,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     function test_FeeWithActionEncoder() public {
         // Register a strategy with fee
         address feeRecipient = makeAddr("feeRecipient");
-        uint256 feeBasisPoints = 300; // 3%
+        uint32 feeBasisPoints = 300; // 3%
 
         // Add vault deposit permission to the plugin
         ExecuteSelectorCondition.SelectorTarget memory selectorToAllow =
@@ -2138,7 +2138,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
 
         // Verify fee was collected
-        uint256 expectedFee = (1 ether * feeBasisPoints) / 10_000;
+        uint256 expectedFee = (1 ether * uint256(feeBasisPoints)) / 10_000;
         assertEq(token.balanceOf(feeRecipient), expectedFee, "Fee should be collected with encoder");
 
         // Verify vault received the recipient amount
@@ -2203,7 +2203,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     function test_FeeCollectionEvent() public {
         // Register a strategy with fee
         address feeRecipient = makeAddr("feeRecipient");
-        uint256 feeBasisPoints = 100; // 1%
+        uint32 feeBasisPoints = 100; // 1%
 
         allocatorStrategyFactory.registerStrategyType(
             toBytes32("event-fee-strategy"), address(strategy), "", feeRecipient, feeBasisPoints
@@ -2216,7 +2216,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         uint256 campaignId = createCampaignWithStrategy(toBytes32("event-fee-strategy"), bytes32(0), "", false);
 
         // Expect fee collection event
-        uint256 expectedFee = (1 ether * feeBasisPoints) / 10_000;
+        uint256 expectedFee = (1 ether * uint256(feeBasisPoints)) / 10_000;
         vm.expectEmit(true, true, true, true);
         emit CapitalDistributorPlugin.FeeCollected(campaignId, feeRecipient, expectedFee);
 
@@ -2777,7 +2777,7 @@ contract MockFailingStrategy is IAllocatorStrategy {
         return "";
     }
 
-    function getFeeConfiguration() external pure returns (address, uint256) {
+    function getFeeConfiguration() external pure returns (address, uint32) {
         return (address(0), 0);
     }
 

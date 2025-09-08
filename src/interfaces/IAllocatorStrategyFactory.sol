@@ -65,5 +65,5 @@ interface IAllocatorStrategyFactory {
     function getStrategyFeeByInstance(address _strategyInstance)
         external
         view
-        returns (address recipient, uint256 basisPoints);
+        returns (address recipient, uint32 basisPoints);
 }
