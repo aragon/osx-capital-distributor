@@ -12,10 +12,9 @@ import { CapitalDistributorPlugin } from "../CapitalDistributorPlugin.sol";
 /// @dev This strategy stores merkle roots for each campaign and verifies proofs on-chain.
 /// The merkle tree leaves should be keccak256(abi.encodePacked(account, amount)).
 contract MerkleDistributorStrategy is AllocatorStrategyBase {
-    /// @notice Stores merkle root and metadata for each campaign
+    /// @notice Stores merkle root for each campaign
     struct MerkleCampaign {
         bytes32 merkleRoot;
-        mapping(address => uint256) claimed;
     }
 
     /// @notice Maps campaign ID to merkle campaign data
@@ -38,9 +37,6 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
 
     /// @notice Thrown when the merkle proof verification fails
     error InvalidMerkleProof(uint256 campaignId, address account);
-
-    /// @notice Thrown when a recipient has already claimed their allocation
-    error AlreadyClaimed(uint256 campaignId, address account);
 
     /// @notice Thrown when no campaign exists for the given campaign ID
     error CampaignNotFound(uint256 campaignId);
@@ -84,7 +80,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
 
     /// @inheritdoc IAllocatorStrategy
     function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) public override {
-        if (msg.sender != owner() && msg.sender != address(dao())) {
+        if (msg.sender != owner()) {
             revert OnlyDAOAllowed(msg.sender);
         }
 
@@ -99,7 +95,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
             revert InvalidMerkleRoot();
         }
 
-        // Initialize the campaign struct (merkleRoot is set, hasClaimed mapping is automatically empty)
+        // Initialize the campaign struct
         merkleCampaigns[_campaignId].merkleRoot = merkleRoot;
 
         emit AllocationCampaignCreated(plugin, _campaignId);
@@ -107,7 +103,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     }
 
     /// @inheritdoc IAllocatorStrategy
-    function getClaimeableAmount(
+    function getTotalClaimableAmount(
         uint256 _campaignId,
         address _account,
         bytes calldata _auxData
@@ -124,11 +120,6 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
         }
 
         (bytes32[] memory merkleProof, uint256 claimAmount) = decodeClaimData(_auxData);
-
-        // Check if already claimed
-        if (merkleCampaigns[_campaignId].claimed[_account] >= claimAmount) {
-            return 0; // Already claimed
-        }
 
         // Create the leaf node: keccak256(abi.encodePacked(account, amount))
         bytes32 leaf = keccak256(abi.encodePacked(_account, claimAmount));
@@ -152,7 +143,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     /// @param _campaignId The campaign ID to update
     /// @param _auxData The encoded data containing the new merkle root
     function updateCampaignMerkleRoot(uint256 _campaignId, bytes calldata _auxData) external {
-        if (msg.sender != owner() && msg.sender != address(dao())) {
+        if (msg.sender != address(dao())) {
             revert OnlyDAOAllowed(msg.sender);
         }
 
@@ -184,12 +175,4 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
 
         emit MerkleCampaignUpdated(_campaignId, oldMerkleRoot, newMerkleRoot);
     }
-
-    // =========================================================================
-    // Storage Gap
-    // =========================================================================
-
-    /// @dev Storage gap to allow for future upgrades without storage collision.
-    /// This contract adds 1 storage slot: merkleCampaigns mapping.
-    uint256[49] private __gap;
 }

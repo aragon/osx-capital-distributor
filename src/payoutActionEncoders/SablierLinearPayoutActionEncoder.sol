@@ -216,47 +216,6 @@ contract SablierLinearPayoutActionEncoder is PayoutActionEncoderBase {
         return campaignStreamConfigs[_campaignId];
     }
 
-    /// @notice Encodes the stream configuration for use in setupCampaign
-    /// @param _sablierContract The address of the Sablier contract
-    /// @param _streamDuration Total duration of the stream in seconds
-    /// @param _cliffDuration Cliff duration in seconds (0 for no cliff)
-    /// @param _unlockAmountAtStart Amount to unlock immediately at start
-    /// @param _unlockAmountAtCliff Amount to unlock at cliff
-    /// @param _cancelable Whether the stream can be canceled
-    /// @param _transferable Whether the stream can be transferred
-    /// @param _brokerAccount Address of the broker (use address(0) for no broker)
-    /// @param _brokerFee Broker fee in basis points (e.g., 100 = 1%)
-    /// @return encodedConfig The encoded configuration
-    function encodeStreamConfig(
-        address _sablierContract,
-        uint40 _streamDuration,
-        uint40 _cliffDuration,
-        uint128 _unlockAmountAtStart,
-        uint128 _unlockAmountAtCliff,
-        bool _cancelable,
-        bool _transferable,
-        address _brokerAccount,
-        uint256 _brokerFee
-    )
-        external
-        pure
-        returns (bytes memory encodedConfig)
-    {
-        StreamConfig memory config = StreamConfig({
-            sablierContract: _sablierContract,
-            streamDuration: _streamDuration,
-            cliffDuration: _cliffDuration,
-            unlockAmountAtStart: _unlockAmountAtStart,
-            unlockAmountAtCliff: _unlockAmountAtCliff,
-            cancelable: _cancelable,
-            transferable: _transferable,
-            brokerAccount: _brokerAccount,
-            brokerFee: _brokerFee
-        });
-
-        return abi.encode(config);
-    }
-
     /// @inheritdoc PayoutActionEncoderBase
     function getCreationEncodingTypes() external pure override returns (string memory types) {
         return "address,uint40,uint40,uint128,uint128,bool,bool,address,uint256"; // StreamConfig fields
@@ -266,13 +225,4 @@ contract SablierLinearPayoutActionEncoder is PayoutActionEncoderBase {
     function getClaimEncodingTypes() external pure override returns (string memory types) {
         return ""; // This encoder doesn't use encoderAuxData in buildActions
     }
-
-    // =========================================================================
-    // Storage Gap
-    // =========================================================================
-
-    /// @dev Storage gap to allow for future upgrades without storage collision.
-    /// This contract adds 1 storage slot: campaignStreamConfigs mapping.
-    /// Note: SABLIER_V2_LOCKUP is a constant and doesn't use storage.
-    uint256[49] private __gap;
 }

@@ -150,15 +150,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(merkleRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
@@ -175,15 +171,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(merkleRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
     }
 
@@ -195,15 +187,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(merkleRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
 
@@ -229,15 +217,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(merkleRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
 
@@ -266,15 +250,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(merkleRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
 
@@ -295,15 +275,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(merkleRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
 
@@ -328,15 +304,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(merkleRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
 
@@ -369,15 +341,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(scriptRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(scriptRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
@@ -394,15 +362,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(scriptRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(scriptRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
 
@@ -445,15 +409,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(scriptRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(scriptRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
 
@@ -486,15 +446,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(largeRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(largeRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
 
@@ -547,15 +503,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(initialRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         // Pause the campaign
@@ -575,9 +527,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         vm.expectEmit(true, true, false, true);
         emit MerkleDistributorStrategy.MerkleCampaignUpdated(campaignId, initialRoot, newRoot);
 
-        // Call directly on strategy but from plugin context
+        // Call directly on strategy but from DAO context
         vm.stopPrank();
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, newRootData
         );
@@ -599,15 +551,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(initialRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         // End the campaign
@@ -623,9 +571,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, campaignId));
 
-        // Call directly on strategy but from plugin context
+        // Call directly on strategy but from DAO context
         vm.stopPrank();
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, newRootData
         );
@@ -642,15 +590,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(initialRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         // Verify campaign is active
@@ -667,9 +611,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Should revert with CampaignNotPaused since active campaigns cannot be updated
         vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, campaignId));
 
-        // Call directly on strategy but from plugin context
+        // Call directly on strategy but from DAO context
         vm.stopPrank();
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, newRootData
         );
@@ -686,15 +630,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(initialRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
@@ -710,7 +650,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         // Try to update while active (should fail)
         vm.stopPrank();
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, newRootData
         );
@@ -724,7 +664,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         vm.expectEmit(true, true, false, true);
         emit MerkleDistributorStrategy.MerkleCampaignUpdated(campaignId, initialRoot, newRoot);
 
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, newRootData
         );
@@ -745,7 +685,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, campaignId));
 
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, anotherRootData
         );
@@ -766,15 +706,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(validRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(validRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
@@ -803,15 +739,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(initialRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         // Pause the campaign to allow merkle root updates
@@ -826,7 +758,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.InvalidMerkleRoot.selector));
 
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, invalidRootData
         );
@@ -843,15 +775,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(firstRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(firstRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
@@ -881,15 +809,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(initialRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         // Pause the campaign to allow merkle root updates
@@ -903,7 +827,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.DuplicateMerkleRoot.selector, initialRoot));
 
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, duplicateRootData
         );
@@ -920,15 +844,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(initialRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
@@ -945,7 +865,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
             abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, nonExistentCampaignId)
         );
 
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             nonExistentCampaignId, newRootData
         );
@@ -962,15 +882,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(initialRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         // Pause the campaign to allow merkle root updates
@@ -1006,15 +922,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(initialRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
@@ -1046,15 +958,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(testRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(testRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
     }
@@ -1070,15 +978,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(initialRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(initialRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
@@ -1093,7 +997,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, campaignId));
 
         vm.stopPrank();
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, newRootData
         );
@@ -1109,7 +1013,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         vm.expectEmit(true, true, false, true);
         emit MerkleDistributorStrategy.MerkleCampaignUpdated(campaignId, initialRoot, newRoot);
 
-        vm.prank(address(capitalDistributorPlugin));
+        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, newRootData
         );
@@ -1124,7 +1028,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     // Edge Cases and Boundary Tests
     // ============================================================================
 
-    function test_GetClaimableAmountReturnsZeroForNonExistentCampaign() public {
+    function test_getTotalClaimableAmountReturnsZeroForNonExistentCampaign() public {
         // Setup strategy without any campaigns
         MerkleDistributorStrategy testStrategy = new MerkleDistributorStrategy();
 
@@ -1138,13 +1042,13 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         // Should return 0 for non-existent campaign
         vm.startPrank(address(capitalDistributorPlugin));
-        uint256 claimableAmount = testStrategy.getClaimeableAmount(nonExistentCampaignId, testAccount, auxData);
+        uint256 claimableAmount = testStrategy.getTotalClaimableAmount(nonExistentCampaignId, testAccount, auxData);
         vm.stopPrank();
 
         assertEq(claimableAmount, 0, "Should return 0 for non-existent campaign");
     }
 
-    function test_GetClaimableAmountReturnsZeroForPartialClaim() public {
+    function test_getTotalClaimableAmountReturnsZeroForPartialClaim() public {
         // Setup campaign
         token.mint(address(createdDao), 10 ether);
 
@@ -1154,15 +1058,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(merkleRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
@@ -1176,22 +1076,20 @@ contract MerkleDistributorStrategyTest is AragonTest {
         // Test 1: Full amount should be claimable initially
         bytes memory fullClaimData = abi.encode(aliceProof, fullAmount);
         vm.prank(address(capitalDistributorPlugin));
-        uint256 claimableAmount = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getClaimeableAmount(
-            campaignId, alice, fullClaimData
-        );
+        uint256 claimableAmount = MerkleDistributorStrategy(address(campaign.allocationStrategy))
+            .getTotalClaimableAmount(campaignId, alice, fullClaimData);
         assertEq(claimableAmount, fullAmount, "Should return full amount initially");
 
         // Test 2: Invalid claim amount (more than allocated) should return 0
         uint256 excessiveAmount = fullAmount * 2;
         bytes memory excessiveClaimData = abi.encode(aliceProof, excessiveAmount);
         vm.prank(address(capitalDistributorPlugin));
-        uint256 excessiveClaimable = MerkleDistributorStrategy(address(campaign.allocationStrategy)).getClaimeableAmount(
-            campaignId, alice, excessiveClaimData
-        );
+        uint256 excessiveClaimable = MerkleDistributorStrategy(address(campaign.allocationStrategy))
+            .getTotalClaimableAmount(campaignId, alice, excessiveClaimData);
         assertEq(excessiveClaimable, 0, "Should return 0 for excessive claim amount");
     }
 
-    function test_GetClaimableAmountReturnsZeroForInvalidProof() public {
+    function test_getTotalClaimableAmountReturnsZeroForInvalidProof() public {
         // Setup campaign
         token.mint(address(createdDao), 10 ether);
 
@@ -1201,15 +1099,11 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             metadata,
-            toBytes32("merkle-strategy"),
-            allocatorDeploymentParams,
-            abi.encode(merkleRoot),
-            IERC20(token),
-            bytes32(0),
-            metadata,
-            false,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                toBytes32("merkle-strategy"), allocatorDeploymentParams, abi.encode(merkleRoot)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), metadata),
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
         vm.stopPrank();
 

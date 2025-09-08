@@ -8,6 +8,7 @@ import { ProxyLib } from "@aragon/commons/utils/deployment/ProxyLib.sol";
 
 import { PluginUpgradeableSetup } from "@aragon/commons/plugin/setup/PluginUpgradeableSetup.sol";
 import { IPluginSetup } from "@aragon/commons/plugin/setup/IPluginSetup.sol";
+import { ExecuteSelectorCondition } from "@aragon/conditions/ExecuteSelectorCondition.sol";
 
 import { CapitalDistributorPlugin } from "./CapitalDistributorPlugin.sol";
 import { AllocatorStrategyFactory } from "./factories/AllocatorStrategyFactory.sol";
@@ -22,8 +23,9 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
 
     bytes32 internal constant EXECUTE_PERMISSION_ID = keccak256("EXECUTE_PERMISSION");
     bytes32 private constant UPGRADE_PLUGIN_PERMISSION_ID = keccak256("UPGRADE_PLUGIN_PERMISSION");
-    bytes32 public constant CAMPAIGN_CREATOR_PERMISSION_ID = keccak256("CAMPAIGN_CREATOR_PERMISSION");
+    bytes32 public constant CAMPAIGN_MANAGER_PERMISSION_ID = keccak256("CAMPAIGN_MANAGER_PERMISSION");
     bytes32 public constant SET_METADATA_PERMISSION_ID = keccak256("SET_METADATA_PERMISSION");
+    bytes32 public constant MANAGE_SELECTORS_PERMISSION_ID = keccak256("MANAGE_SELECTORS_PERMISSION");
 
     /// @notice The address of the `CapitalDistributorPlugin` base contract.
     CapitalDistributorPlugin private immutable CAPITAL_DISTRIBUTOR_PLUGIN_BASE;
@@ -32,6 +34,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
     /// @param length The array length of passed helpers.
     error WrongHelpersArrayLength(uint256 length);
     error ZeroAddress();
+    error NotImplemented();
 
     /// @notice The contract constructor deploying the plugin implementation contract
     constructor() PluginUpgradeableSetup(address(new CapitalDistributorPlugin())) {
@@ -55,8 +58,14 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             revert ZeroAddress();
         }
 
+        // Deploy the execute condition with no initial selectors
+        ExecuteSelectorCondition.SelectorTarget[] memory initialSelectors =
+            new ExecuteSelectorCondition.SelectorTarget[](0);
+        ExecuteSelectorCondition executeCondition = new ExecuteSelectorCondition(IDAO(_dao), initialSelectors);
+
         // Prepare helpers.
-        address[] memory helpers = new address[](0);
+        address[] memory helpers = new address[](1);
+        helpers[0] = address(executeCondition);
 
         // Prepare and deploy plugin proxy.
         plugin = address(CAPITAL_DISTRIBUTOR_PLUGIN_BASE).deployUUPSProxy(
@@ -64,7 +73,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
         );
 
         // Prepare permissions
-        PermissionLib.MultiTargetPermission[] memory permissions = new PermissionLib.MultiTargetPermission[](4);
+        PermissionLib.MultiTargetPermission[] memory permissions = new PermissionLib.MultiTargetPermission[](5);
 
         // Request the permissions to be granted
 
@@ -77,12 +86,12 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             permissionId: UPGRADE_PLUGIN_PERMISSION_ID
         });
 
-        // The plugin can make the DAO execute actions
+        // The plugin can make the DAO execute actions (with condition)
         permissions[1] = PermissionLib.MultiTargetPermission({
-            operation: PermissionLib.Operation.Grant,
+            operation: PermissionLib.Operation.GrantWithCondition,
             where: _dao,
             who: plugin,
-            condition: PermissionLib.NO_CONDITION,
+            condition: address(executeCondition),
             permissionId: EXECUTE_PERMISSION_ID
         });
 
@@ -92,7 +101,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             where: plugin,
             who: _dao,
             condition: PermissionLib.NO_CONDITION,
-            permissionId: CAMPAIGN_CREATOR_PERMISSION_ID
+            permissionId: CAMPAIGN_MANAGER_PERMISSION_ID
         });
 
         permissions[3] = PermissionLib.MultiTargetPermission({
@@ -101,6 +110,15 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             who: _dao,
             condition: PermissionLib.NO_CONDITION,
             permissionId: SET_METADATA_PERMISSION_ID
+        });
+
+        // The DAO can manage allowed selectors on the execute condition
+        permissions[4] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Grant,
+            where: address(executeCondition),
+            who: _dao,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: MANAGE_SELECTORS_PERMISSION_ID
         });
 
         preparedSetupData.helpers = helpers;
@@ -122,15 +140,17 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             revert WrongHelpersArrayLength({ length: helperLength });
         }
 
+        address executeCondition = _payload.currentHelpers[0];
+
         // Set permissions to be Revoked.
-        permissions = new PermissionLib.MultiTargetPermission[](4);
+        permissions = new PermissionLib.MultiTargetPermission[](5);
 
         permissions[0] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Revoke,
             where: _payload.plugin,
             who: _dao,
             condition: PermissionLib.NO_CONDITION,
-            permissionId: CAMPAIGN_CREATOR_PERMISSION_ID
+            permissionId: CAMPAIGN_MANAGER_PERMISSION_ID
         });
 
         permissions[1] = PermissionLib.MultiTargetPermission({
@@ -145,7 +165,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             operation: PermissionLib.Operation.Revoke,
             where: _dao,
             who: _payload.plugin,
-            condition: PermissionLib.NO_CONDITION,
+            condition: executeCondition,
             permissionId: EXECUTE_PERMISSION_ID
         });
 
@@ -156,20 +176,44 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             condition: PermissionLib.NO_CONDITION,
             permissionId: SET_METADATA_PERMISSION_ID
         });
+
+        permissions[4] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Revoke,
+            where: executeCondition,
+            who: _dao,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: MANAGE_SELECTORS_PERMISSION_ID
+        });
     }
 
     /// @inheritdoc IPluginSetup
     /// @dev Revoke the upgrade plugin permission to the DAO for all builds prior the current one (3).
     function prepareUpdate(
-        address _dao,
-        uint16 _fromBuild,
-        SetupPayload calldata _payload
+        address,
+        uint16,
+        SetupPayload calldata
     )
         external
+        pure
         override
-        returns (bytes memory initData, PreparedSetupData memory preparedSetupData)
+        returns (bytes memory, PreparedSetupData memory)
     {
-        // No update here
+        revert NotImplemented();
+    }
+
+    /// @notice Encodes the installation parameters into a byte array
+    /// @param _strategiesFactory The address of the allocator strategy factory
+    /// @param _actionEncoderFactory The address of the action encoder factory
+    /// @return The encoded installation parameters
+    function encodeInstallationParams(
+        address _strategiesFactory,
+        address _actionEncoderFactory
+    )
+        public
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(_strategiesFactory, _actionEncoderFactory);
     }
 
     /// @notice Decodes the given byte array into the original installation parameters

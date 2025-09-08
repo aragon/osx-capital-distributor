@@ -6,11 +6,14 @@ import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol
 import { MerkleDistributorStrategy } from "../../src/allocatorStrategies/MerkleDistributorStrategy.sol";
 import { MintableERC20 } from "../mocks/MintableERC20.sol";
 import { AragonTest } from "../helpers/AragonTest.sol";
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import { ExecuteSelectorCondition } from "@aragon/conditions/ExecuteSelectorCondition.sol";
 
 /// @title AllocatorStrategyFeeTest
 /// @notice Test suite for the fee functionality in allocator strategies
 contract AllocatorStrategyFeeTest is AragonTest {
     CapitalDistributorPlugin plugin;
+    ExecuteSelectorCondition condition;
     MintableERC20 token;
 
     MerkleDistributorStrategy merkleImplementation;
@@ -28,6 +31,7 @@ contract AllocatorStrategyFeeTest is AragonTest {
     function setUp() public virtual {
         // Initialize plugin from base test
         plugin = CapitalDistributorPlugin(pluginAddress[0]);
+        condition = ExecuteSelectorCondition(conditions[0]);
 
         // Deploy test token
         token = new MintableERC20();
@@ -35,6 +39,14 @@ contract AllocatorStrategyFeeTest is AragonTest {
 
         // Deploy strategy implementation
         merkleImplementation = new MerkleDistributorStrategy();
+
+        // Add token transfer permission to the plugin
+        ExecuteSelectorCondition.SelectorTarget memory selectorToAllow =
+            ExecuteSelectorCondition.SelectorTarget({ where: address(token), selectors: new bytes4[](1) });
+        selectorToAllow.selectors[0] = IERC20.transfer.selector;
+
+        vm.prank(address(createdDao));
+        condition.allowSelectors(selectorToAllow);
     }
 
     /// @notice Test registering a strategy with fee configuration
@@ -130,15 +142,15 @@ contract AllocatorStrategyFeeTest is AragonTest {
         vm.startPrank(address(createdDao));
         uint256 campaignId = plugin.createCampaign(
             bytes("Test Campaign"),
-            MERKLE_STRATEGY_ID,
-            abi.encode(merkleRoot),
-            abi.encode(merkleRoot, 0),
-            token,
-            bytes32(0), // Direct transfer
-            bytes(""),
-            true,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                MERKLE_STRATEGY_ID, abi.encode(merkleRoot), abi.encode(merkleRoot, 0)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(
+                token,
+                bytes32(0), // Direct transfer
+                bytes("")
+            ),
+            CapitalDistributorPlugin.CampaignSettings(true, 0, 0)
         );
         vm.stopPrank();
 
@@ -178,15 +190,11 @@ contract AllocatorStrategyFeeTest is AragonTest {
         vm.startPrank(address(createdDao));
         uint256 campaignId = plugin.createCampaign(
             bytes("Test Campaign"),
-            MERKLE_STRATEGY_ID,
-            abi.encode(merkleRoot),
-            abi.encode(merkleRoot, 0),
-            token,
-            bytes32(0),
-            bytes(""),
-            true,
-            0,
-            0
+            CapitalDistributorPlugin.StrategyConfig(
+                MERKLE_STRATEGY_ID, abi.encode(merkleRoot), abi.encode(merkleRoot, 0)
+            ),
+            CapitalDistributorPlugin.PayoutConfig(token, bytes32(0), bytes("")),
+            CapitalDistributorPlugin.CampaignSettings(true, 0, 0)
         );
         vm.stopPrank();
 

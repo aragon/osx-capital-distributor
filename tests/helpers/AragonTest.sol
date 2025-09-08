@@ -31,13 +31,12 @@ contract AragonTest is Test {
     address immutable david = DAVID_ADDRESS;
     address immutable randomWallet = vm.addr(1_234_567_890);
 
-    address immutable DAO_BASE = address(new DAO());
-
     bytes internal constant EMPTY_BYTES = "";
-    ProtocolFactory.Deployment public deployment;
+
     AllocatorStrategyFactory public allocatorStrategyFactory;
     ActionEncoderFactory public actionEncoderFactory;
 
+    address[] public conditions;
     address[] pluginAddress;
 
     DAO createdDao;
@@ -53,13 +52,14 @@ contract AragonTest is Test {
         factory.deployOnce();
 
         // Get the deployed addresses
+        ProtocolFactory.Deployment memory deployment;
         deployment = factory.getDeployment();
 
         // 1. Deploying the Plugin Setup
         CapitalDistributorPluginSetup pluginSetup = deployPluginSetup();
 
         // 2. Publishing it in the Aragon OSx Protocol
-        PluginRepo pluginRepo = deployPluginRepo(address(pluginSetup));
+        PluginRepo pluginRepo = deployPluginRepo(address(pluginSetup), deployment.pluginRepoFactory);
 
         // 3. Defining the DAO Settings
         DAOFactory.DAOSettings memory daoSettings = getDAOSettings();
@@ -72,16 +72,12 @@ contract AragonTest is Test {
         DAOFactory.PluginSettings[] memory pluginSettings = getPluginSettings(pluginRepo);
 
         // 6. Deploying the DAO
-        vm.recordLogs();
-        (createdDao,) = DAOFactory(deployment.daoFactory).createDao(daoSettings, pluginSettings);
+        DAOFactory.InstalledPlugin[] memory installedPlugins;
+        (createdDao, installedPlugins) = DAOFactory(deployment.daoFactory).createDao(daoSettings, pluginSettings);
 
-        // 7. Getting the Plugin Address
-        Vm.Log[] memory logEntries = vm.getRecordedLogs();
-
-        for (uint256 i = 0; i < logEntries.length; i++) {
-            if (logEntries[i].topics[0] == keccak256("InstallationApplied(address,address,bytes32,bytes32)")) {
-                pluginAddress.push(address(uint160(uint256(logEntries[i].topics[2]))));
-            }
+        for (uint256 i = 0; i < installedPlugins.length; i++) {
+            pluginAddress.push(installedPlugins[i].plugin);
+            conditions.push(installedPlugins[i].preparedSetupData.helpers[0]);
         }
 
         // 8. Deploying the action encoders and adding them
@@ -96,8 +92,8 @@ contract AragonTest is Test {
         return pluginSetup;
     }
 
-    function deployPluginRepo(address pluginSetup) public returns (PluginRepo pluginRepo) {
-        pluginRepo = PluginRepoFactory(deployment.pluginRepoFactory).createPluginRepoWithFirstVersion(
+    function deployPluginRepo(address pluginSetup, address pluginRepoFactory) public returns (PluginRepo pluginRepo) {
+        pluginRepo = PluginRepoFactory(pluginRepoFactory).createPluginRepoWithFirstVersion(
             "capital-distributor", pluginSetup, msg.sender, "0x00", "0x00"
         );
     }

@@ -2,14 +2,18 @@
 
 ## Overview
 
-The `CapitalDistributorPluginSetup` contract is responsible for installing, uninstalling, and updating the CapitalDistributorPlugin in Aragon OSx DAOs. Currently, this critical contract has **ZERO test coverage**, making it a high-priority testing gap.
+The `CapitalDistributorPluginSetup` contract is responsible for installing, uninstalling, and updating the
+CapitalDistributorPlugin in Aragon OSx DAOs. Currently, this critical contract has **ZERO test coverage**, making it a
+high-priority testing gap.
 
 ### Current State
+
 - **Contract**: `src/CapitalDistributorPluginSetup.sol`
 - **Test Coverage**: 0% (No dedicated test file exists)
 - **Risk Level**: HIGH - Setup contracts handle critical permissions and initialization
 
 ### Testing Goals
+
 1. Achieve 100% function coverage
 2. Test all error conditions and reverts
 3. Verify permission management correctness
@@ -53,7 +57,7 @@ The setup manages three critical permissions:
    - Who: Plugin
    - Purpose: Allows plugin to execute actions on DAO
 
-3. **CAMPAIGN_CREATOR_PERMISSION_ID**
+3. **CAMPAIGN_MANAGER_PERMISSION_ID**
    - Where: Plugin
    - Who: DAO
    - Purpose: Allows DAO to create campaigns
@@ -61,6 +65,7 @@ The setup manages three critical permissions:
 ## Test Strategy
 
 ### Approach
+
 1. Test each function in isolation
 2. Test the complete installation/uninstallation flow
 3. Verify all error conditions
@@ -68,35 +73,34 @@ The setup manages three critical permissions:
 5. Follow existing test patterns from other setup contracts
 
 ### Test File Location
+
 `tests/CapitalDistributorPluginSetupTest.t.sol`
 
 ## Detailed Test Cases
+
 CapitalDistributorPluginSetupTest:
-  - when: deploying a new instance
-    then:
-      - it: completes without errors
-  - when: preparing an installation
-    and:
-      - when: passing an invalid token contract
-        then:
-          - it: should revert
-      - it: should return the plugin address
-      - it: should return a list with the helpers (if any)
-      - it: all plugins use the same implementation
-      - it: the plugin has the given settings
-      - it: should set the address of the factories on the plugin
-      - it: the plugin should have the right factories address
-      - it: the list of permissions should match
-  - when: preparing an uninstallation
-    and:
-      - given: a list of helpers
-        then:
-          - it: should revert
-      - it: generates a correct list of permission changes
+
+- when: deploying a new instance then:
+  - it: completes without errors
+- when: preparing an installation and:
+  - when: passing an invalid token contract then:
+    - it: should revert
+  - it: should return the plugin address
+  - it: should return a list with the helpers (if any)
+  - it: all plugins use the same implementation
+  - it: the plugin has the given settings
+  - it: should set the address of the factories on the plugin
+  - it: the plugin should have the right factories address
+  - it: the list of permissions should match
+- when: preparing an uninstallation and:
+  - given: a list of helpers then:
+    - it: should revert
+  - it: generates a correct list of permission changes
 
 ## Mock Requirements
 
 ### MockDAO
+
 ```solidity
 contract MockDAO is IDAO {
     mapping(address => mapping(address => mapping(bytes32 => bool))) permissions;
@@ -117,6 +121,7 @@ contract MockDAO is IDAO {
 ```
 
 ### Test Helpers
+
 ```solidity
 function encodeInstallationParams(
     address _strategyFactory,
@@ -143,15 +148,20 @@ function applyPermissions(
 
 ## Open Questions for Feedback
 
-1. **Helper Array Purpose**: The contract expects exactly 1 helper during uninstallation but returns 0 helpers during installation. What is the intended helper? Should we modify the logic?
+1. **Helper Array Purpose**: The contract expects exactly 1 helper during uninstallation but returns 0 helpers during
+   installation. What is the intended helper? Should we modify the logic?
 
-2. **Update Function**: The `prepareUpdate` function is empty. Is this intentional? Should we test for specific revert conditions or just verify it returns empty?
+2. **Update Function**: The `prepareUpdate` function is empty. Is this intentional? Should we test for specific revert
+   conditions or just verify it returns empty?
 
-3. **Integration Testing Depth**: How deep should integration tests go? Should we test with real PluginSetupProcessor or just mock the permission application?
+3. **Integration Testing Depth**: How deep should integration tests go? Should we test with real PluginSetupProcessor or
+   just mock the permission application?
 
-4. **Factory Validation**: Should the setup contract validate that provided addresses actually implement the expected factory interfaces?
+4. **Factory Validation**: Should the setup contract validate that provided addresses actually implement the expected
+   factory interfaces?
 
-5. **Permission Conditions**: All permissions use `NO_CONDITION`. Should we test with conditional permissions in the future?
+5. **Permission Conditions**: All permissions use `NO_CONDITION`. Should we test with conditional permissions in the
+   future?
 
 ## Implementation Notes
 
@@ -213,4 +223,5 @@ contract CapitalDistributorPluginSetupTest is Test {
 3. Clarify any business logic questions
 4. Approve the test structure and approach
 
-Once feedback is incorporated, we can proceed with implementing these 19 comprehensive tests to achieve full coverage of the CapitalDistributorPluginSetup contract.
+Once feedback is incorporated, we can proceed with implementing these 19 comprehensive tests to achieve full coverage of
+the CapitalDistributorPluginSetup contract.

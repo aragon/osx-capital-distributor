@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-import {IGauge, IGaugeManager, IGaugeManagerEvents, IGaugeManagerErrors} from "./IGaugeVoter.sol";
+import { IGauge, IGaugeManager, IGaugeManagerEvents, IGaugeManagerErrors } from "./IGaugeVoter.sol";
 
 interface IAddressGaugeVote {
     /// @param votes gauge => votes cast at that time
@@ -110,6 +110,11 @@ interface IAddressGaugeVoter is
 
     /// @notice timestamp of the end of the current voting period
     function epochVoteEnd() external view returns (uint256);
+
+    /// @notice Get the total votes for a gauge
+    /// @param gauge Address of the gauge
+    /// @return Total votes for the gauge
+    function gaugeVotes(address gauge) external view returns (uint256);
 }
 
 /*///////////////////////////////////////////////////////////////

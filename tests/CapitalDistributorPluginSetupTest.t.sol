@@ -40,7 +40,7 @@ contract CapitalDistributorPluginSetupTest is Test {
     // Permission IDs
     bytes32 internal constant EXECUTE_PERMISSION_ID = keccak256("EXECUTE_PERMISSION");
     bytes32 internal constant UPGRADE_PLUGIN_PERMISSION_ID = keccak256("UPGRADE_PLUGIN_PERMISSION");
-    bytes32 internal constant CAMPAIGN_CREATOR_PERMISSION_ID = keccak256("CAMPAIGN_CREATOR_PERMISSION");
+    bytes32 internal constant CAMPAIGN_MANAGER_PERMISSION_ID = keccak256("CAMPAIGN_MANAGER_PERMISSION");
     bytes32 internal constant SET_METADATA_PERMISSION_ID = keccak256("SET_METADATA_PERMISSION");
 
     constructor() {
@@ -83,8 +83,10 @@ contract CapitalDistributorPluginSetupTest is Test {
         assertNotEq(pluginAddr, address(0));
         assertTrue(pluginAddr.code.length > 0);
 
-        // It should return a list with 0 helpers (empty array)
-        assertEq(preparedSetupData.helpers.length, 0, "helpers length should be 0");
+        // It should return a list with 1 helper (the execute condition)
+        assertEq(preparedSetupData.helpers.length, 1, "helpers length should be 1");
+        address executeCondition = preparedSetupData.helpers[0];
+        assertNotEq(executeCondition, address(0), "execute condition should not be zero");
 
         // It all plugins use the same implementation
         address pluginImplementation = _getImplementation(pluginAddr);
@@ -97,7 +99,7 @@ contract CapitalDistributorPluginSetupTest is Test {
         assertEq(address(plugin.dao()), address(dao));
 
         // It the list of permissions should match
-        assertEq(preparedSetupData.permissions.length, 4, "permissions length mismatch");
+        assertEq(preparedSetupData.permissions.length, 5, "permissions length mismatch");
 
         // 0. DAO can upgrade the plugin
         _assertPermission(
@@ -109,13 +111,13 @@ contract CapitalDistributorPluginSetupTest is Test {
             UPGRADE_PLUGIN_PERMISSION_ID
         );
 
-        // 1. Plugin can execute on DAO
+        // 1. Plugin can execute on DAO (with condition)
         _assertPermission(
             preparedSetupData.permissions[1],
-            PermissionLib.Operation.Grant,
+            PermissionLib.Operation.GrantWithCondition,
             address(dao),
             pluginAddr,
-            PermissionLib.NO_CONDITION,
+            executeCondition,
             EXECUTE_PERMISSION_ID
         );
 
@@ -126,7 +128,7 @@ contract CapitalDistributorPluginSetupTest is Test {
             pluginAddr,
             address(dao),
             PermissionLib.NO_CONDITION,
-            CAMPAIGN_CREATOR_PERMISSION_ID
+            CAMPAIGN_MANAGER_PERMISSION_ID
         );
 
         // 3. The DAO can change the metadata of the plugin
@@ -137,6 +139,16 @@ contract CapitalDistributorPluginSetupTest is Test {
             address(dao),
             PermissionLib.NO_CONDITION,
             SET_METADATA_PERMISSION_ID
+        );
+
+        // 4. The DAO can manage allowed actions on the execute condition
+        _assertPermission(
+            preparedSetupData.permissions[4],
+            PermissionLib.Operation.Grant,
+            executeCondition,
+            address(dao),
+            PermissionLib.NO_CONDITION,
+            setup.MANAGE_SELECTORS_PERMISSION_ID()
         );
     }
 
@@ -172,9 +184,14 @@ contract CapitalDistributorPluginSetupTest is Test {
     function test_WhenPreparingAnUninstallation() external whenPreparingAnUninstallation {
         // It generates a correct list of permission changes
 
-        // Create proper payload with 1 helper as expected
-        address[] memory helpers = new address[](1);
-        helpers[0] = address(0x1234); // Dummy helper address
+        // Get the helpers from installation
+        IPluginSetup.PreparedSetupData memory installData;
+        (pluginAddr, installData) = setup.prepareInstallation(address(dao), encodedParams);
+
+        // Create proper payload with the helper from installation
+        address[] memory helpers = installData.helpers;
+        assertEq(helpers.length, 1, "Should have 1 helper");
+        address executeCondition = helpers[0];
 
         IPluginSetup.SetupPayload memory payload =
             IPluginSetup.SetupPayload({ plugin: pluginAddr, currentHelpers: helpers, data: "" });
@@ -182,7 +199,7 @@ contract CapitalDistributorPluginSetupTest is Test {
         PermissionLib.MultiTargetPermission[] memory revokePermissions =
             setup.prepareUninstallation(address(dao), payload);
 
-        assertEq(revokePermissions.length, 4, "uninstallation permissions length mismatch");
+        assertEq(revokePermissions.length, 5, "uninstallation permissions length mismatch");
 
         // 0. Revoke DAO can create campaigns
         _assertPermission(
@@ -191,7 +208,7 @@ contract CapitalDistributorPluginSetupTest is Test {
             pluginAddr,
             address(dao),
             PermissionLib.NO_CONDITION,
-            CAMPAIGN_CREATOR_PERMISSION_ID
+            CAMPAIGN_MANAGER_PERMISSION_ID
         );
 
         // 1. Revoke DAO can upgrade plugin
@@ -204,13 +221,13 @@ contract CapitalDistributorPluginSetupTest is Test {
             UPGRADE_PLUGIN_PERMISSION_ID
         );
 
-        // 2. Revoke Plugin can execute on DAO
+        // 2. Revoke Plugin can execute on DAO (with condition)
         _assertPermission(
             revokePermissions[2],
             PermissionLib.Operation.Revoke,
             address(dao),
             pluginAddr,
-            PermissionLib.NO_CONDITION,
+            executeCondition,
             EXECUTE_PERMISSION_ID
         );
 
@@ -223,24 +240,30 @@ contract CapitalDistributorPluginSetupTest is Test {
             PermissionLib.NO_CONDITION,
             SET_METADATA_PERMISSION_ID
         );
+
+        // 4. Revoke DAO can manage actions on execute condition
+        _assertPermission(
+            revokePermissions[4],
+            PermissionLib.Operation.Revoke,
+            executeCondition,
+            address(dao),
+            PermissionLib.NO_CONDITION,
+            setup.MANAGE_SELECTORS_PERMISSION_ID()
+        );
     }
 
-    function test_RevertGiven_AListOfHelpersWithZero() external whenPreparingAnUninstallation {
-        // It should revert
+    function test_RevertGiven_WrongHelpersCount() external whenPreparingAnUninstallation {
+        // It should revert with wrong helper count
 
-        // Case 1: Empty helpers array
+        // Case 1: Zero helpers (should have 1)
         address[] memory wrongHelpers1 = new address[](0);
         IPluginSetup.SetupPayload memory payload1 =
             IPluginSetup.SetupPayload({ plugin: pluginAddr, currentHelpers: wrongHelpers1, data: "" });
 
         vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.WrongHelpersArrayLength.selector, 0));
         setup.prepareUninstallation(address(dao), payload1);
-    }
 
-    function test_RevertGiven_AListOfHelpersWithMoreThanOne() external whenPreparingAnUninstallation {
-        // It should revert
-
-        // Case 2: Two helpers
+        // Case 2: 2 helpers (should have 1)
         address[] memory wrongHelpers2 = new address[](2);
         wrongHelpers2[0] = address(0x1);
         wrongHelpers2[1] = address(0x2);
@@ -249,18 +272,10 @@ contract CapitalDistributorPluginSetupTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.WrongHelpersArrayLength.selector, 2));
         setup.prepareUninstallation(address(dao), payload2);
-
-        // Case 3: Three helpers
-        address[] memory wrongHelpers3 = new address[](3);
-        IPluginSetup.SetupPayload memory payload3 =
-            IPluginSetup.SetupPayload({ plugin: pluginAddr, currentHelpers: wrongHelpers3, data: "" });
-
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.WrongHelpersArrayLength.selector, 3));
-        setup.prepareUninstallation(address(dao), payload3);
     }
 
-    function test_PrepareUpdate_ReturnsEmpty() external {
-        // It should return empty data
+    function test_PrepareUpdate_Reverts() external {
+        // It should revert
         address[] memory helpers = new address[](1);
         helpers[0] = address(0x1234);
 
@@ -270,13 +285,9 @@ contract CapitalDistributorPluginSetupTest is Test {
             data: ""
         });
 
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPluginSetup.NotImplemented.selector));
         (bytes memory initData, IPluginSetup.PreparedSetupData memory preparedSetupData) =
             setup.prepareUpdate(address(dao), 1, payload);
-
-        // Verify empty returns
-        assertEq(initData.length, 0, "initData should be empty");
-        assertEq(preparedSetupData.helpers.length, 0, "helpers should be empty");
-        assertEq(preparedSetupData.permissions.length, 0, "permissions should be empty");
     }
 
     function test_DecodeInstallationParams_Success() external {
@@ -338,6 +349,45 @@ contract CapitalDistributorPluginSetupTest is Test {
 
         (AllocatorStrategyFactory decodedStrategy, ActionEncoderFactory decodedEncoder) =
             setup.decodeInstallationParams(params);
+
+        assertEq(address(decodedStrategy), _strategyFactory);
+        assertEq(address(decodedEncoder), _encoderFactory);
+    }
+
+    function test_EncodeInstallationParams_Success() external view {
+        // Test parameter encoding
+        address testStrategyFactory = address(0x1234);
+        address testEncoderFactory = address(0x5678);
+
+        bytes memory encoded = setup.encodeInstallationParams(testStrategyFactory, testEncoderFactory);
+        bytes memory expectedEncoding = abi.encode(testStrategyFactory, testEncoderFactory);
+
+        assertEq(encoded, expectedEncoding);
+    }
+
+    function test_EncodeDecodeInstallationParams_RoundTrip() external view {
+        // Test that encode/decode work together correctly
+        address testStrategyFactory = address(0xABCD);
+        address testEncoderFactory = address(0xEF01);
+
+        // Encode the parameters
+        bytes memory encoded = setup.encodeInstallationParams(testStrategyFactory, testEncoderFactory);
+
+        // Decode the parameters
+        (AllocatorStrategyFactory decodedStrategy, ActionEncoderFactory decodedEncoder) =
+            setup.decodeInstallationParams(encoded);
+
+        // Verify round trip
+        assertEq(address(decodedStrategy), testStrategyFactory);
+        assertEq(address(decodedEncoder), testEncoderFactory);
+    }
+
+    function testFuzz_EncodeDecodeInstallationParams(address _strategyFactory, address _encoderFactory) external view {
+        // Fuzz test encode/decode round trip
+        bytes memory encoded = setup.encodeInstallationParams(_strategyFactory, _encoderFactory);
+
+        (AllocatorStrategyFactory decodedStrategy, ActionEncoderFactory decodedEncoder) =
+            setup.decodeInstallationParams(encoded);
 
         assertEq(address(decodedStrategy), _strategyFactory);
         assertEq(address(decodedEncoder), _encoderFactory);
