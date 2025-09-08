@@ -8,28 +8,28 @@ Solidity-based merkle tree utilities for OSX Capital Distributor using Foundry.
 
 ```bash
 forge script scripts/merkleDistributor/CreateExampleRecipients.s.sol:CreateExampleRecipients \
-  --sig "createExample(string)" "recipients.json" --via-ir
+  --sig "createExample(string)" "recipients.json"
 ```
 
 ### Generate Merkle Tree
 
 ```bash
 forge script scripts/merkleDistributor/GenerateMerkleTree.s.sol:GenerateMerkleTree \
-  --sig "generate(string)" "recipients.json" --via-ir
+  --sig "generate(string)" "recipients.json"
 ```
 
 ### Generate Proof
 
 ```bash
 forge script scripts/merkleDistributor/GenerateProof.s.sol:GenerateProof \
-  --sig "generateProof(string,address)" "merkle-tree.json" "0x123..." --via-ir
+  --sig "generateProof(string,address)" "merkle-tree.json" "0x123..."
 ```
 
 ### Verify Proof
 
 ```bash
 forge script scripts/merkleDistributor/VerifyProof.s.sol:VerifyProof \
-  --sig "verifyFromFile(string)" "proof-0x123....json" --via-ir
+  --sig "verifyFromFile(string)" "proof-0x123....json"
 ```
 
 ## File Format
@@ -46,7 +46,6 @@ forge script scripts/merkleDistributor/VerifyProof.s.sol:VerifyProof \
 ## Requirements
 
 - Add to `foundry.toml`: `fs_permissions = [{ access = "read-write", path = "./" }]`
-- Always use `--via-ir` flag
 - Amounts in wei as strings
 - Valid Ethereum addresses with 0x prefix
 - No duplicate addresses

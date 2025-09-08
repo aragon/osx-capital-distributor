@@ -12,6 +12,7 @@ import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import { CreateExampleRecipients } from "../../script/utils/CreateExampleRecipients.s.sol";
 import { GenerateMerkleTree } from "../../script/utils/GenerateMerkleTree.s.sol";
 import { GenerateProof } from "../../script/utils/GenerateProof.s.sol";
+import { ExecuteSelectorCondition } from "@aragon/conditions/ExecuteSelectorCondition.sol";
 
 contract MerkleDistributorStrategyTest is AragonTest {
     using stdJson for string;
@@ -19,6 +20,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     CapitalDistributorPlugin capitalDistributorPlugin;
     MerkleDistributorStrategy strategy;
     MintableERC20 token;
+    ExecuteSelectorCondition condition;
 
     // Merkle tree scripts
     CreateExampleRecipients createExampleScript;
@@ -41,6 +43,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         capitalDistributorPlugin = CapitalDistributorPlugin(pluginAddress[0]);
         token = new MintableERC20();
         strategy = new MerkleDistributorStrategy();
+        condition = ExecuteSelectorCondition(conditions[0]);
 
         // Deploy scripts
         createExampleScript = new CreateExampleRecipients();
@@ -51,6 +54,13 @@ contract MerkleDistributorStrategyTest is AragonTest {
         allocatorStrategyFactory.registerStrategyType(
             toBytes32("merkle-strategy"), address(strategy), "", address(0), 0
         );
+
+        // Add token transfer permission to the plugin
+        ExecuteSelectorCondition.SelectorTarget memory selectorToAllow =
+            ExecuteSelectorCondition.SelectorTarget({ where: address(token), selectors: new bytes4[](1) });
+        selectorToAllow.selectors[0] = IERC20.transfer.selector;
+
+        condition.allowSelectors(selectorToAllow);
 
         // Set up merkle tree test data (keep legacy for existing tests)
         setupMerkleTreeData();

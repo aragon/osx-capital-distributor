@@ -21,7 +21,6 @@ import { MerkleDistributorStrategy } from "../src/allocatorStrategies/MerkleDist
 
 // Action Encoders
 import { VaultDepositPayoutActionEncoder } from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
-import { SablierLinearPayoutActionEncoder } from "../src/payoutActionEncoders/SablierLinearPayoutActionEncoder.sol";
 
 import { BaseScript } from "./Base.s.sol";
 
@@ -63,10 +62,6 @@ contract Deploy is BaseScript {
         VaultDepositPayoutActionEncoder vaultDepositPayoutActionEncoder = new VaultDepositPayoutActionEncoder();
         actionEncoderFactory.registerActionEncoder(
             toBytes32("vault-deposit-encoder"), address(vaultDepositPayoutActionEncoder), "0x00"
-        );
-        SablierLinearPayoutActionEncoder sablierLinearPayoutActionEncoder = new SablierLinearPayoutActionEncoder();
-        actionEncoderFactory.registerActionEncoder(
-            toBytes32("sablier-linear-encoder"), address(sablierLinearPayoutActionEncoder), "0x00"
         );
 
         // 4. Deploying the Plugin Setup

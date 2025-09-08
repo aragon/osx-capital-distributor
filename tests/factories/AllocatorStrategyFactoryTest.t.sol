@@ -104,8 +104,8 @@ contract AllocatorStrategyFactoryTest is Test {
         assertTrue(factory.isTypeRegistered(MERKLE_STRATEGY_ID));
         assertTrue(factory.isTypeRegistered(MOCK_STRATEGY_ID));
 
-        (address merkleImpl, ) = factory.registeredTypes(MERKLE_STRATEGY_ID);
-        (address mockImpl, ) = factory.registeredTypes(MOCK_STRATEGY_ID);
+        (address merkleImpl,) = factory.registeredTypes(MERKLE_STRATEGY_ID);
+        (address mockImpl,) = factory.registeredTypes(MOCK_STRATEGY_ID);
 
         assertEq(merkleImpl, address(merkleImplementation));
         assertEq(mockImpl, address(mockImplementation));
@@ -565,7 +565,9 @@ contract AllocatorStrategyFactoryTest is Test {
         // Deploy a strategy outside of factory
         AllocatorStrategyMock externalStrategy = new AllocatorStrategyMock();
 
-        vm.expectRevert(abi.encodeWithSelector(AllocatorStrategyFactory.StrategyNotFound.selector, address(externalStrategy)));
+        vm.expectRevert(
+            abi.encodeWithSelector(AllocatorStrategyFactory.StrategyNotFound.selector, address(externalStrategy))
+        );
         factory.getStrategyFeeByInstance(address(externalStrategy));
     }
 

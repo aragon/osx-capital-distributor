@@ -64,7 +64,6 @@ recipients.
 **Available Strategies:**
 
 - **MerkleDistributorStrategy**: Uses Merkle trees for efficient large-scale distributions (airdrops)
-- **GaugeDistributionStrategy**: Allocates based on gauge voting weights (incentive programs)
 
 #### ActionEncoderFactory
 
@@ -74,7 +73,6 @@ Manages payout action encoders that transform distribution amounts into executab
 
 - **Direct Transfer**: Simple ERC20 token transfers
 - **VaultDepositPayoutActionEncoder**: Deposits tokens into ERC-4626 vaults
-- **SablierLinearPayoutActionEncoder**: Creates token streams for vesting schedules
 
 ### Campaign Structure
 
@@ -123,10 +121,8 @@ bun install # or npm install
 
 ### Build
 
-The project **must** be built with the `--via-ir` flag for optimization:
-
 ```bash
-forge build --via-ir
+forge build
 ```
 
 ### Test
@@ -134,7 +130,7 @@ forge build --via-ir
 Run the test suite with verbose output:
 
 ```bash
-forge test --via-ir -vvv
+forge test -vvv
 ```
 
 ### Coverage
@@ -142,7 +138,7 @@ forge test --via-ir -vvv
 Generate test coverage report:
 
 ```bash
-forge coverage --via-ir
+forge coverage
 ```
 
 ### Gas Analysis
@@ -151,10 +147,10 @@ Generate gas reports for optimization:
 
 ```bash
 # Gas report for tests
-forge test --gas-report --via-ir
+forge test --gas-report
 
 # Create gas snapshot
-forge snapshot --via-ir
+forge snapshot
 ```
 
 ## Deployment
@@ -177,7 +173,6 @@ The deployment process follows these steps:
 
    // Register action encoders
    actionFactory.registerActionEncoder("vault-deposit", vaultEncoder, ...);
-   actionFactory.registerActionEncoder("sablier-linear", sablierEncoder, ...);
    ```
 
 3. **Deploy Plugin Setup**
@@ -209,7 +204,7 @@ The deployment process follows these steps:
 Deploy using the provided script:
 
 ```bash
-forge script script/Deploy.s.sol --rpc-url <RPC_URL> --broadcast --via-ir
+forge script script/Deploy.s.sol --rpc-url <RPC_URL> --broadcast
 ```
 
 Required environment variables:

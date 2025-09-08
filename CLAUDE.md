@@ -11,13 +11,13 @@
 
 ```bash
 # Build & Test
-forge build --via-ir
-forge test --via-ir -vvv
-forge coverage --via-ir
+forge build
+forge test -vvv
+forge coverage
 
 # Gas Analysis
-forge test --gas-report --via-ir
-forge snapshot --via-ir  # Creates .gas-snapshot for tracking
+forge test --gas-report
+forge snapshot  # Creates .gas-snapshot for tracking
 
 # Security Analysis
 slither . --exclude naming-convention,external-function
@@ -170,7 +170,7 @@ Create these files before coding:
 
 **After EACH change:**
 
-1. Run `forge build --via-ir`
+1. Run `forge build`
 2. Run relevant tests
 3. Update the change report
 
@@ -201,7 +201,7 @@ Date: {timestamp}
 After every change, run:
 
 ```bash
-forge test --via-ir
+forge test
 slither .
 ```
 
