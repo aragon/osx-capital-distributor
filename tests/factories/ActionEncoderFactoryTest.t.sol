@@ -95,9 +95,9 @@ contract ActionEncoderFactoryTest is Test {
 
         factory.registerActionEncoder(VAULT_ENCODER_ID, address(vaultImplementation), VAULT_METADATA);
 
-        FactoryBase.RegisteredType memory registeredType = factory.getRegisteredType(VAULT_ENCODER_ID);
-        assertEq(registeredType.implementation, address(vaultImplementation));
-        assertEq(registeredType.metadata, VAULT_METADATA);
+        (address implementation, string memory metadata) = factory.registeredTypes(VAULT_ENCODER_ID);
+        assertEq(implementation, address(vaultImplementation));
+        assertEq(metadata, VAULT_METADATA);
         assertTrue(factory.isTypeRegistered(VAULT_ENCODER_ID));
 
         vm.stopPrank();
@@ -111,11 +111,11 @@ contract ActionEncoderFactoryTest is Test {
         assertTrue(factory.isTypeRegistered(VAULT_ENCODER_ID));
         assertTrue(factory.isTypeRegistered(SABLIER_ENCODER_ID));
 
-        FactoryBase.RegisteredType memory vaultType = factory.getRegisteredType(VAULT_ENCODER_ID);
-        FactoryBase.RegisteredType memory sablierType = factory.getRegisteredType(SABLIER_ENCODER_ID);
+        (address vaultImpl,) = factory.registeredTypes(VAULT_ENCODER_ID);
+        (address sablierImpl,) = factory.registeredTypes(SABLIER_ENCODER_ID);
 
-        assertEq(vaultType.implementation, address(vaultImplementation));
-        assertEq(sablierType.implementation, address(sablierImplementation));
+        assertEq(vaultImpl, address(vaultImplementation));
+        assertEq(sablierImpl, address(sablierImplementation));
     }
 
     /// @notice Test registration with empty encoder ID
@@ -278,14 +278,14 @@ contract ActionEncoderFactoryTest is Test {
     /// INSTANCE EXISTS TESTS
     /// ===============================
 
-    /// @notice Test instanceExists returns correct values
-    function test_InstanceExists() public {
+    /// @notice Test hasDeployment returns correct values
+    function test_HasDeployment() public {
         factory.registerActionEncoder(VAULT_ENCODER_ID, address(vaultImplementation), VAULT_METADATA);
 
         bytes memory auxData = abi.encode(address(0x123));
 
         // Should not exist initially
-        (bool exists, IPayoutActionEncoder encoder) = factory.instanceExists(VAULT_ENCODER_ID, dao, auxData);
+        (bool exists, IPayoutActionEncoder encoder) = factory.hasDeployment(VAULT_ENCODER_ID, dao, auxData);
         assertFalse(exists);
         assertEq(address(encoder), address(0));
 
@@ -293,7 +293,7 @@ contract ActionEncoderFactoryTest is Test {
         IPayoutActionEncoder deployedEncoder = factory.deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
 
         // Should exist after deployment
-        (exists, encoder) = factory.instanceExists(VAULT_ENCODER_ID, dao, auxData);
+        (exists, encoder) = factory.hasDeployment(VAULT_ENCODER_ID, dao, auxData);
         assertTrue(exists);
         assertEq(address(encoder), address(deployedEncoder));
     }
@@ -439,9 +439,9 @@ contract ActionEncoderFactoryTest is Test {
 
         // Instance exists check gas test
         gasStart = gasleft();
-        factory.instanceExists(VAULT_ENCODER_ID, dao, auxData);
+        factory.hasDeployment(VAULT_ENCODER_ID, dao, auxData);
         gasUsed = gasStart - gasleft();
-        console2.log("Gas used for instanceExists:", gasUsed);
+        console2.log("Gas used for hasDeployment:", gasUsed);
         assertTrue(gasUsed < 10_000);
     }
 
@@ -508,9 +508,9 @@ contract ActionEncoderFactoryTest is Test {
         factory.registerActionEncoder(encoderId, address(mockImplementation), metadata);
         assertTrue(factory.isTypeRegistered(encoderId));
 
-        FactoryBase.RegisteredType memory registeredType = factory.getRegisteredType(encoderId);
-        assertEq(registeredType.implementation, address(mockImplementation));
-        assertEq(registeredType.metadata, metadata);
+        (address regImpl, string memory regMeta) = factory.registeredTypes(encoderId);
+        assertEq(regImpl, address(mockImplementation));
+        assertEq(regMeta, metadata);
     }
 
     /// @notice Fuzz test for hash computation

@@ -38,7 +38,7 @@ contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
         if (msg.sender != owner()) {
             revert OnlyOwner(msg.sender);
         }
-        address vaultAddress = abi.decode(_auxData, (address));
+        address vaultAddress = decodeSetupCampaignParams(_auxData);
         if (vaultAddress == address(0)) {
             revert ZeroAddressNotAllowed();
         }
@@ -86,6 +86,20 @@ contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
         actions[1] = Action({ to: vaultAddress, value: 0, data: abi.encodeCall(IVault.deposit, (_amount, _recipient)) });
 
         return actions;
+    }
+
+    /// @notice Encodes the vault address parameter for setupCampaign
+    /// @param _vaultAddress The vault address to encode
+    /// @return The encoded parameters
+    function encodeSetupCampaignParams(address _vaultAddress) external pure returns (bytes memory) {
+        return abi.encode(_vaultAddress);
+    }
+
+    /// @notice Decodes the vault address parameter from setupCampaign
+    /// @param _data The encoded parameters
+    /// @return vaultAddress The decoded vault address
+    function decodeSetupCampaignParams(bytes memory _data) public pure returns (address vaultAddress) {
+        return abi.decode(_data, (address));
     }
 
     /// @inheritdoc PayoutActionEncoderBase

@@ -16,6 +16,7 @@ import { IAllocatorStrategy } from "./interfaces/IAllocatorStrategy.sol";
 import { IPayoutActionEncoder } from "./interfaces/IPayoutActionEncoder.sol";
 import { AllocatorStrategyFactory } from "./factories/AllocatorStrategyFactory.sol";
 import { ActionEncoderFactory } from "./factories/ActionEncoderFactory.sol";
+import { RatioUtils } from "./utils/RatioUtils.sol";
 
 /// @title CapitalDistributorPlugin
 /// @author AragonX - 2025
@@ -258,15 +259,12 @@ contract CapitalDistributorPlugin is
         }
 
         // Validate allocatorStrategyFactory
-        if (address(_allocatorStrategyFactory) == address(0)) {
-            revert ZeroAddress("_allocatorStrategyFactory");
-        }
-        if (address(_allocatorStrategyFactory).code.length == 0) {
+        if (address(_allocatorStrategyFactory) == address(0) || address(_allocatorStrategyFactory).code.length == 0) {
             revert InvalidParameter("_allocatorStrategyFactory");
         }
 
         // Validate actionEncoderFactory (can be zero address)
-        if (address(_actionEncoderFactory) != address(0) && address(_actionEncoderFactory).code.length == 0) {
+        if (address(_actionEncoderFactory) == address(0) || address(_actionEncoderFactory).code.length == 0) {
             revert InvalidParameter("_actionEncoderFactory");
         }
 
@@ -389,8 +387,8 @@ contract CapitalDistributorPlugin is
      * @param _campaignId The unique identifier for the campaign.
      * @return The campaign strategy id.
      */
-    function getCampaignStrategyId(uint256 _campaignId) public view returns (bytes32) {
-        return campaigns[_campaignId].allocationStrategy.strategyTypeId();
+    function getCampaignstrategyId(uint256 _campaignId) public view returns (bytes32) {
+        return campaigns[_campaignId].allocationStrategy.strategyId();
     }
 
     /**
@@ -521,7 +519,7 @@ contract CapitalDistributorPlugin is
         uint256 feeAmount = 0;
         amountToSend = totalAmountToSend - alreadyClaimed;
         if (feeBasisPoints > 0 && feeRecipient != address(0)) {
-            feeAmount = (amountToSend * feeBasisPoints) / 10_000;
+            feeAmount = RatioUtils.applyBasisPointsCeiled(amountToSend, feeBasisPoints);
             amountToSend = amountToSend - feeAmount;
         }
 
@@ -604,7 +602,7 @@ contract CapitalDistributorPlugin is
             (feeRecipient, feeBasisPoints) = campaign.allocationStrategy.getFeeConfiguration();
             amountToSend = totalAmountToSend - alreadyClaimed;
             if (feeBasisPoints > 0 && feeRecipient != address(0)) {
-                feeAmount = (amountToSend * feeBasisPoints) / 10_000;
+                feeAmount = RatioUtils.applyBasisPointsCeiled(amountToSend, feeBasisPoints);
                 amountToSend = amountToSend - feeAmount;
             }
         }
@@ -678,6 +676,11 @@ contract CapitalDistributorPlugin is
             revert InvalidStateTransition(_campaignId, campaign.state, CampaignState.PAUSED);
         }
 
+        // Prevent pausing campaigns that have already ended due to time
+        if (campaign.endTime > 0 && block.timestamp >= campaign.endTime) {
+            revert CampaignOutsideTimeBounds(_campaignId, block.timestamp, campaign.startTime, campaign.endTime);
+        }
+
         campaign.state = CampaignState.PAUSED;
         emit CampaignPaused(_campaignId);
     }
@@ -693,6 +696,11 @@ contract CapitalDistributorPlugin is
             revert InvalidStateTransition(_campaignId, campaign.state, CampaignState.ACTIVE);
         }
 
+        // Prevent resuming campaigns that have already ended due to time
+        if (campaign.endTime > 0 && block.timestamp >= campaign.endTime) {
+            revert CampaignOutsideTimeBounds(_campaignId, block.timestamp, campaign.startTime, campaign.endTime);
+        }
+
         campaign.state = CampaignState.ACTIVE;
         emit CampaignResumed(_campaignId);
     }
@@ -706,6 +714,11 @@ contract CapitalDistributorPlugin is
 
         if (campaign.state == CampaignState.ENDED) {
             revert InvalidStateTransition(_campaignId, campaign.state, CampaignState.ENDED);
+        }
+
+        // Prevent ending campaigns that have already ended due to time
+        if (campaign.endTime > 0 && block.timestamp >= campaign.endTime) {
+            revert CampaignOutsideTimeBounds(_campaignId, block.timestamp, campaign.startTime, campaign.endTime);
         }
 
         campaign.state = CampaignState.ENDED;
@@ -762,15 +775,11 @@ contract CapitalDistributorPlugin is
     }
 
     /// @notice Gets the strategy initialization encoding types for a strategy type
-    /// @param _strategyTypeId The strategy type ID
+    /// @param _strategyId The strategy type ID
     /// @return types Comma-separated string of Solidity type strings expected for strategy initialization
-    function getStrategyInitializationEncodingTypes(bytes32 _strategyTypeId)
-        external
-        view
-        returns (string memory types)
-    {
+    function getStrategyInitializationEncodingTypes(bytes32 _strategyId) external view returns (string memory types) {
         // Get the implementation address from the factory's registeredTypes mapping
-        (address implementation,) = allocatorStrategyFactory.registeredTypes(_strategyTypeId);
+        (address implementation,) = allocatorStrategyFactory.registeredTypes(_strategyId);
         require(implementation != address(0), "Strategy type not found");
 
         // Query the implementation directly for encoding types

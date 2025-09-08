@@ -15,6 +15,9 @@ import { FactoryBase } from "./FactoryBase.sol";
 contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     using Clones for address;
 
+    /// @notice Maximum fee in basis points (10% = 1000 basis points).
+    uint256 public constant MAX_FEE_BASIS_POINTS = 1000;
+
     /// @notice Fee configuration for a strategy type
     struct FeeConfig {
         address recipient; // Where fees are sent
@@ -28,7 +31,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     mapping(address instance => bytes32 typeId) public instanceToType;
 
     /// @notice Maps strategy type IDs to their fee configurations.
-    mapping(bytes32 strategyTypeId => FeeConfig) public strategyFees;
+    mapping(bytes32 strategyId => FeeConfig) public strategyFees;
 
     /// @notice Emitted when a new strategy type is registered
     /// @param strategyId The unique identifier for the strategy type
@@ -55,10 +58,14 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     /// @param maximum The maximum allowed fee basis points
     error ExcessiveFee(uint256 provided, uint256 maximum);
 
+    /// @notice Error thrown when querying fee for a strategy not deployed by this factory
+    /// @param strategyInstance The strategy instance address that was not found
+    error StrategyNotFound(address strategyInstance);
+
     /**
      * @notice Registers a new strategy type in the factory.
      * @param _strategyId Unique identifier for the strategy type.
-     * @param _implementation Address of the strategy implementation contract.
+     * @param _strategyImplementation Address of the strategy implementation contract.
      * @param _metadata Human-readable name for the strategy type.
      * @param _feeRecipient Address where fees for this strategy type will be sent.
      * @param _feeBasisPoints Fee percentage in basis points (max 1000 = 10%).
@@ -66,7 +73,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
      */
     function registerStrategyType(
         bytes32 _strategyId,
-        address _implementation,
+        address _strategyImplementation,
         string calldata _metadata,
         address _feeRecipient,
         uint256 _feeBasisPoints
@@ -77,63 +84,67 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         if (_strategyId == bytes32(0)) {
             revert EmptyTypeId();
         }
-        if (_implementation == address(0)) {
-            revert InvalidImplementation(_implementation, "Implementation address cannot be zero");
+        if (_strategyImplementation == address(0)) {
+            revert InvalidImplementation(_strategyImplementation, "Implementation address cannot be zero");
         }
         if (registeredTypes[_strategyId].implementation != address(0)) {
             revert AlreadyRegistered(_strategyId);
         }
-        if (_implementation.code.length == 0) {
-            revert InvalidImplementation(_implementation, "Implementation must be a deployed contract");
+        if (_strategyImplementation.code.length == 0) {
+            revert InvalidImplementation(_strategyImplementation, "Implementation must be a deployed contract");
         }
 
         // Validate fee configuration
         if (_feeBasisPoints > 0 && _feeRecipient == address(0)) {
             revert InvalidFeeRecipient();
         }
-        if (_feeBasisPoints > 1000) {
+        if (_feeBasisPoints > MAX_FEE_BASIS_POINTS) {
             // Max 10%
-            revert ExcessiveFee(_feeBasisPoints, 1000);
+            revert ExcessiveFee(_feeBasisPoints, MAX_FEE_BASIS_POINTS);
         }
 
         // Validate that the implementation supports the IAllocatorStrategy interface
-        try IERC165(_implementation).supportsInterface(type(IAllocatorStrategy).interfaceId) returns (bool supported) {
+        try IERC165(_strategyImplementation).supportsInterface(type(IAllocatorStrategy).interfaceId) returns (
+            bool supported
+        ) {
             if (!supported) {
                 revert InvalidImplementation(
-                    _implementation, "Implementation must support IAllocatorStrategy interface"
+                    _strategyImplementation, "Implementation must support IAllocatorStrategy interface"
                 );
             }
         } catch {
-            revert InvalidImplementation(_implementation, "Implementation must support IAllocatorStrategy interface");
+            revert InvalidImplementation(
+                _strategyImplementation, "Implementation must support IAllocatorStrategy interface"
+            );
         }
 
         // Register the type
-        registeredTypes[_strategyId] = RegisteredType({ implementation: _implementation, metadata: _metadata });
+        registeredTypes[_strategyId] = RegisteredType({ implementation: _strategyImplementation, metadata: _metadata });
 
         // Store fee configuration
         strategyFees[_strategyId] = FeeConfig({ recipient: _feeRecipient, basisPoints: _feeBasisPoints });
 
-        emit TypeRegistered(_strategyId, _implementation, _metadata, msg.sender);
-        emit StrategyTypeRegistered(_strategyId, _implementation, _metadata);
+        emit TypeRegistered(_strategyId, _strategyImplementation, _metadata, msg.sender);
+        emit StrategyTypeRegistered(_strategyId, _strategyImplementation, _metadata);
         emit StrategyFeeConfigured(_strategyId, _feeRecipient, _feeBasisPoints);
     }
 
     /**
      * @notice Deploys a new instance of a registered strategy type.
-     * @param _strategyTypeId The strategy type to deploy.
+     * @param _strategyId The strategy type to deploy.
      * @param _dao The DAO address for initialization.
-     * @param _auxData Additional deployment parameters.
+     * @param _deploymentParams Additional deployment parameters.
      * @return strategy The address of the deployed strategy.
      */
     function deployStrategy(
-        bytes32 _strategyTypeId,
+        bytes32 _strategyId,
         IDAO _dao,
-        bytes calldata _auxData
+        bytes calldata _deploymentParams
     )
         public
         returns (address strategy)
     {
-        bytes32 deploymentId = _computeParamsHash(_strategyTypeId, _dao, _auxData);
+        bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, _deploymentParams);
 
         // Check if strategy with these parameters already exists
         address existingStrategy = deployedInstances[deploymentId];
@@ -141,56 +152,56 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
             revert InstanceAlreadyDeployed(deploymentId, existingStrategy);
         }
 
-        return _deployStrategy(_strategyTypeId, _dao, _auxData, deploymentId);
+        return _deployStrategy(_strategyId, _dao, _deploymentParams, deploymentId);
     }
 
     /**
      * @notice Gets an existing strategy instance or deploys a new one if it doesn't exist.
-     * @param _strategyTypeId The strategy type to get or deploy.
+     * @param _strategyId The strategy type to get or deploy.
      * @param _dao The DAO address for initialization.
-     * @param _auxData Additional deployment parameters.
+     * @param _deploymentParams Additional deployment parameters.
      * @return strategy The address of the existing or newly deployed strategy.
      */
     function getOrDeployStrategy(
-        bytes32 _strategyTypeId,
+        bytes32 _strategyId,
         IDAO _dao,
-        bytes calldata _auxData
+        bytes calldata _deploymentParams
     )
         external
         returns (address strategy)
     {
-        bytes32 deploymentId = _computeParamsHash(_strategyTypeId, _dao, _auxData);
+        bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, _deploymentParams);
 
         strategy = deployedInstances[deploymentId];
         if (strategy != address(0)) {
             return strategy;
         }
 
-        return _deployStrategy(_strategyTypeId, _dao, _auxData, deploymentId);
+        return _deployStrategy(_strategyId, _dao, _deploymentParams, deploymentId);
     }
 
     /**
      * @notice Checks if a strategy with given parameters already exists.
-     * @param _strategyTypeId The strategy type ID.
+     * @param _strategyId The strategy type ID.
      * @param _dao The DAO address.
-     * @param _auxData Additional deployment parameters.
+     * @param _deploymentParams Additional deployment parameters.
      * @return exists True if the strategy exists, false otherwise.
      * @return strategy The address of the existing strategy (zero if doesn't exist).
      */
-    function instanceExists(
-        bytes32 _strategyTypeId,
+    function hasDeployment(
+        bytes32 _strategyId,
         IDAO _dao,
-        bytes calldata _auxData
+        bytes calldata _deploymentParams
     )
         external
         view
         returns (bool exists, address strategy)
     {
-        bytes32 deploymentId = _computeParamsHash(_strategyTypeId, _dao, _auxData);
+        bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, _deploymentParams);
         strategy = deployedInstances[deploymentId];
         // Avoid redundant comparison by using inline assembly for gas optimization
         assembly {
-            exists := iszero(iszero(strategy))
+            exists := gt(strategy, 0)
         }
     }
 
@@ -207,7 +218,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     {
         bytes32 typeId = instanceToType[_strategyInstance];
         if (typeId == bytes32(0)) {
-            return (address(0), 0); // Strategy not found or not deployed by this factory
+            revert StrategyNotFound(_strategyInstance);
         }
         FeeConfig memory feeConfig = strategyFees[typeId];
         return (feeConfig.recipient, feeConfig.basisPoints);
@@ -215,42 +226,42 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
 
     /**
      * @notice Internal function to deploy a strategy with pre-computed hash.
-     * @param _strategyTypeId The strategy type to deploy.
+     * @param _strategyId The strategy type to deploy.
      * @param _dao The DAO address for initialization.
-     * @param _auxData Additional deployment parameters.
+     * @param _deploymentParams Additional deployment parameters.
      * @param _deploymentId Pre-computed deployment identifier.
      * @return strategy The address of the deployed strategy.
      */
     function _deployStrategy(
-        bytes32 _strategyTypeId,
+        bytes32 _strategyId,
         IDAO _dao,
-        bytes calldata _auxData,
+        bytes calldata _deploymentParams,
         bytes32 _deploymentId
     )
         internal
         returns (address strategy)
     {
-        RegisteredType storage strategyType = registeredTypes[_strategyTypeId];
+        RegisteredType storage strategyType = registeredTypes[_strategyId];
         address implementation = strategyType.implementation; // Cache storage read
 
         if (implementation == address(0)) {
-            revert TypeNotFound(_strategyTypeId);
+            revert TypeNotFound(_strategyId);
         }
 
         // Initialize the strategy
         bytes memory initCalldata = abi.encodeWithSignature(
-            "initialize(bytes32,address,address,bytes)", _strategyTypeId, address(_dao), msg.sender, _auxData
+            "initialize(bytes32,address,address,bytes)", _strategyId, address(_dao), msg.sender, _deploymentParams
         );
 
         // Deploy and initialize using base class utility
-        strategy = _deployAndInitialize(_strategyTypeId, implementation, initCalldata);
+        strategy = _deployAndInitialize(_strategyId, implementation, initCalldata);
 
         // Register the deployed strategy
         deployedInstances[_deploymentId] = strategy;
-        instanceToType[strategy] = _strategyTypeId;
+        instanceToType[strategy] = _strategyId;
 
-        emit InstanceDeployed(_strategyTypeId, strategy, _deploymentId, msg.sender);
-        emit StrategyDeployed(_strategyTypeId, strategy);
+        emit InstanceDeployed(_strategyId, strategy, _deploymentId, msg.sender);
+        emit StrategyDeployed(_strategyId, strategy);
 
         return strategy;
     }

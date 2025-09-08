@@ -88,9 +88,9 @@ contract AllocatorStrategyFactoryTest is Test {
 
         factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
 
-        FactoryBase.RegisteredType memory registeredType = factory.getRegisteredType(MERKLE_STRATEGY_ID);
-        assertEq(registeredType.implementation, address(merkleImplementation));
-        assertEq(registeredType.metadata, MERKLE_METADATA);
+        (address implementation, string memory metadata) = factory.registeredTypes(MERKLE_STRATEGY_ID);
+        assertEq(implementation, address(merkleImplementation));
+        assertEq(metadata, MERKLE_METADATA);
         assertTrue(factory.isTypeRegistered(MERKLE_STRATEGY_ID));
 
         vm.stopPrank();
@@ -104,11 +104,11 @@ contract AllocatorStrategyFactoryTest is Test {
         assertTrue(factory.isTypeRegistered(MERKLE_STRATEGY_ID));
         assertTrue(factory.isTypeRegistered(MOCK_STRATEGY_ID));
 
-        FactoryBase.RegisteredType memory merkleType = factory.getRegisteredType(MERKLE_STRATEGY_ID);
-        FactoryBase.RegisteredType memory mockType = factory.getRegisteredType(MOCK_STRATEGY_ID);
+        (address merkleImpl, ) = factory.registeredTypes(MERKLE_STRATEGY_ID);
+        (address mockImpl, ) = factory.registeredTypes(MOCK_STRATEGY_ID);
 
-        assertEq(merkleType.implementation, address(merkleImplementation));
-        assertEq(mockType.implementation, address(mockImplementation));
+        assertEq(merkleImpl, address(merkleImplementation));
+        assertEq(mockImpl, address(mockImplementation));
     }
 
     /// @notice Test registration with empty strategy ID
@@ -167,7 +167,7 @@ contract AllocatorStrategyFactoryTest is Test {
         assertEq(factory.instanceToType(strategy), MERKLE_STRATEGY_ID);
 
         // Verify strategy was properly initialized
-        assertEq(IAllocatorStrategy(strategy).strategyTypeId(), MERKLE_STRATEGY_ID);
+        assertEq(IAllocatorStrategy(strategy).strategyId(), MERKLE_STRATEGY_ID);
     }
 
     /// @notice Test deployment with non-existent strategy type
@@ -258,14 +258,14 @@ contract AllocatorStrategyFactoryTest is Test {
     /// INSTANCE EXISTS TESTS
     /// ===============================
 
-    /// @notice Test instanceExists returns correct values
-    function test_InstanceExists() public {
+    /// @notice Test hasDeployment returns correct values
+    function test_HasDeployment() public {
         factory.registerStrategyType(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, address(0), 0);
 
         bytes memory auxData = abi.encode(bytes32(keccak256("test-merkle-root")));
 
         // Should not exist initially
-        (bool exists, address strategy) = factory.instanceExists(MERKLE_STRATEGY_ID, dao, auxData);
+        (bool exists, address strategy) = factory.hasDeployment(MERKLE_STRATEGY_ID, dao, auxData);
         assertFalse(exists);
         assertEq(strategy, address(0));
 
@@ -273,7 +273,7 @@ contract AllocatorStrategyFactoryTest is Test {
         address deployedStrategy = factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
 
         // Should exist after deployment
-        (exists, strategy) = factory.instanceExists(MERKLE_STRATEGY_ID, dao, auxData);
+        (exists, strategy) = factory.hasDeployment(MERKLE_STRATEGY_ID, dao, auxData);
         assertTrue(exists);
         assertEq(strategy, deployedStrategy);
     }
@@ -375,7 +375,7 @@ contract AllocatorStrategyFactoryTest is Test {
         assertTrue(strategy != address(0));
 
         // Verify the strategy was initialized with correct parameters
-        assertEq(IAllocatorStrategy(strategy).strategyTypeId(), MOCK_STRATEGY_ID);
+        assertEq(IAllocatorStrategy(strategy).strategyId(), MOCK_STRATEGY_ID);
     }
 
     /// ===============================
@@ -404,9 +404,9 @@ contract AllocatorStrategyFactoryTest is Test {
 
         // Instance exists check gas test
         gasStart = gasleft();
-        factory.instanceExists(MERKLE_STRATEGY_ID, dao, auxData);
+        factory.hasDeployment(MERKLE_STRATEGY_ID, dao, auxData);
         gasUsed = gasStart - gasleft();
-        console2.log("Gas used for instanceExists:", gasUsed);
+        console2.log("Gas used for hasDeployment:", gasUsed);
         assertTrue(gasUsed < 10_000);
     }
 
@@ -556,9 +556,8 @@ contract AllocatorStrategyFactoryTest is Test {
     function test_GetStrategyFeeByInstance_NonExistentStrategy() public {
         address nonExistentStrategy = makeAddr("nonExistentStrategy");
 
-        (address recipient, uint256 basisPoints) = factory.getStrategyFeeByInstance(nonExistentStrategy);
-        assertEq(recipient, address(0));
-        assertEq(basisPoints, 0);
+        vm.expectRevert(abi.encodeWithSelector(AllocatorStrategyFactory.StrategyNotFound.selector, nonExistentStrategy));
+        factory.getStrategyFeeByInstance(nonExistentStrategy);
     }
 
     /// @notice Test getStrategyFeeByInstance with strategy not deployed by factory
@@ -566,9 +565,8 @@ contract AllocatorStrategyFactoryTest is Test {
         // Deploy a strategy outside of factory
         AllocatorStrategyMock externalStrategy = new AllocatorStrategyMock();
 
-        (address recipient, uint256 basisPoints) = factory.getStrategyFeeByInstance(address(externalStrategy));
-        assertEq(recipient, address(0));
-        assertEq(basisPoints, 0);
+        vm.expectRevert(abi.encodeWithSelector(AllocatorStrategyFactory.StrategyNotFound.selector, address(externalStrategy)));
+        factory.getStrategyFeeByInstance(address(externalStrategy));
     }
 
     /// @notice Test fee configuration persistence across deployments
@@ -637,9 +635,9 @@ contract AllocatorStrategyFactoryTest is Test {
         factory.registerStrategyType(strategyId, address(mockImplementation), metadata, address(0), 0);
         assertTrue(factory.isTypeRegistered(strategyId));
 
-        FactoryBase.RegisteredType memory registeredType = factory.getRegisteredType(strategyId);
-        assertEq(registeredType.implementation, address(mockImplementation));
-        assertEq(registeredType.metadata, metadata);
+        (address regImpl, string memory regMeta) = factory.registeredTypes(strategyId);
+        assertEq(regImpl, address(mockImplementation));
+        assertEq(regMeta, metadata);
     }
 
     /// @notice Fuzz test for hash computation
@@ -698,7 +696,7 @@ contract AllocatorStrategyFactoryTest is Test {
 /// @notice Malicious implementation that supports interface but fails during initialization
 contract MaliciousImplementation is IAllocatorStrategy {
     function initialize(
-        bytes32, // strategyTypeId
+        bytes32, // strategyId
         address, // dao
         address, // deployer
         bytes calldata // auxData
@@ -709,7 +707,7 @@ contract MaliciousImplementation is IAllocatorStrategy {
         revert("Malicious implementation");
     }
 
-    function strategyTypeId() external view returns (bytes32) {
+    function strategyId() external view returns (bytes32) {
         return bytes32(0);
     }
 
