@@ -67,7 +67,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Helper function to create a basic campaign with default parameters
     function createBasicCampaign() internal returns (uint256) {
         return capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -95,7 +95,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         returns (uint256)
     {
         return capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(multipleClaimsAllowed, startTime, endTime)
@@ -113,7 +113,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         returns (uint256)
     {
         return capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(strategyId, "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), encoderId, encoderInitData),
             CapitalDistributorPlugin.CampaignSettings(multipleClaimsAllowed, 0, 0)
@@ -134,7 +134,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     function test_CreateCampaign() public {
         vm.startPrank(address(createdDao));
 
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -206,7 +206,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         uint256 startTime = block.timestamp + 1000;
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, startTime, 0)
@@ -227,7 +227,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         uint256 endTime = block.timestamp + 2000;
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, endTime)
@@ -247,7 +247,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -262,9 +262,24 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.ZeroAddress.selector, "_token"));
         capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(address(0)), bytes32(0), ""), // Zero token address
+            CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
+        );
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test that campaign creation fails with empty metadata URI
+    function test_CreateCampaignFailsWithEmptyMetadata() public {
+        vm.startPrank(address(createdDao));
+
+        vm.expectRevert(CapitalDistributorPlugin.EmptyMetadataURI.selector);
+        capitalDistributorPlugin.createCampaign(
+            "", // Empty metadata
+            CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
@@ -280,7 +295,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         vm.expectRevert(CapitalDistributorPlugin.InvalidTimeBounds.selector);
         capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, startTime, endTime)
@@ -295,7 +310,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("non-existent-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -333,7 +348,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         uint256 futureStartTime = block.timestamp + 86_400; // 1 day in the future
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, futureStartTime, 0)
@@ -352,7 +367,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         uint256 pastEndTime = block.timestamp - 86_400; // 1 day in the past
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, pastEndTime)
@@ -371,14 +386,14 @@ contract CapitalDistributorPluginTest is AragonTest {
         uint256 initialNumCampaigns = capitalDistributorPlugin.numCampaigns();
 
         uint256 campaignId1 = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         uint256 campaignId2 = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -397,7 +412,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         uint256 initialNumCampaigns = capitalDistributorPlugin.numCampaigns();
 
         capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -406,7 +421,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         assertEq(capitalDistributorPlugin.numCampaigns(), initialNumCampaigns + 1, "numCampaigns should increment");
 
         capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -424,7 +439,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -499,7 +514,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         for (uint256 i = 0; i < 3; i++) {
             campaignIds[i] = capitalDistributorPlugin.createCampaign(
-                "",
+            "ipfs://mock-campaign-metadata",
                 CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
                 CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
                 CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -518,7 +533,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(
                 IERC20(token),
@@ -539,7 +554,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(
                 IERC20(token), toBytes32("vault-deposit-encoder"), abi.encode(address(vaultToSendTokens))
@@ -553,38 +568,19 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.stopPrank();
     }
 
-    /// @notice Test CampaignCreated event emission with empty metadata
+    /// @notice Test that empty metadata is rejected
     function test_CampaignCreatedEventWithEmptyMetadata() public {
         vm.startPrank(address(createdDao));
 
         bytes memory emptyMetadata = "";
 
-        vm.recordLogs();
-
-        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+        vm.expectRevert(CapitalDistributorPlugin.EmptyMetadataURI.selector);
+        capitalDistributorPlugin.createCampaign(
             emptyMetadata,
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
-
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-
-        // Find the CampaignCreated event (should be the last one)
-        bool eventFound = false;
-        for (uint256 i = 0; i < logs.length; i++) {
-            if (
-                logs[i].topics[0]
-                    == keccak256("CampaignCreated(uint256,bytes,address,address,address,bool,uint256,uint256)")
-            ) {
-                eventFound = true;
-                // Verify the campaign ID matches
-                assertEq(uint256(logs[i].topics[1]), campaignId, "Campaign ID in event should match");
-                break;
-            }
-        }
-
-        assertTrue(eventFound, "CampaignCreated event should be emitted");
 
         vm.stopPrank();
     }
@@ -634,7 +630,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), toBytes32("non-existent-encoder"), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -651,7 +647,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         uint256 endTime = block.timestamp + 2000;
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, startTime, endTime)
@@ -674,7 +670,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         vm.expectRevert(CapitalDistributorPlugin.InvalidTimeBounds.selector);
         capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, sameTime, sameTime)
@@ -690,7 +686,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         bytes memory strategyParams = "strategy-deployment-params";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), strategyParams, ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -709,7 +705,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         bytes memory auxData = "allocation-strategy-aux-data";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", auxData),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -728,7 +724,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         bytes memory encoderAuxData = abi.encode(address(vaultToSendTokens));
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), toBytes32("vault-deposit-encoder"), encoderAuxData),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -748,7 +744,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         uint256 maxEndTime = type(uint256).max;
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, maxStartTime, maxEndTime)
@@ -769,7 +765,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         uint256 gasBefore = gasleft();
 
         capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -791,14 +787,14 @@ contract CapitalDistributorPluginTest is AragonTest {
         MintableERC20 token2 = new MintableERC20();
 
         uint256 campaignId1 = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
         );
 
         uint256 campaignId2 = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token2), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -1437,7 +1433,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(
                 IERC20(token), toBytes32("vault-deposit-encoder"), abi.encode(address(vaultToSendTokens))
@@ -2260,7 +2256,7 @@ contract CapitalDistributorPluginTest is AragonTest {
             abi.encodeWithSelector(CapitalDistributorPlugin.FactoryDeploymentFailed.selector, "AllocatorStrategy")
         );
         capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("zero-address-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -2290,7 +2286,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         // Try to create campaign - should bubble up the revert
         vm.expectRevert("Deployment failed");
         capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("reverting-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -2315,7 +2311,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         // The factory will catch the setup failure and wrap it in DeploymentFailed
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("failing-strategy"), "", "trigger-failure"),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -2348,7 +2344,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         // Expect revert when trying to create campaign with zero encoder
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), toBytes32("zero-encoder"), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -2371,7 +2367,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         // The factory will catch the setup failure and wrap it in DeploymentFailed
         vm.expectRevert();
         capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), toBytes32("failing-encoder"), "trigger-failure"),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -2618,7 +2614,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.InvalidToken.selector, address(badToken)));
 
         capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(
                 IERC20(address(badToken)),
@@ -2640,7 +2636,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         // Should NOT revert when using custom encoder
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(
                 IERC20(address(badToken)),
@@ -2667,7 +2663,7 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         // Normal token should pass validation
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(
                 IERC20(address(token)), // Normal ERC20
@@ -2699,7 +2695,7 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.InvalidToken.selector, address(testToken)));
 
         capitalDistributorPlugin.createCampaign(
-            "",
+            "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(
                 IERC20(address(testToken)),

@@ -145,7 +145,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_CreateCampaign() public {
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -165,7 +165,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_CannotCreateCampaignWithoutPermissions() public {
         vm.startPrank(address(alice));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         vm.expectRevert();
@@ -182,7 +182,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     function test_PayoutIsSent() public {
         token.mint(address(createdDao), 10 ether);
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -212,7 +212,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     function test_MultipleRecipientsClaim() public {
         token.mint(address(createdDao), 10 ether);
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -245,7 +245,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     function test_InvalidProofReverts() public {
         token.mint(address(createdDao), 10 ether);
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -270,7 +270,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
     function test_CannotClaimTwice() public {
         token.mint(address(createdDao), 10 ether);
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -299,7 +299,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
     function test_GetCampaignPayout() public {
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -336,7 +336,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         assertNotEq(scriptRoot, bytes32(0), "Script should generate non-zero merkle root");
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -357,7 +357,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 scriptRoot = getScriptGeneratedMerkleRoot();
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -404,7 +404,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 scriptRoot = getScriptGeneratedMerkleRoot();
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -441,7 +441,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         token.mint(address(createdDao), 1000 ether);
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -498,7 +498,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 initialRoot = merkleRoot;
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -546,7 +546,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 initialRoot = merkleRoot;
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -585,7 +585,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 initialRoot = merkleRoot;
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -625,7 +625,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 initialRoot = merkleRoot;
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -701,7 +701,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 validRoot = merkleRoot;
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -734,7 +734,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 initialRoot = merkleRoot;
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -770,7 +770,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 firstRoot = merkleRoot;
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -804,7 +804,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 initialRoot = merkleRoot;
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -839,7 +839,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 initialRoot = merkleRoot;
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -877,7 +877,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 initialRoot = merkleRoot;
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -917,7 +917,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 initialRoot = merkleRoot;
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -949,7 +949,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 testRoot = merkleRoot;
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         // Test event emission during campaign creation
@@ -973,7 +973,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes32 initialRoot = merkleRoot;
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -1053,7 +1053,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         token.mint(address(createdDao), 10 ether);
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
@@ -1094,7 +1094,7 @@ contract MerkleDistributorStrategyTest is AragonTest {
         token.mint(address(createdDao), 10 ether);
 
         vm.startPrank(address(createdDao));
-        bytes memory metadata = "";
+        bytes memory metadata = "ipfs://mock-campaign-metadata";
         bytes memory allocatorDeploymentParams = "";
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(

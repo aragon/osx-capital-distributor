@@ -94,7 +94,7 @@ contract ExecuteConditionIntegrationTest is Test {
         // Create a campaign
         vm.startPrank(address(dao));
         uint256 campaignId = plugin.createCampaign(
-            "",
+            "ipfs://test-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(bytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(token, bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
@@ -117,7 +117,7 @@ contract ExecuteConditionIntegrationTest is Test {
         // Create a campaign
         vm.startPrank(address(dao));
         uint256 campaignId = plugin.createCampaign(
-            "",
+            "ipfs://test-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(bytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(token, bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(false, 0, 0)
