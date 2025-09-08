@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.29;
 
-import {Action} from "@aragon/commons/executors/IExecutor.sol";
-import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {DaoAuthorizableUpgradeable} from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
-import {PayoutActionEncoderBase} from "./PayoutActionEncoderBase.sol";
+import { Action } from "@aragon/commons/executors/IExecutor.sol";
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import { PayoutActionEncoderBase } from "./PayoutActionEncoderBase.sol";
 
 /// @title IVault
 /// @notice A generic interface for a vault that this encoder can interact with.
@@ -15,13 +13,11 @@ interface IVault {
 }
 
 /// @title VaultDepositPayoutActionEncoder
-/// @notice An IPayoutActionEncoder that approves tokens for a campaign-specific vault and then calls its deposit function.
+/// @notice An IPayoutActionEncoder that approves tokens for a campaign-specific vault and then calls its deposit
+/// function.
 /// @dev This contract is DaoAuthorizable. The DAO controlling this encoder instance
 ///      must grant permission for `setCampaignVault`.
 contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
-    /// @notice Permission ID required to call `setCampaignVault`.
-    bytes32 public constant SET_VAULT_PERMISSION_ID = keccak256("SET_VAULT_PERMISSION");
-
     /// @notice Mapping from campaignId to the vault address for that campaign.
     mapping(uint256 => address) public campaignVaults;
 
@@ -34,15 +30,15 @@ contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
     error VaultNotSetForCampaign(uint256 campaignId);
     /// @notice Thrown if the vault address to be set is the zero address.
     error ZeroAddressNotAllowed();
-    /// @notice Thrown if the call is done by any address but the DAO
-    error OnlyDAO();
-
+    /// @notice Thrown if the call is done by any address but the Owner
+    error OnlyOwner(address caller);
 
     // @inheritdoc PayoutActionEncoderBase
     function setupCampaign(uint256 _campaignId, bytes calldata _auxData) external override {
-        // TODO: Add the permission so only the plugin can call this
-
-        address vaultAddress = abi.decode(_auxData, (address));
+        if (msg.sender != owner()) {
+            revert OnlyOwner(msg.sender);
+        }
+        address vaultAddress = decodeSetupCampaignParams(_auxData);
         if (vaultAddress == address(0)) {
             revert ZeroAddressNotAllowed();
         }
@@ -51,7 +47,7 @@ contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
     }
 
     /**
-     // @inheritdoc PayoutActionEncoderBase
+     * // @inheritdoc PayoutActionEncoderBase
      * @dev This implementation creates two actions:
      *      1. Approve the campaign-specific `vaultAddress` to spend `_amount` of `_token`.
      *      2. Call `deposit(_recipient, _amount)` on that `vaultAddress`.
@@ -62,10 +58,15 @@ contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
         IERC20 _token,
         address _recipient,
         uint256 _amount,
-        address, // _caller - not used in this specific encoder logic
+        address,
         uint256 _campaignId,
         bytes memory
-    ) external view override returns (Action[] memory actions) {
+    )
+        external
+        view
+        override
+        returns (Action[] memory actions)
+    {
         if (_amount == 0) {
             revert AmountCannotBeZero();
         }
@@ -78,15 +79,38 @@ contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
         actions = new Action[](2);
 
         // Action 1: Approve the vault to spend the token
-        actions[0] = Action({
-            to: address(_token),
-            value: 0,
-            data: abi.encodeCall(IERC20.approve, (vaultAddress, _amount))
-        });
+        actions[0] =
+            Action({ to: address(_token), value: 0, data: abi.encodeCall(IERC20.approve, (vaultAddress, _amount)) });
 
         // Action 2: Call deposit on the vault
-        actions[1] = Action({to: vaultAddress, value: 0, data: abi.encodeCall(IVault.deposit, (_amount, _recipient))});
+        actions[1] = Action({ to: vaultAddress, value: 0, data: abi.encodeCall(IVault.deposit, (_amount, _recipient)) });
 
         return actions;
+    }
+
+    /// @notice Encodes the vault address parameter for setupCampaign
+    /// @param _vaultAddress The vault address to encode
+    /// @return The encoded parameters
+    function encodeSetupCampaignParams(address _vaultAddress) external pure returns (bytes memory) {
+        return abi.encode(_vaultAddress);
+    }
+
+    /// @notice Decodes the vault address parameter from setupCampaign
+    /// @param _data The encoded parameters
+    /// @return vaultAddress The decoded vault address
+    function decodeSetupCampaignParams(bytes memory _data) public pure returns (address vaultAddress) {
+        return abi.decode(_data, (address));
+    }
+
+    /// @inheritdoc PayoutActionEncoderBase
+    /// @return types The encoding type for vaultAddress parameter
+    function getCreationEncodingTypes() external pure override returns (string memory types) {
+        return "address";
+    }
+
+    /// @inheritdoc PayoutActionEncoderBase
+    /// @return types Empty string as this encoder doesn't use encoderAuxData in buildActions
+    function getClaimEncodingTypes() external pure override returns (string memory types) {
+        return "";
     }
 }

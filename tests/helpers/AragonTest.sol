@@ -1,24 +1,22 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.29 <0.9.0;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {Vm} from "forge-std/Vm.sol";
+import { Test } from "forge-std/Test.sol";
+import { Vm } from "forge-std/Vm.sol";
 
-import {ProtocolFactoryBuilder} from "@aragon/protocol-factory/test/helpers/ProtocolFactoryBuilder.sol";
-import {ProtocolFactory} from "@aragon/protocol-factory/src/ProtocolFactory.sol";
-import {PluginRepo} from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
-import {PluginRepoFactory} from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
-import {DAOFactory} from "@aragon/osx/framework/dao/DAOFactory.sol";
-import {hashHelpers, PluginSetupRef} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
+import { ProtocolFactoryBuilder } from "@aragon/protocol-factory/test/helpers/ProtocolFactoryBuilder.sol";
+import { ProtocolFactory } from "@aragon/protocol-factory/src/ProtocolFactory.sol";
+import { PluginRepo } from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
+import { PluginRepoFactory } from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
+import { DAOFactory } from "@aragon/osx/framework/dao/DAOFactory.sol";
+import { PluginSetupRef } from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
 
-import {DAO} from "@aragon/osx/core/dao/DAO.sol";
+import { DAO } from "@aragon/osx/core/dao/DAO.sol";
 
-import {CapitalDistributorPlugin} from "../../src/CapitalDistributorPlugin.sol";
-import {CapitalDistributorPluginSetup} from "../../src/CapitalDistributorPluginSetup.sol";
-import {AllocatorStrategyFactory} from "../../src/AllocatorStrategyFactory.sol";
-import {ActionEncoderFactory} from "../../src/ActionEncoderFactory.sol";
-import {VaultDepositPayoutActionEncoder} from "../../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
+import { CapitalDistributorPluginSetup } from "../../src/CapitalDistributorPluginSetup.sol";
+import { AllocatorStrategyFactory } from "../../src/factories/AllocatorStrategyFactory.sol";
+import { ActionEncoderFactory } from "../../src/factories/ActionEncoderFactory.sol";
+import { VaultDepositPayoutActionEncoder } from "../../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
 
 contract AragonTest is Test {
     // Actors
@@ -31,18 +29,17 @@ contract AragonTest is Test {
     address immutable bob = BOB_ADDRESS;
     address immutable carol = CAROL_ADDRESS;
     address immutable david = DAVID_ADDRESS;
-    address immutable randomWallet = vm.addr(1234567890);
-
-    address immutable DAO_BASE = address(new DAO());
+    address immutable randomWallet = vm.addr(1_234_567_890);
 
     bytes internal constant EMPTY_BYTES = "";
-    ProtocolFactory.Deployment public deployment;
+
     AllocatorStrategyFactory public allocatorStrategyFactory;
     ActionEncoderFactory public actionEncoderFactory;
 
+    address[] public conditions;
     address[] pluginAddress;
 
-    DAO createdDAO;
+    DAO createdDao;
 
     constructor() {
         vm.label(alice, "Alice");
@@ -55,13 +52,14 @@ contract AragonTest is Test {
         factory.deployOnce();
 
         // Get the deployed addresses
+        ProtocolFactory.Deployment memory deployment;
         deployment = factory.getDeployment();
 
         // 1. Deploying the Plugin Setup
         CapitalDistributorPluginSetup pluginSetup = deployPluginSetup();
 
         // 2. Publishing it in the Aragon OSx Protocol
-        PluginRepo pluginRepo = deployPluginRepo(address(pluginSetup));
+        PluginRepo pluginRepo = deployPluginRepo(address(pluginSetup), deployment.pluginRepoFactory);
 
         // 3. Defining the DAO Settings
         DAOFactory.DAOSettings memory daoSettings = getDAOSettings();
@@ -74,24 +72,18 @@ contract AragonTest is Test {
         DAOFactory.PluginSettings[] memory pluginSettings = getPluginSettings(pluginRepo);
 
         // 6. Deploying the DAO
-        vm.recordLogs();
-        (createdDAO, ) = DAOFactory(deployment.daoFactory).createDao(daoSettings, pluginSettings);
+        DAOFactory.InstalledPlugin[] memory installedPlugins;
+        (createdDao, installedPlugins) = DAOFactory(deployment.daoFactory).createDao(daoSettings, pluginSettings);
 
-        // 7. Getting the Plugin Address
-        Vm.Log[] memory logEntries = vm.getRecordedLogs();
-
-        for (uint256 i = 0; i < logEntries.length; i++) {
-            if (logEntries[i].topics[0] == keccak256("InstallationApplied(address,address,bytes32,bytes32)")) {
-                pluginAddress.push(address(uint160(uint256(logEntries[i].topics[2]))));
-            }
+        for (uint256 i = 0; i < installedPlugins.length; i++) {
+            pluginAddress.push(installedPlugins[i].plugin);
+            conditions.push(installedPlugins[i].preparedSetupData.helpers[0]);
         }
 
         // 8. Deploying the action encoders and adding them
         VaultDepositPayoutActionEncoder vaultDepositPayoutActionEncoder = new VaultDepositPayoutActionEncoder();
         actionEncoderFactory.registerActionEncoder(
-            toBytes32("vault-deposit-encoder"),
-            address(vaultDepositPayoutActionEncoder),
-            ""
+            toBytes32("vault-deposit-encoder"), address(vaultDepositPayoutActionEncoder), ""
         );
     }
 
@@ -100,13 +92,9 @@ contract AragonTest is Test {
         return pluginSetup;
     }
 
-    function deployPluginRepo(address pluginSetup) public returns (PluginRepo pluginRepo) {
-        pluginRepo = PluginRepoFactory(deployment.pluginRepoFactory).createPluginRepoWithFirstVersion(
-            "capital-distributor",
-            pluginSetup,
-            msg.sender,
-            "0x00",
-            "0x00"
+    function deployPluginRepo(address pluginSetup, address pluginRepoFactory) public returns (PluginRepo pluginRepo) {
+        pluginRepo = PluginRepoFactory(pluginRepoFactory).createPluginRepoWithFirstVersion(
+            "capital-distributor", pluginSetup, msg.sender, "0x00", "0x00"
         );
     }
 
@@ -114,9 +102,11 @@ contract AragonTest is Test {
         return DAOFactory.DAOSettings(address(0), "", "capital-distributor", "");
     }
 
-    function getPluginSettings(
-        PluginRepo pluginRepo
-    ) public view returns (DAOFactory.PluginSettings[] memory pluginSettings) {
+    function getPluginSettings(PluginRepo pluginRepo)
+        public
+        view
+        returns (DAOFactory.PluginSettings[] memory pluginSettings)
+    {
         bytes memory pluginSettingsData = abi.encode(address(allocatorStrategyFactory), address(actionEncoderFactory));
         PluginRepo.Tag memory tag = PluginRepo.Tag(1, 1);
         pluginSettings = new DAOFactory.PluginSettings[](1);

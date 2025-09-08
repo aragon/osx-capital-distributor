@@ -1,23 +1,20 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.29 <0.9.0;
 
-import {Test} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
-import {console2} from "forge-std/console2.sol";
+import { Test } from "forge-std/Test.sol";
 
-import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
-import {DAO} from "@aragon/osx/core/dao/DAO.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {PluginRepoFactory} from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
-import {PluginRepo} from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
-import {DAOFactory} from "@aragon/osx/framework/dao/DAOFactory.sol";
-import {PluginSetupRef} from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
+import { DAO } from "@aragon/osx/core/dao/DAO.sol";
+import { PluginRepoFactory } from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
+import { PluginRepo } from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
+import { DAOFactory } from "@aragon/osx/framework/dao/DAOFactory.sol";
+import { PluginSetupRef } from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
 
-import {CapitalDistributorPlugin} from "../../src/CapitalDistributorPlugin.sol";
-import {CapitalDistributorPluginSetup} from "../../src/CapitalDistributorPluginSetup.sol";
-import {AllocatorStrategyFactory} from "../../src/AllocatorStrategyFactory.sol";
-import {ActionEncoderFactory} from "../../src/ActionEncoderFactory.sol";
+import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
+import { CapitalDistributorPluginSetup } from "../../src/CapitalDistributorPluginSetup.sol";
+import { AllocatorStrategyFactory } from "../../src/factories/AllocatorStrategyFactory.sol";
+import { ActionEncoderFactory } from "../../src/factories/ActionEncoderFactory.sol";
 
 /// @title AragonE2EBase
 /// @notice Base contract for end-to-end tests of the Capital Distributor Plugin
@@ -139,11 +136,7 @@ abstract contract AragonE2EBase is Test {
 
         // Create plugin repository
         PluginRepo pluginRepo = pluginRepoFactory.createPluginRepoWithFirstVersion(
-            getPluginRepoName(),
-            address(pluginSetup),
-            msg.sender,
-            "0x00",
-            "0x00"
+            getPluginRepoName(), address(pluginSetup), msg.sender, "0x00", "0x00"
         );
 
         // Configure DAO settings
@@ -156,12 +149,10 @@ abstract contract AragonE2EBase is Test {
         pluginSettings[0] = DAOFactory.PluginSettings(PluginSetupRef(tag, pluginRepo), pluginSettingsData);
 
         // Deploy DAO
-        (DAO createdDAO, DAOFactory.InstalledPlugin[] memory pluginAddresses) = daoFactory.createDao(
-            daoSettings,
-            pluginSettings
-        );
+        (DAO createdDao, DAOFactory.InstalledPlugin[] memory pluginAddresses) =
+            daoFactory.createDao(daoSettings, pluginSettings);
 
-        dao = createdDAO;
+        dao = createdDao;
         capitalDistributorPlugin = CapitalDistributorPlugin(pluginAddresses[0].plugin);
 
         vm.stopPrank();
@@ -254,7 +245,10 @@ abstract contract AragonE2EBase is Test {
         address account,
         uint256 expectedBalance,
         string memory message
-    ) internal view {
+    )
+        internal
+        view
+    {
         assertEq(IERC20(token).balanceOf(account), expectedBalance, message);
     }
 
@@ -265,34 +259,31 @@ abstract contract AragonE2EBase is Test {
     /// @notice Get mainnet chain configuration
     /// @return config The mainnet configuration
     function getMainnetConfig() internal pure returns (ChainConfig memory config) {
-        return
-            ChainConfig({
-                rpcUrl: "MAINNET_RPC_URL",
-                pluginRepoFactory: 0xcf59C627b7a4052041C4F16B4c635a960e29554A,
-                daoFactory: 0x246503df057A9a85E0144b6867a828c99676128B
-            });
+        return ChainConfig({
+            rpcUrl: "MAINNET_RPC_URL",
+            pluginRepoFactory: 0xcf59C627b7a4052041C4F16B4c635a960e29554A,
+            daoFactory: 0x246503df057A9a85E0144b6867a828c99676128B
+        });
     }
 
     /// @notice Get Polygon chain configuration
     /// @return config The Polygon configuration
     function getPolygonConfig() internal pure returns (ChainConfig memory config) {
-        return
-            ChainConfig({
-                rpcUrl: "POLYGON_RPC_URL",
-                pluginRepoFactory: address(0), // Replace with actual Polygon address
-                daoFactory: address(0) // Replace with actual Polygon address
-            });
+        return ChainConfig({
+            rpcUrl: "POLYGON_RPC_URL",
+            pluginRepoFactory: address(0), // Replace with actual Polygon address
+            daoFactory: address(0) // Replace with actual Polygon address
+         });
     }
 
     /// @notice Get Arbitrum chain configuration
     /// @return config The Arbitrum configuration
     function getArbitrumConfig() internal pure returns (ChainConfig memory config) {
-        return
-            ChainConfig({
-                rpcUrl: "ARBITRUM_RPC_URL",
-                pluginRepoFactory: address(0), // Replace with actual Arbitrum address
-                daoFactory: address(0) // Replace with actual Arbitrum address
-            });
+        return ChainConfig({
+            rpcUrl: "ARBITRUM_RPC_URL",
+            pluginRepoFactory: address(0), // Replace with actual Arbitrum address
+            daoFactory: address(0) // Replace with actual Arbitrum address
+         });
     }
 
     // =============================================================================
@@ -307,7 +298,11 @@ abstract contract AragonE2EBase is Test {
     function createSimpleMerkleTree(
         address[] memory recipients,
         uint256[] memory amounts
-    ) internal pure returns (bytes32 merkleRoot, bytes32[] memory leaves) {
+    )
+        internal
+        pure
+        returns (bytes32 merkleRoot, bytes32[] memory leaves)
+    {
         require(recipients.length == amounts.length, "Recipients and amounts length mismatch");
         require(recipients.length > 0, "No recipients provided");
 
@@ -325,9 +320,9 @@ abstract contract AragonE2EBase is Test {
         } else if (recipients.length == 2) {
             merkleRoot = _hashPair(leaves[0], leaves[1]);
         } else if (recipients.length <= 4) {
-            bytes32 level1_0 = recipients.length > 1 ? _hashPair(leaves[0], leaves[1]) : leaves[0];
-            bytes32 level1_1 = recipients.length > 3 ? _hashPair(leaves[2], leaves[3]) : leaves[2];
-            merkleRoot = _hashPair(level1_0, level1_1);
+            bytes32 level1Node0 = recipients.length > 1 ? _hashPair(leaves[0], leaves[1]) : leaves[0];
+            bytes32 level1Node1 = recipients.length > 3 ? _hashPair(leaves[2], leaves[3]) : leaves[2];
+            merkleRoot = _hashPair(level1Node0, level1Node1);
         } else {
             revert("SimpleMerkleTree only supports up to 4 recipients");
         }
@@ -340,7 +335,11 @@ abstract contract AragonE2EBase is Test {
     function getSimpleMerkleProof(
         bytes32[] memory leaves,
         uint256 index
-    ) internal pure returns (bytes32[] memory proof) {
+    )
+        internal
+        pure
+        returns (bytes32[] memory proof)
+    {
         require(leaves.length <= 4, "SimpleMerkleProof only supports up to 4 recipients");
         require(index < leaves.length, "Index out of bounds");
 

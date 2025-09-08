@@ -6,23 +6,24 @@
     "name": "aragon",
     "url": "https://github.com/aragon"
   },
+  "license": "AGPL-3.0-or-later",
   "dependencies": {
     "@aragon/admin-plugin": "aragon/admin-plugin",
     "@aragon/multisig-plugin": "aragon/multisig-plugin",
     "@aragon/osx": "aragon/osx",
     "@aragon/osx-commons-repo": "aragon/osx-commons",
-    "@aragon/osx-plugin-template": "aragon/token-voting-plugin",
-    "@ensdomains/ens-contracts": "0.0.22",
+    "@aragon/token-voting-plugin": "aragon/token-voting-plugin",
+    "@ensdomains/ens-contracts": "ensdomains/ens-contracts#2736f15fb36345f0691deb77cba4d77760b15077",
     "@openzeppelin/contracts": "4.9.6",
     "@openzeppelin/contracts-upgradeable": "4.9.6",
     "@prb/math": "^4.1.0",
+    "conditions": "aragon/conditions",
     "protocol-factory": "aragon/protocol-factory",
     "staged-proposal-processor-plugin": "aragon/staged-proposal-processor-plugin"
   },
   "devDependencies": {
     "forge-std": "github:foundry-rs/forge-std#v1.8.1",
-    "prettier": "^3.0.0",
-    "solhint": "^3.6.2"
+    "prettier": "^3.0.0"
   },
   "keywords": [
     "blockchain",
@@ -38,7 +39,7 @@
     "clean": "rm -rf cache out",
     "build": "forge build",
     "lint": "bun run lint:sol && bun run prettier:check",
-    "lint:sol": "forge fmt --check && bun solhint \"{script,src,tests}/**/*.sol\"",
+    "lint:sol": "forge fmt --check",
     "prettier:check": "prettier --check \"**/*.{json,md,yml}\"",
     "prettier:write": "prettier --write \"**/*.{json,md,yml}\"",
     "test": "forge test",

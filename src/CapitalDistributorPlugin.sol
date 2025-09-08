@@ -2,31 +2,47 @@
 
 pragma solidity ^0.8.29;
 
-import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import { ERC165Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { SafeCastUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
-import {Action, IExecutor} from "@aragon/commons/executors/IExecutor.sol";
-import {IDAO} from "@aragon/commons/dao/IDAO.sol";
-import {DAO} from "@aragon/osx/core/dao/DAO.sol";
-import {PluginUUPSUpgradeable} from "@aragon/commons/plugin/PluginUUPSUpgradeable.sol";
+import { Action, IExecutor } from "@aragon/commons/executors/IExecutor.sol";
+import { IDAO } from "@aragon/commons/dao/IDAO.sol";
+import { PluginUUPSUpgradeable } from "@aragon/commons/plugin/PluginUUPSUpgradeable.sol";
+import { MetadataExtensionUpgradeable } from "@aragon/commons/utils/metadata/MetadataExtensionUpgradeable.sol";
 
-import {IAllocatorStrategy} from "./interfaces/IAllocatorStrategy.sol";
-import {IPayoutActionEncoder} from "./interfaces/IPayoutActionEncoder.sol";
-import {AllocatorStrategyFactory} from "./AllocatorStrategyFactory.sol";
-import {ActionEncoderFactory} from "./ActionEncoderFactory.sol";
+import { IAllocatorStrategy } from "./interfaces/IAllocatorStrategy.sol";
+import { IPayoutActionEncoder } from "./interfaces/IPayoutActionEncoder.sol";
+import { AllocatorStrategyFactory } from "./factories/AllocatorStrategyFactory.sol";
+import { ActionEncoderFactory } from "./factories/ActionEncoderFactory.sol";
+import { RatioUtils } from "./utils/RatioUtils.sol";
 
 /// @title CapitalDistributorPlugin
 /// @author AragonX - 2025
 /// @notice A plugin for Aragon DAOs that enables the creation and management of token distribution campaigns.
 /// @dev This plugin allows DAOs to create campaigns with configurable allocation strategies and payout mechanisms.
 /// Recipients can claim their allocated tokens based on the campaign's strategy rules and configuration.
-contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUPSUpgradeable {
+contract CapitalDistributorPlugin is
+    Initializable,
+    ERC165Upgradeable,
+    PluginUUPSUpgradeable,
+    MetadataExtensionUpgradeable
+{
     using SafeCastUpgradeable for uint256;
 
     /// @notice The ID of the permission required to create a campaign.
-    bytes32 public constant CAMPAIGN_CREATOR_PERMISSION_ID = keccak256("CAMPAIGN_CREATOR_PERMISSION");
+    bytes32 public constant CAMPAIGN_MANAGER_PERMISSION_ID = keccak256("CAMPAIGN_MANAGER_PERMISSION");
+
+    /// @notice Represents the different states a campaign can be in
+    /// @dev ACTIVE: Normal operation, claims allowed
+    /// @dev PAUSED: Temporarily paused (for updates), can be resumed
+    /// @dev ENDED: Permanently ended, cannot be resumed
+    enum CampaignState {
+        ACTIVE,
+        PAUSED,
+        ENDED
+    }
 
     /// @notice The AllocatorStrategyFactory instance used to deploy strategies.
     AllocatorStrategyFactory public allocatorStrategyFactory;
@@ -44,20 +60,18 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
      * @param allocationStrategy The contract address responsible for determining allocation logic.
      * @param token The address of the token that will be used for the payouts
      * @param actionEncoder The logic to execute when claiming the payout
-     * @param multipleClaimsAllowed Whether recipients can claim multiple times for this campaign
-     * @param active Whether the campaign is active and accepting claims
+     * @param state The current state of the campaign (ACTIVE, PAUSED, or ENDED)
      * @param startTime The timestamp when the campaign becomes active (0 means no start time restriction)
      * @param endTime The timestamp when the campaign ends (0 means no end time restriction)
      */
     struct Campaign {
-        bytes metadataURI;
+        bytes metadataUri;
         IAllocatorStrategy allocationStrategy;
         IERC20 token;
         IPayoutActionEncoder actionEncoder;
-        bool multipleClaimsAllowed;
-        bool active;
-        uint256 startTime; // 0 means no start time restriction
-        uint256 endTime; // 0 means no end time restriction
+        CampaignState state;
+        uint64 startTime;
+        uint64 endTime;
     }
 
     /**
@@ -68,48 +82,88 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     /**
      * @notice Stores all campaign configurations, mapping a campaign ID to its Campaign struct.
      * The public visibility automatically creates a getter function:
-     * `function campaigns(uint256 _campaignId) external view returns (bytes memory metadataURI, address allocationStrategy, address token, address actionEncoder, bool multipleClaimsAllowed, bool active)`
+     * `function campaigns(uint256 _campaignId) external view returns (bytes memory metadataURI, address
+     * allocationStrategy, address token, address actionEncoder, CampaignState state)`
      */
     mapping(uint256 campaignId => Campaign) public campaigns;
 
     /**
-     * @notice Stores all campaign recipient payout encoders, mapping a campaign ID to its recipient payout encoders.
-     * The public visibility automatically creates a getter function:
-     * `function campaignRecipientPayoutEncoder(uint256 _campaignId, address _recipient) external view returns (IPayoutActionEncoder)`
+     * @notice Strategy configuration for a campaign
+     * @param strategyId The strategy type ID to deploy or use
+     * @param strategyParams Deployment parameters for the strategy
+     * @param initData Additional data needed to initialize the allocation strategy
      */
-    mapping(uint256 campaignId => mapping(address recipient => IPayoutActionEncoder actionEncoder))
-        public campaignRecipientPayoutEncoder;
+    struct StrategyConfig {
+        bytes32 strategyId;
+        bytes strategyParams;
+        bytes initData;
+    }
+
+    /**
+     * @notice Payout configuration for a campaign
+     * @param token The token address that will be used for payouts
+     * @param actionEncoderId The action encoder type ID to deploy (use bytes32(0) for simple transfers)
+     * @param actionEncoderInitData Additional data needed to initialize the action encoder
+     */
+    struct PayoutConfig {
+        IERC20 token;
+        bytes32 actionEncoderId;
+        bytes actionEncoderInitData;
+    }
+
+    /**
+     * @notice Campaign settings for time bounds and claim behavior
+     * @param startTime The timestamp when the campaign becomes active (0 means no start time restriction)
+     * @param endTime The timestamp when the campaign ends (0 means no end time restriction)
+     */
+    struct CampaignSettings {
+        uint64 startTime;
+        uint64 endTime;
+    }
 
     /**
      * @notice Emitted when a campaign's details are created.
      * @param campaignId The unique identifier of the campaign that was created.
-     * @param metadataURI The metadata URI for the campaign.
+     * @param metadataUri The metadata URI for the campaign.
      * @param allocationStrategy The allocation strategy address for the campaign.
      * @param token The token address for the campaign.
      * @param actionEncoder The default payout action encoder for the campaign.
-     * @param multipleClaimsAllowed Whether multiple claims are allowed for this campaign.
+     * @param startTime The timestamp when the campaign becomes active (0 means no start time restriction)
+     * @param endTime The timestamp when the campaign ends (0 means no end time restriction)
      */
     event CampaignCreated(
         uint256 indexed campaignId,
-        bytes metadataURI,
+        bytes metadataUri,
         address indexed allocationStrategy,
         IERC20 token,
         IPayoutActionEncoder actionEncoder,
-        bool multipleClaimsAllowed,
-        uint256 startTime,
-        uint256 endTime
+        uint64 startTime,
+        uint64 endTime
     );
 
     /// @notice Emitted when a payout is successfully claimed.
     /// @param campaignId The ID of the campaign from which the payout was claimed.
     /// @param recipient The address that received the payout.
     /// @param amount The amount of tokens claimed.
-    /// @param totalClaimed The total amount claimed by this recipient for this campaign.
-    event PayoutClaimed(uint256 indexed campaignId, address indexed recipient, uint256 amount, uint256 totalClaimed);
+    event PayoutClaimed(uint256 indexed campaignId, address indexed recipient, uint256 amount);
 
-    /// @notice Emitted when a campaign is deactivated.
-    /// @param campaignId The ID of the campaign that was deactivated.
-    event CampaignDeactivated(uint256 indexed campaignId);
+    /// @notice Emitted when a fee is collected during a claim.
+    /// @param campaignId The ID of the campaign.
+    /// @param feeRecipient The address that received the fee.
+    /// @param feeAmount The amount of the fee.
+    event FeeCollected(uint256 indexed campaignId, address indexed feeRecipient, uint256 feeAmount);
+
+    /// @notice Emitted when a campaign is paused.
+    /// @param campaignId The ID of the campaign that was paused.
+    event CampaignPaused(uint256 indexed campaignId);
+
+    /// @notice Emitted when a campaign is resumed from pause.
+    /// @param campaignId The ID of the campaign that was resumed.
+    event CampaignResumed(uint256 indexed campaignId);
+
+    /// @notice Emitted when a campaign is permanently ended.
+    /// @param campaignId The ID of the campaign that was ended.
+    event CampaignEnded(uint256 indexed campaignId);
 
     /// @notice Thrown when a zero address is provided where a valid address is required.
     /// @param parameter The name of the parameter that was zero.
@@ -134,11 +188,6 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     /// @param maxClaimable The maximum amount claimable.
     error AlreadyClaimedMaxAmount(uint256 campaignId, address recipient, uint256 alreadyClaimed, uint256 maxClaimable);
 
-    /// @notice Thrown when multiple claims are not allowed but recipient has already claimed.
-    /// @param campaignId The ID of the campaign.
-    /// @param recipient The address that tried to claim again.
-    error MultipleClaimsNotAllowed(uint256 campaignId, address recipient);
-
     /// @notice Thrown when no claimable amount is available for the recipient.
     /// @param campaignId The ID of the campaign.
     /// @param recipient The address that tried to claim.
@@ -153,15 +202,36 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     /// @param functionName The function that failed.
     error ExternalCallFailed(address target, string functionName);
 
-    /// @notice Thrown when trying to operate on an inactive campaign.
-    /// @param campaignId The ID of the inactive campaign.
-    error CampaignInactive(uint256 campaignId);
+    /// @notice Thrown when trying to claim from a campaign that is not active.
+    /// @param campaignId The ID of the campaign.
+    /// @param currentState The current state of the campaign.
+    error CampaignNotActive(uint256 campaignId, CampaignState currentState);
+
+    /// @notice Thrown when trying to perform an invalid state transition.
+    /// @param campaignId The ID of the campaign.
+    /// @param currentState The current state of the campaign.
+    /// @param attemptedState The attempted new state.
+    error InvalidStateTransition(uint256 campaignId, CampaignState currentState, CampaignState attemptedState);
+
+    /// @notice Thrown when trying to claim from a campaign outside its time bounds.
+    /// @param campaignId The ID of the campaign.
+    /// @param currentTime The current block timestamp.
+    /// @param startTime The campaign start time (0 if no restriction).
+    /// @param endTime The campaign end time (0 if no restriction).
+    error CampaignOutsideTimeBounds(uint256 campaignId, uint256 currentTime, uint64 startTime, uint64 endTime);
 
     /// @notice Thrown when array parameters have mismatched lengths.
     error ArrayLengthMismatch();
 
     /// @notice Thrown when invalid time bounds are provided for a campaign.
     error InvalidTimeBounds();
+
+    /// @notice Thrown when an invalid parameter is provided.
+    /// @param parameter The name of the invalid parameter.
+    error InvalidParameter(string parameter);
+
+    /// @notice Thrown when the token doesn't revert under invalid transfers
+    error InvalidToken(address token);
 
     /// @notice Initializes the component to be used by inheriting contracts.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
@@ -172,7 +242,25 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         IDAO _dao,
         AllocatorStrategyFactory _allocatorStrategyFactory,
         ActionEncoderFactory _actionEncoderFactory
-    ) external initializer {
+    )
+        external
+        initializer
+    {
+        // Validate DAO address
+        if (address(_dao) == address(0)) {
+            revert ZeroAddress("_dao");
+        }
+
+        // Validate allocatorStrategyFactory
+        if (address(_allocatorStrategyFactory) == address(0) || address(_allocatorStrategyFactory).code.length == 0) {
+            revert InvalidParameter("_allocatorStrategyFactory");
+        }
+
+        // Validate actionEncoderFactory (can be zero address)
+        if (address(_actionEncoderFactory) == address(0) || address(_actionEncoderFactory).code.length == 0) {
+            revert InvalidParameter("_actionEncoderFactory");
+        }
+
         __PluginUUPSUpgradeable_init(_dao);
         allocatorStrategyFactory = _allocatorStrategyFactory;
         actionEncoderFactory = _actionEncoderFactory;
@@ -181,106 +269,111 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     /**
      * @notice Creates the details for a specific campaign.
      * @dev This function allows an authorized address to configure a new campaign.
-     * @param _metadataURI The URI for the campaign's metadata.
-     * @param _strategyId The strategy type ID to deploy or use.
-     * @param _strategyParams Deployment parameters for the strategy.
-     * @param _allocationStrategyAuxData Additional data needed to initialize the allocation strategy.
-     * @param _token The token address that will be used for payouts.
-     * @param _actionEncoder The action encoder type ID to deploy (use bytes32(0) for simple transfers).
-     * @param _actionEncoderInitializationAuxData Additional data needed to initialize the action encoder.
-     * @param _multipleClaimsAllowed Whether recipients can claim multiple times for this campaign.
-     * @param _startTime The timestamp when the campaign becomes active (0 means no start time restriction).
-     * @param _endTime The timestamp when the campaign ends (0 means no end time restriction).
+     *      Input validation:
+     *      - Token address must not be zero
+     *      - If both startTime and endTime are set, startTime must be before endTime
+     *      - Empty metadata URIs will revert with EmptyMetadataURI
+     *
+     *      The function deploys and sets up both the allocation strategy and action encoder (if specified).
+     *      Campaign IDs are assigned sequentially starting from 0.
+     * @param _metadataURI URI pointing to the campaign's metadata (e.g., IPFS hash).
+     * @param _strategy The strategy configuration.
+     * @param _payout The payout configuration.
+     * @param _settings The campaign settings (time bounds and claim behavior).
+     * @return id The ID of the newly created campaign
      */
     function createCampaign(
         bytes calldata _metadataURI,
-        bytes32 _strategyId,
-        AllocatorStrategyFactory.DeploymentParams calldata _strategyParams,
-        bytes calldata _allocationStrategyAuxData,
-        IERC20 _token,
-        bytes32 _actionEncoder,
-        bytes calldata _actionEncoderInitializationAuxData,
-        bool _multipleClaimsAllowed,
-        uint256 _startTime,
-        uint256 _endTime
-    ) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) returns (uint256 id) {
-        // Input validation in isolated scope
-        {
-            if (address(_token) == address(0)) {
-                revert ZeroAddress("_token");
-            }
-            if (_startTime > 0 && _endTime > 0 && _startTime >= _endTime) {
-                revert InvalidTimeBounds();
-            }
+        StrategyConfig calldata _strategy,
+        PayoutConfig calldata _payout,
+        CampaignSettings calldata _settings
+    )
+        external
+        auth(CAMPAIGN_MANAGER_PERMISSION_ID)
+        returns (uint256 id)
+    {
+        // Input validation
+        if (_metadataURI.length == 0) {
+            revert EmptyMetadataURI();
+        }
+
+        if (address(_payout.token) == address(0)) {
+            revert ZeroAddress("_token");
+        }
+        if (_settings.startTime > 0 && _settings.endTime > 0 && _settings.startTime >= _settings.endTime) {
+            revert InvalidTimeBounds();
         }
 
         // Campaign ID assignment
-        {
-            id = numCampaigns++;
-        }
+        id = numCampaigns;
+        ++numCampaigns;
+
+        // Get storage reference early to reduce stack usage
+        Campaign storage campaign = campaigns[id];
 
         // Deploy and setup allocation strategy
         {
-            AllocatorStrategyFactory.DeploymentParams memory strategyParams = _strategyParams;
-            bytes memory allocationStrategyAuxData = _allocationStrategyAuxData;
-
-            address strategyAddress = allocatorStrategyFactory.getOrDeployStrategy(_strategyId, dao(), strategyParams);
+            address strategyAddress =
+                allocatorStrategyFactory.getOrDeployStrategy(_strategy.strategyId, dao(), _strategy.strategyParams);
             if (strategyAddress == address(0)) {
                 revert FactoryDeploymentFailed("AllocatorStrategy");
             }
 
-            campaigns[id].allocationStrategy = IAllocatorStrategy(strategyAddress);
+            campaign.allocationStrategy = IAllocatorStrategy(strategyAddress);
 
-            try IAllocatorStrategy(strategyAddress).setAllocationCampaign(id, allocationStrategyAuxData) {
+            try IAllocatorStrategy(strategyAddress).setAllocationCampaign(id, _strategy.initData) {
                 // Strategy setup successful
             } catch {
                 revert ExternalCallFailed(strategyAddress, "setAllocationCampaign");
             }
         }
 
-        // Setup action encoder
-        {
-            if (_actionEncoder != bytes32(0)) {
-                bytes memory actionEncoderInitializationAuxData = _actionEncoderInitializationAuxData;
+        // Setup action encoder if provided
+        if (_payout.actionEncoderId != bytes32(0)) {
+            IPayoutActionEncoder actionEncoder = actionEncoderFactory.getOrDeployActionEncoder(
+                _payout.actionEncoderId, dao(), _payout.actionEncoderInitData
+            );
+            campaign.actionEncoder = actionEncoder;
 
-                IPayoutActionEncoder actionEncoder = actionEncoderFactory.getOrDeployActionEncoder(
-                    _actionEncoder,
-                    dao(),
-                    actionEncoderInitializationAuxData
-                );
-                campaigns[id].actionEncoder = actionEncoder;
-
-                try actionEncoder.setupCampaign(id, actionEncoderInitializationAuxData) {
-                    // Action encoder setup successful
-                } catch {
-                    revert ExternalCallFailed(address(actionEncoder), "setupCampaign");
-                }
+            try actionEncoder.setupCampaign(id, _payout.actionEncoderInitData) { }
+            catch {
+                revert ExternalCallFailed(address(actionEncoder), "setupCampaign");
             }
+        } else {
+            // To prevent the DAO transfering tokens that don't revert, we check if the token is safe
+            _validateTokenBehavior(_payout.token);
         }
 
         // Set campaign fields
-        {
-            bytes memory metadataURI = _metadataURI;
-            campaigns[id].metadataURI = metadataURI;
-            campaigns[id].token = _token;
-            campaigns[id].multipleClaimsAllowed = _multipleClaimsAllowed;
-            campaigns[id].active = true;
-            campaigns[id].startTime = _startTime;
-            campaigns[id].endTime = _endTime;
-        }
+        campaign.metadataUri = _metadataURI;
+        campaign.token = _payout.token;
+        campaign.state = CampaignState.ACTIVE;
+        campaign.startTime = _settings.startTime;
+        campaign.endTime = _settings.endTime;
 
-        // Emit event
-        {
-            emit CampaignCreated(
-                id,
-                campaigns[id].metadataURI,
-                address(campaigns[id].allocationStrategy),
-                _token,
-                campaigns[id].actionEncoder,
-                _multipleClaimsAllowed,
-                _startTime,
-                _endTime
-            );
+        emit CampaignCreated(
+            id,
+            _metadataURI,
+            address(campaign.allocationStrategy),
+            _payout.token,
+            campaign.actionEncoder,
+            _settings.startTime,
+            _settings.endTime
+        );
+    }
+
+    /// @notice Validates that a token behaves correctly for safe transfers
+    /// @dev Tests that the token properly reverts on invalid transfers by attempting
+    ///      to transferFrom address(0). This should ALWAYS fail for any legitimate token.
+    ///      If the call succeeds, it indicates a non-compliant token that could be exploited.
+    /// @param _token The token to validate
+    function _validateTokenBehavior(IERC20 _token) internal view {
+        (bool success,) =
+            address(_token).staticcall(abi.encodeCall(IERC20.transferFrom, (address(0), address(this), 1)));
+
+        if (success) {
+            // If the call succeeded, for whatever reason, it should revert
+            revert InvalidToken(address(_token));
         }
     }
 
@@ -298,8 +391,8 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
      * @param _campaignId The unique identifier for the campaign.
      * @return The campaign strategy id.
      */
-    function getCampaignStrategyId(uint256 _campaignId) public view returns (bytes32) {
-        return campaigns[_campaignId].allocationStrategy.strategyTypeId();
+    function getCampaignstrategyId(uint256 _campaignId) public view returns (bytes32) {
+        return campaigns[_campaignId].allocationStrategy.strategyId();
     }
 
     /**
@@ -322,94 +415,208 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         uint256 _campaignId,
         address _recipient,
         bytes calldata _auxData
-    ) public view returns (uint256 amountToSend) {
+    )
+        public
+        view
+        returns (uint256 amountToSend)
+    {
+        _requireCampaignExists(_campaignId);
         Campaign storage campaign = campaigns[_campaignId];
 
-        // Check if campaign exists
-        if (address(campaign.allocationStrategy) == address(0)) {
-            revert CampaignNotFound(_campaignId);
+        amountToSend = campaign.allocationStrategy.getTotalClaimableAmount(_campaignId, _recipient, _auxData);
+    }
+
+    /// @notice Internal helper to ensure a campaign is available for claims
+    /// @dev Checks campaign existence, state, and time bounds. Reverts if any check fails.
+    /// @param _campaignId The campaign ID to validate
+    function _requireClaimAvailable(uint256 _campaignId) internal view {
+        _requireCampaignExists(_campaignId);
+        Campaign storage campaign = campaigns[_campaignId];
+
+        // Check if campaign is active
+        if (campaign.state != CampaignState.ACTIVE) {
+            revert CampaignNotActive(_campaignId, campaign.state);
         }
 
-        amountToSend = campaign.allocationStrategy.getClaimeableAmount(_campaignId, _recipient, _auxData);
+        if (!_isCampaignWithinTimeBounds(campaign)) {
+            revert CampaignOutsideTimeBounds(_campaignId, block.timestamp, campaign.startTime, campaign.endTime);
+        }
+    }
+
+    /// @notice Internal helper to execute payout actions through the DAO
+    /// @dev Builds actions and executes them through the DAO
+    /// @param _campaign The campaign being claimed from
+    /// @param _campaignId The campaign ID
+    /// @param _payoutAddress Where to send the funds
+    /// @param _amountToSend The amount to send
+    /// @param _feeRecipient The fee recipient address (if applicable)
+    /// @param _feeAmount The fee amount (if applicable)
+    /// @param _encoderAuxData Auxiliary data for the action encoder
+    function _executePayout(
+        Campaign storage _campaign,
+        uint256 _campaignId,
+        address _payoutAddress,
+        uint256 _amountToSend,
+        address _feeRecipient,
+        uint256 _feeAmount,
+        bytes calldata _encoderAuxData
+    )
+        internal
+    {
+        Action[] memory actions = _buildPayoutActions(
+            _campaign, _payoutAddress, _amountToSend, _feeRecipient, _feeAmount, _campaignId, _encoderAuxData
+        );
+
+        bytes32 executionId = keccak256(abi.encodePacked(address(this), _campaignId, _payoutAddress, block.timestamp));
+
+        IExecutor(address(dao())).execute(executionId, actions, 0);
+
+        // Note: Event emission will be handled by the calling function
+        // since it knows who the actual recipient is and can control event order
     }
 
     /**
      * @notice Sends the amount of tokens to the recipient of a campaign
+     * @dev Validation steps:
+     *      1. Campaign must exist, be active, and within time bounds
+     *      2. If multiple claims not allowed, recipient must not have claimed before
+     *      3. Recipient must have a non-zero claimable amount
+     *      4. Recipient cannot claim more than their total allocation
+     *
+     *      Fees are automatically deducted from the payout if configured in the strategy.
      * @param _campaignId The unique identifier for the campaign.
      * @param _recipient The address to get the payout
      * @param _strategyAuxData The data needed by the strategy to calculate the payout
      * @param _encoderAuxData The data needed by the encoder to send the payout
-     * @return amountToSend The amount of tokens the recipient should get
+     * @return amountToSend The amount of tokens the recipient should get (after fees)
      */
     function claimCampaignPayout(
         uint256 _campaignId,
         address _recipient,
         bytes calldata _strategyAuxData,
         bytes calldata _encoderAuxData
-    ) public returns (uint256 amountToSend) {
-        // TODO: There should be two different auxData, one for the strategy and one for the action encoder
+    )
+        public
+        returns (uint256 amountToSend)
+    {
+        // Validate campaign is available for claims
+        _requireClaimAvailable(_campaignId);
+
+        // Get the campaign reference
         Campaign storage campaign = campaigns[_campaignId];
 
-        // Check if campaign exists
-        if (address(campaign.allocationStrategy) == address(0)) {
-            revert CampaignNotFound(_campaignId);
-        }
+        uint256 totalAmountToSend =
+            campaign.allocationStrategy.getTotalClaimableAmount(_campaignId, _recipient, _strategyAuxData);
 
-        // Check if campaign is active
-        if (!campaign.active) {
-            revert CampaignInactive(_campaignId);
-        }
-
-        // Check if campaign is within time bounds
-        if (!_isCampaignWithinTimeBounds(campaign)) {
-            revert CampaignInactive(_campaignId);
-        }
-
-        // Cache claimed amount to avoid repeated storage reads
-        uint256 alreadyClaimed = claimed[_campaignId][_recipient];
-
-        // Check if multiple claims are allowed first (fastest check)
-        if (!campaign.multipleClaimsAllowed && alreadyClaimed > 0) {
-            revert MultipleClaimsNotAllowed(_campaignId, _recipient);
-        }
-
-        amountToSend = campaign.allocationStrategy.getClaimeableAmount(_campaignId, _recipient, _strategyAuxData);
-
-        // Check if there's anything to claim
-        if (amountToSend == 0) {
+        if (totalAmountToSend == 0) {
             revert NoClaimableAmount(_campaignId, _recipient);
         }
 
-        // Check if already claimed maximum amount
-        if (alreadyClaimed >= amountToSend) {
-            revert AlreadyClaimedMaxAmount(_campaignId, _recipient, alreadyClaimed, amountToSend);
+        uint256 alreadyClaimed = claimed[_campaignId][_recipient];
+
+        // Check if already claimed all payout assigned
+        if (alreadyClaimed >= totalAmountToSend) {
+            revert AlreadyClaimedMaxAmount(_campaignId, _recipient, alreadyClaimed, totalAmountToSend);
         }
 
-        Action[] memory actions;
-        if (address(campaign.actionEncoder) == address(0)) {
-            actions = new Action[](1);
-            actions[0].to = address(campaign.token);
-            actions[0].data = abi.encodeCall(IERC20.transfer, (_recipient, amountToSend));
-        } else {
-            actions = campaign.actionEncoder.buildActions(
-                campaign.token,
-                _recipient,
-                amountToSend,
-                msg.sender,
-                _campaignId,
-                _encoderAuxData
-            );
+        // Get fee configuration and calculate
+        (address feeRecipient, uint256 feeBasisPoints) = campaign.allocationStrategy.getFeeConfiguration();
+        uint256 feeAmount = 0;
+        amountToSend = totalAmountToSend - alreadyClaimed;
+        if (feeBasisPoints > 0 && feeRecipient != address(0)) {
+            feeAmount = RatioUtils.applyBasisPointsCeiled(amountToSend, feeBasisPoints);
+            amountToSend = amountToSend - feeAmount;
         }
 
-        claimed[_campaignId][_recipient] = alreadyClaimed + amountToSend;
+        claimed[_campaignId][_recipient] = totalAmountToSend;
 
-        // Generate dynamic execution ID for uniqueness and context
-        bytes32 executionId = keccak256(abi.encodePacked(address(this), _campaignId));
-        IExecutor(address(dao())).execute(executionId, actions, 0);
+        // Execute payout using helper
+        _executePayout(campaign, _campaignId, _recipient, amountToSend, feeRecipient, feeAmount, _encoderAuxData);
 
-        emit PayoutClaimed(_campaignId, _recipient, amountToSend, claimed[_campaignId][_recipient]);
+        emit PayoutClaimed(_campaignId, _recipient, amountToSend);
+        if (feeAmount > 0) {
+            emit FeeCollected(_campaignId, feeRecipient, feeAmount);
+        }
+    }
 
-        return amountToSend;
+    /// @notice Claims the caller's campaign payout and sends it to a specified address.
+    /// @dev Security: Only msg.sender can claim their own allocation. This prevents claiming
+    ///      on behalf of others while allowing redirection of one's own payout to a different
+    ///      address (e.g., a savings wallet, vault, or payment processor).
+    /// @param _campaignId The ID of the campaign to claim from.
+    /// @param _payoutAddress The address where the payout will be sent.
+    /// @param _strategyAuxData Auxiliary data for the allocation strategy.
+    /// @param _encoderAuxData Auxiliary data for the action encoder.
+    /// @return amountToSend The amount of tokens sent to the payout address.
+    function claimCampaignPayoutToAddress(
+        uint256 _campaignId,
+        address _payoutAddress,
+        bytes calldata _strategyAuxData,
+        bytes calldata _encoderAuxData
+    )
+        public
+        returns (uint256 amountToSend)
+    {
+        // Validate payout address is not zero to prevent burning tokens
+        if (_payoutAddress == address(0)) {
+            revert ZeroAddress("_payoutAddress");
+        }
+
+        // Validate campaign is available for claims
+        _requireClaimAvailable(_campaignId);
+
+        // Get the campaign reference
+        Campaign storage campaign = campaigns[_campaignId];
+
+        // Important: The recipient is always msg.sender
+        // This ensures only the rightful recipient can claim their allocation
+        address recipient = msg.sender;
+
+        // Get claimable amount for msg.sender (not the payout address)
+        uint256 totalAmountToSend =
+            campaign.allocationStrategy.getTotalClaimableAmount(_campaignId, recipient, _strategyAuxData);
+
+        if (totalAmountToSend == 0) {
+            revert NoClaimableAmount(_campaignId, recipient);
+        }
+
+        uint256 alreadyClaimed = claimed[_campaignId][recipient];
+
+        if (alreadyClaimed >= totalAmountToSend) {
+            revert AlreadyClaimedMaxAmount(_campaignId, recipient, alreadyClaimed, totalAmountToSend);
+        }
+
+        // Get fee configuration and calculate
+        uint256 feeAmount = 0;
+        address feeRecipient;
+        {
+            uint256 feeBasisPoints;
+            (feeRecipient, feeBasisPoints) = campaign.allocationStrategy.getFeeConfiguration();
+            amountToSend = totalAmountToSend - alreadyClaimed;
+            if (feeBasisPoints > 0 && feeRecipient != address(0)) {
+                feeAmount = RatioUtils.applyBasisPointsCeiled(amountToSend, feeBasisPoints);
+                amountToSend = amountToSend - feeAmount;
+            }
+        }
+
+        // Update claimed for the actual recipient (msg.sender), not the payout address
+        claimed[_campaignId][recipient] = totalAmountToSend;
+
+        // Execute payout using helper - send to specified address
+        _executePayout(
+            campaign,
+            _campaignId,
+            _payoutAddress, // Send to specified address
+            amountToSend,
+            feeRecipient,
+            feeAmount,
+            _encoderAuxData
+        );
+
+        emit PayoutClaimed(_campaignId, recipient, amountToSend);
+        if (feeAmount > 0) {
+            emit FeeCollected(_campaignId, feeRecipient, feeAmount);
+        }
     }
 
     /// @notice Returns the amount of tokens claimed by an account for a specific campaign.
@@ -431,27 +638,83 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
             return false;
         }
 
-        // Check if campaign is flagged as active and within time bounds
-        return campaign.active && _isCampaignWithinTimeBounds(campaign);
+        // Check if campaign is in active state and within time bounds
+        return campaign.state == CampaignState.ACTIVE && _isCampaignWithinTimeBounds(campaign);
     }
 
-    /// @notice Deactivates a campaign, preventing further claims.
-    /// @param _campaignId The ID of the campaign to deactivate.
-    function deactivateCampaign(uint256 _campaignId) external auth(CAMPAIGN_CREATOR_PERMISSION_ID) {
+    /// @notice Checks if a campaign is currently paused (both flag and time bounds).
+    /// @param _campaignId The ID of the campaign to check.
+    /// @return active Returns `true` if the campaign is paused and within time bounds.
+    function isCampaignPaused(uint256 _campaignId) public view returns (bool active) {
         Campaign storage campaign = campaigns[_campaignId];
 
         // Check if campaign exists
         if (address(campaign.allocationStrategy) == address(0)) {
-            revert CampaignNotFound(_campaignId);
+            return false;
         }
 
-        // Check if campaign is already inactive
-        if (!campaign.active) {
-            revert CampaignInactive(_campaignId);
+        // Check if campaign is in active state and within time bounds
+        return campaign.state == CampaignState.PAUSED && _isCampaignWithinTimeBounds(campaign);
+    }
+
+    /// @notice Pauses a campaign temporarily, preventing further claims.
+    /// @dev Can only be called on ACTIVE campaigns. Paused campaigns can be resumed.
+    /// @param _campaignId The ID of the campaign to pause.
+    function pauseCampaign(uint256 _campaignId) external auth(CAMPAIGN_MANAGER_PERMISSION_ID) {
+        _requireCampaignExists(_campaignId);
+        Campaign storage campaign = campaigns[_campaignId];
+
+        if (campaign.state != CampaignState.ACTIVE) {
+            revert InvalidStateTransition(_campaignId, campaign.state, CampaignState.PAUSED);
         }
 
-        campaign.active = false;
-        emit CampaignDeactivated(_campaignId);
+        // Prevent pausing campaigns that have already ended due to time
+        if (campaign.endTime > 0 && block.timestamp >= campaign.endTime) {
+            revert CampaignOutsideTimeBounds(_campaignId, block.timestamp, campaign.startTime, campaign.endTime);
+        }
+
+        campaign.state = CampaignState.PAUSED;
+        emit CampaignPaused(_campaignId);
+    }
+
+    /// @notice Resumes a paused campaign, allowing claims again.
+    /// @dev Can only be called on PAUSED campaigns.
+    /// @param _campaignId The ID of the campaign to resume.
+    function resumeCampaign(uint256 _campaignId) external auth(CAMPAIGN_MANAGER_PERMISSION_ID) {
+        _requireCampaignExists(_campaignId);
+        Campaign storage campaign = campaigns[_campaignId];
+
+        if (campaign.state != CampaignState.PAUSED) {
+            revert InvalidStateTransition(_campaignId, campaign.state, CampaignState.ACTIVE);
+        }
+
+        // Prevent resuming campaigns that have already ended due to time
+        if (campaign.endTime > 0 && block.timestamp >= campaign.endTime) {
+            revert CampaignOutsideTimeBounds(_campaignId, block.timestamp, campaign.startTime, campaign.endTime);
+        }
+
+        campaign.state = CampaignState.ACTIVE;
+        emit CampaignResumed(_campaignId);
+    }
+
+    /// @notice Permanently ends a campaign, preventing all future claims.
+    /// @dev Can be called on ACTIVE or PAUSED campaigns. This action is irreversible.
+    /// @param _campaignId The ID of the campaign to end.
+    function endCampaign(uint256 _campaignId) external auth(CAMPAIGN_MANAGER_PERMISSION_ID) {
+        _requireCampaignExists(_campaignId);
+        Campaign storage campaign = campaigns[_campaignId];
+
+        if (campaign.state == CampaignState.ENDED) {
+            revert InvalidStateTransition(_campaignId, campaign.state, CampaignState.ENDED);
+        }
+
+        // Prevent ending campaigns that have already ended due to time
+        if (campaign.endTime > 0 && block.timestamp >= campaign.endTime) {
+            revert CampaignOutsideTimeBounds(_campaignId, block.timestamp, campaign.startTime, campaign.endTime);
+        }
+
+        campaign.state = CampaignState.ENDED;
+        emit CampaignEnded(_campaignId);
     }
 
     /// @notice Claims payouts from multiple campaigns in a single transaction.
@@ -465,7 +728,10 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         address[] calldata _recipients,
         bytes[] calldata _strategiesAuxData,
         bytes[] calldata _encodersAuxData
-    ) external returns (uint256[] memory amounts) {
+    )
+        external
+        returns (uint256[] memory amounts)
+    {
         uint256 length = _campaignIds.length;
         if (length != _recipients.length || length != _strategiesAuxData.length || length != _encodersAuxData.length) {
             revert ArrayLengthMismatch();
@@ -473,13 +739,9 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
 
         amounts = new uint256[](length);
 
-        for (uint256 i = 0; i < length; i++) {
-            amounts[i] = claimCampaignPayout(
-                _campaignIds[i],
-                _recipients[i],
-                _strategiesAuxData[i],
-                _encodersAuxData[i]
-            );
+        for (uint256 i = 0; i < length; ++i) {
+            amounts[i] =
+                claimCampaignPayout(_campaignIds[i], _recipients[i], _strategiesAuxData[i], _encodersAuxData[i]);
         }
 
         return amounts;
@@ -490,6 +752,11 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
     /// @return Returns `true` if the campaign is within its time bounds.
     function _isCampaignWithinTimeBounds(Campaign storage _campaign) internal view returns (bool) {
         uint256 currentTime = block.timestamp;
+
+        // Check campaign exists
+        if (address(_campaign.allocationStrategy) == address(0)) {
+            return false;
+        }
 
         // Check start time (0 means no start restriction)
         if (_campaign.startTime > 0 && currentTime < _campaign.startTime) {
@@ -504,15 +771,140 @@ contract CapitalDistributorPlugin is Initializable, ERC165Upgradeable, PluginUUP
         return true;
     }
 
+    /// @notice Gets the strategy initialization encoding types for a strategy type
+    /// @param _strategyId The strategy type ID
+    /// @return types Comma-separated string of Solidity type strings expected for strategy initialization
+    function getStrategyInitializationEncodingTypes(bytes32 _strategyId) external view returns (string memory types) {
+        // Get the implementation address from the factory's registeredTypes mapping
+        (address implementation,) = allocatorStrategyFactory.registeredTypes(_strategyId);
+        require(implementation != address(0), "Strategy type not found");
+
+        // Query the implementation directly for encoding types
+        return IAllocatorStrategy(implementation).getInitializationEncodingTypes();
+    }
+
+    /// @notice Gets the strategy creation encoding types for a campaign
+    /// @param _campaignId The campaign ID
+    /// @return types Comma-separated string of Solidity type strings expected for strategy creation
+    function getStrategyCreationEncodingTypes(uint256 _campaignId) external view returns (string memory types) {
+        _requireCampaignExists(_campaignId);
+        return campaigns[_campaignId].allocationStrategy.getCreationEncodingTypes();
+    }
+
+    /// @notice Gets the strategy claim encoding types for a campaign
+    /// @param _campaignId The campaign ID
+    /// @return types Comma-separated string of Solidity type strings expected for strategy claiming
+    function getStrategyClaimEncodingTypes(uint256 _campaignId) external view returns (string memory types) {
+        _requireCampaignExists(_campaignId);
+        return campaigns[_campaignId].allocationStrategy.getClaimEncodingTypes();
+    }
+
+    /// @notice Gets the encoder creation encoding types for a campaign
+    /// @param _campaignId The campaign ID
+    /// @return types Comma-separated string of Solidity type strings expected for encoder creation
+    function getEncoderCreationEncodingTypes(uint256 _campaignId) external view returns (string memory types) {
+        _requireCampaignExists(_campaignId);
+        return campaigns[_campaignId].actionEncoder.getCreationEncodingTypes();
+    }
+
+    /// @notice Gets the encoder claim encoding types for a campaign
+    /// @param _campaignId The campaign ID
+    /// @return types Comma-separated string of Solidity type strings expected for encoder claiming
+    function getEncoderClaimEncodingTypes(uint256 _campaignId) external view returns (string memory types) {
+        _requireCampaignExists(_campaignId);
+        return campaigns[_campaignId].actionEncoder.getClaimEncodingTypes();
+    }
+
     /// @notice Checks if this or the parent contract supports an interface by its ID.
     /// @param _interfaceId The ID of the interface.
     /// @return Returns `true` if the interface is supported.
-    function supportsInterface(
-        bytes4 _interfaceId
-    ) public view virtual override(ERC165Upgradeable, PluginUUPSUpgradeable) returns (bool) {
+    function supportsInterface(bytes4 _interfaceId)
+        public
+        view
+        virtual
+        override(ERC165Upgradeable, PluginUUPSUpgradeable, MetadataExtensionUpgradeable)
+        returns (bool)
+    {
         return super.supportsInterface(_interfaceId);
     }
 
-    /// @notice This empty reserved space is put in place to allow future versions to add new variables without shifting down storage in the inheritance chain (see [OpenZeppelin's guide about storage gaps](https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps)).
-    uint256[46] private __gap;
+    /// @notice Internal helper to check if a campaign exists
+    /// @param _campaignId The campaign ID to check
+    function _requireCampaignExists(uint256 _campaignId) internal view {
+        if (address(campaigns[_campaignId].allocationStrategy) == address(0)) {
+            revert CampaignNotFound(_campaignId);
+        }
+    }
+
+    /// @notice Builds all necessary actions for a payout claim.
+    /// @param _campaign The campaign configuration.
+    /// @param _recipient The recipient of the tokens.
+    /// @param _recipientAmount The amount for the recipient after fees.
+    /// @param _feeRecipient The recipient of the fee (if any).
+    /// @param _feeAmount The amount of the fee (0 if no fee).
+    /// @param _campaignId The campaign ID.
+    /// @param _encoderAuxData The auxiliary data for the encoder.
+    /// @return actions The array of actions to execute.
+    function _buildPayoutActions(
+        Campaign storage _campaign,
+        address _recipient,
+        uint256 _recipientAmount,
+        address _feeRecipient,
+        uint256 _feeAmount,
+        uint256 _campaignId,
+        bytes calldata _encoderAuxData
+    )
+        internal
+        view
+        returns (Action[] memory actions)
+    {
+        bool hasEncoder = address(_campaign.actionEncoder) != address(0);
+        bool hasFee = _feeAmount > 0;
+
+        if (hasEncoder) {
+            // Get base actions from encoder
+            Action[] memory baseActions = _campaign.actionEncoder.buildActions(
+                _campaign.token, _recipient, _recipientAmount, msg.sender, _campaignId, _encoderAuxData
+            );
+
+            if (hasFee) {
+                // Append fee transfer to encoder actions
+                actions = new Action[](baseActions.length + 1);
+                for (uint256 i = 0; i < baseActions.length; i++) {
+                    actions[i] = baseActions[i];
+                }
+                actions[baseActions.length] = Action({
+                    to: address(_campaign.token),
+                    value: 0,
+                    data: abi.encodeCall(IERC20.transfer, (_feeRecipient, _feeAmount))
+                });
+            } else {
+                actions = baseActions;
+            }
+        } else {
+            // Direct transfer case
+            actions = new Action[](hasFee ? 2 : 1);
+
+            // Recipient transfer
+            actions[0] = Action({
+                to: address(_campaign.token),
+                value: 0,
+                data: abi.encodeCall(IERC20.transfer, (_recipient, _recipientAmount))
+            });
+
+            // Fee transfer if applicable
+            if (hasFee) {
+                actions[1] = Action({
+                    to: address(_campaign.token),
+                    value: 0,
+                    data: abi.encodeCall(IERC20.transfer, (_feeRecipient, _feeAmount))
+                });
+            }
+        }
+    }
+
+    /// @notice This empty reserved space is put in place to allow future versions to add new variables without shifting
+    /// down storage in the inheritance chain (see [OpenZeppelin's guide about storage
+    /// gaps](https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps)).
+    uint256[44] private __gap;
 }

@@ -2,7 +2,7 @@
 
 [profile.default]
 auto_detect_solc = false
-block_timestamp = 1_738_368_000                       # Feb 1, 2025 at 00:00 GMT
+block_timestamp = 1_738_368_000                           # Feb 1, 2025 at 00:00 GMT
 bytecode_hash = "none"
 evm_version = "shanghai"
 fuzz = { runs = 1_000 }
@@ -14,9 +14,10 @@ script = "script"
 solc = "0.8.29"
 src = "src"
 test = "tests"
+fs_permissions = [{ access = "read-write", path = "./" }]
 libs = ["node_modules", "lib"]
 ignored_error_files = ["lib/**", "node_modules/**"]
-ignored_warnings_from = ["node_modules/**", "lib/**"]
+ignored_warnings_from = ["node_modules", "lib"]
 
 [profile.ci]
 fuzz = { runs = 10_000 }
