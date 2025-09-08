@@ -19,7 +19,7 @@ abstract contract AllocatorStrategyBase is
     OwnableUpgradeable,
     ERC165Upgradeable
 {
-    bytes32 public strategyTypeId;
+    bytes32 public strategyId;
     address public plugin;
     address public factory;
 
@@ -36,19 +36,10 @@ abstract contract AllocatorStrategyBase is
     // =========================================================================
 
     /// @notice Initializes the strategy with the given parameters
-    /// @param _strategyTypeId The type ID of the strategy
+    /// @param _strategyId The type ID of the strategy
     /// @param _dao The DAO that will control this strategy
     /// @param _plugin The plugin address that created this strategy
-    function initialize(
-        bytes32 _strategyTypeId,
-        IDAO _dao,
-        address _plugin,
-        bytes calldata
-    )
-        public
-        virtual
-        initializer
-    {
+    function initialize(bytes32 _strategyId, IDAO _dao, address _plugin, bytes calldata) public virtual initializer {
         __DaoAuthorizableUpgradeable_init(_dao);
         __ERC165_init();
 
@@ -57,7 +48,7 @@ abstract contract AllocatorStrategyBase is
         _transferOwnership(_plugin);
 
         plugin = _plugin;
-        strategyTypeId = _strategyTypeId;
+        strategyId = _strategyId;
         factory = msg.sender; // The factory is the one deploying this strategy
     }
 

@@ -60,9 +60,9 @@ contract FactoryBaseTest is Test {
 
         factory.registerType(TYPE_ID_1, implementation1, METADATA_1);
 
-        FactoryBase.RegisteredType memory registeredType = factory.getRegisteredType(TYPE_ID_1);
-        assertEq(registeredType.implementation, implementation1);
-        assertEq(registeredType.metadata, METADATA_1);
+        (address implementation, string memory metadata) = factory.registeredTypes(TYPE_ID_1);
+        assertEq(implementation, implementation1);
+        assertEq(metadata, METADATA_1);
         assertTrue(factory.isTypeRegistered(TYPE_ID_1));
 
         vm.stopPrank();
@@ -110,15 +110,15 @@ contract FactoryBaseTest is Test {
         assertTrue(factory.isTypeRegistered(TYPE_ID_1));
         assertTrue(factory.isTypeRegistered(TYPE_ID_2));
 
-        FactoryBase.RegisteredType memory type1 = factory.getRegisteredType(TYPE_ID_1);
-        FactoryBase.RegisteredType memory type2 = factory.getRegisteredType(TYPE_ID_2);
+        (address impl1,) = factory.registeredTypes(TYPE_ID_1);
+        (address impl2,) = factory.registeredTypes(TYPE_ID_2);
 
-        assertEq(type1.implementation, implementation1);
-        assertEq(type2.implementation, implementation2);
+        assertEq(impl1, implementation1);
+        assertEq(impl2, implementation2);
     }
 
     /// @notice Test validation function directly
-    function test_ValidateRegistration() public {
+    function test_checkRegistrationParams() public {
         factory.exposedValidateRegistration(TYPE_ID_1, implementation1, address(0));
 
         vm.expectRevert(FactoryBase.EmptyTypeId.selector);
@@ -187,10 +187,10 @@ contract FactoryBaseTest is Test {
     }
 
     /// @notice Test querying non-existent type
-    function test_GetRegisteredType_NonExistent() public view {
-        FactoryBase.RegisteredType memory registeredType = factory.getRegisteredType(TYPE_ID_1);
-        assertEq(registeredType.implementation, address(0));
-        assertEq(registeredType.metadata, "");
+    function test_registeredTypes_NonExistent() public view {
+        (address implementation, string memory metadata) = factory.registeredTypes(TYPE_ID_1);
+        assertEq(implementation, address(0));
+        assertEq(metadata, "");
         assertFalse(factory.isTypeRegistered(TYPE_ID_1));
     }
 
@@ -203,9 +203,9 @@ contract FactoryBaseTest is Test {
         assertTrue(gasUsed < 100_000);
 
         gasStart = gasleft();
-        factory.getRegisteredType(TYPE_ID_1);
+        factory.registeredTypes(TYPE_ID_1);
         gasUsed = gasStart - gasleft();
-        console2.log("Gas used for getRegisteredType:", gasUsed);
+        console2.log("Gas used for registeredTypes:", gasUsed);
         assertTrue(gasUsed < 10_000);
 
         gasStart = gasleft();
@@ -240,9 +240,9 @@ contract FactoryBaseTest is Test {
             factory.registerType(typeId, implementation, metadata);
             assertTrue(factory.isTypeRegistered(typeId));
 
-            FactoryBase.RegisteredType memory registeredType = factory.getRegisteredType(typeId);
-            assertEq(registeredType.implementation, implementation);
-            assertEq(registeredType.metadata, metadata);
+            (address regImpl, string memory regMeta) = factory.registeredTypes(typeId);
+            assertEq(regImpl, implementation);
+            assertEq(regMeta, metadata);
         }
     }
 
@@ -297,9 +297,9 @@ contract ConcreteFactoryBase is FactoryBase {
         address _existingImplementation
     )
         external
-        pure
+        view
     {
-        _validateRegistration(_typeId, _implementation, _existingImplementation);
+        _checkRegistrationParams(_typeId, _implementation, _existingImplementation);
     }
 
     function exposedDeployAndInitialize(
@@ -322,7 +322,7 @@ contract ConcreteFactoryBase is FactoryBase {
         pure
         returns (bytes32)
     {
-        return _computeParamsHash(_typeId, _dao, _auxData);
+        return _computeDeploymentId(_typeId, _dao, _auxData);
     }
 }
 

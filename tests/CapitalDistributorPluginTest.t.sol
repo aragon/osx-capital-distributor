@@ -1420,13 +1420,13 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.stopPrank();
     }
 
-    /// @notice Test getCampaignStrategyId function
-    function test_GetCampaignStrategyId() public {
+    /// @notice Test getCampaignstrategyId function
+    function test_GetCampaignstrategyId() public {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
-        bytes32 strategyId = capitalDistributorPlugin.getCampaignStrategyId(campaignId);
+        bytes32 strategyId = capitalDistributorPlugin.getCampaignstrategyId(campaignId);
         assertEq(strategyId, toBytes32("mock-strategy"), "Strategy ID should match");
 
         vm.stopPrank();
@@ -2785,7 +2785,7 @@ contract MockFailingStrategy is IAllocatorStrategy {
         return (address(0), 0);
     }
 
-    function strategyTypeId() external pure returns (bytes32) {
+    function strategyId() external pure returns (bytes32) {
         return bytes32(0);
     }
 
@@ -2976,5 +2976,219 @@ contract CapitalDistributorPluginTestIsCampaignPaused is CapitalDistributorPlugi
         assertFalse(capitalDistributorPlugin.isCampaignPaused(activeCampaign), "Active campaign should return false");
         assertTrue(capitalDistributorPlugin.isCampaignPaused(pausedCampaign), "Paused campaign should return true");
         assertFalse(capitalDistributorPlugin.isCampaignPaused(endedCampaign), "Ended campaign should return false");
+    }
+
+    /// @notice Test pausing a campaign after its end time has passed
+    function test_PauseCampaignAfterEndTime() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDao));
+
+        // Create campaign that ends in 100 seconds
+        uint256 endTime = block.timestamp + 100;
+        uint256 campaignId = createCampaignWithParams(false, 0, endTime);
+
+        // Warp to after end time
+        vm.warp(endTime + 1);
+
+        // Attempt to pause should revert
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector,
+                campaignId,
+                block.timestamp,
+                0,
+                endTime
+            )
+        );
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test resuming a campaign after its end time has passed
+    function test_ResumeCampaignAfterEndTime() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDao));
+
+        // Create campaign that ends in 100 seconds
+        uint256 endTime = block.timestamp + 100;
+        uint256 campaignId = createCampaignWithParams(false, 0, endTime);
+
+        // Pause campaign while it's active
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+
+        // Warp to after end time
+        vm.warp(endTime + 1);
+
+        // Attempt to resume should revert
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector,
+                campaignId,
+                block.timestamp,
+                0,
+                endTime
+            )
+        );
+        capitalDistributorPlugin.resumeCampaign(campaignId);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test pausing a campaign with no end time restriction
+    function test_PauseCampaignNoEndTime() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDao));
+
+        // Create campaign with no time restrictions
+        uint256 campaignId = createCampaignWithParams(false, 0, 0);
+
+        // Warp to far in the future
+        vm.warp(block.timestamp + 365 days);
+
+        // Should still be able to pause since there's no end time
+        vm.expectEmit(true, false, false, false);
+        emit CapitalDistributorPlugin.CampaignPaused(campaignId);
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test resuming a campaign with no end time restriction
+    function test_ResumeCampaignNoEndTime() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDao));
+
+        // Create campaign with no time restrictions
+        uint256 campaignId = createCampaignWithParams(false, 0, 0);
+        
+        // Pause the campaign
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+
+        // Warp to far in the future
+        vm.warp(block.timestamp + 365 days);
+
+        // Should still be able to resume since there's no end time
+        vm.expectEmit(true, false, false, false);
+        emit CapitalDistributorPlugin.CampaignResumed(campaignId);
+        capitalDistributorPlugin.resumeCampaign(campaignId);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test pausing just before campaign end time
+    function test_PauseCampaignJustBeforeEndTime() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDao));
+
+        // Create campaign that ends in 100 seconds
+        uint256 endTime = block.timestamp + 100;
+        uint256 campaignId = createCampaignWithParams(false, 0, endTime);
+
+        // Warp to one second before end time
+        vm.warp(endTime - 1);
+
+        // Should be able to pause
+        vm.expectEmit(true, false, false, false);
+        emit CapitalDistributorPlugin.CampaignPaused(campaignId);
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test ending a campaign after its end time has passed
+    function test_EndCampaignAfterEndTime() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDao));
+
+        // Create campaign that ends in 100 seconds
+        uint256 endTime = block.timestamp + 100;
+        uint256 campaignId = createCampaignWithParams(false, 0, endTime);
+
+        // Warp to after end time
+        vm.warp(endTime + 1);
+
+        // Attempt to end should revert
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector,
+                campaignId,
+                block.timestamp,
+                0,
+                endTime
+            )
+        );
+        capitalDistributorPlugin.endCampaign(campaignId);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test ending a campaign with no end time restriction
+    function test_EndCampaignNoEndTime() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDao));
+
+        // Create campaign with no time restrictions
+        uint256 campaignId = createCampaignWithParams(false, 0, 0);
+
+        // Warp to far in the future
+        vm.warp(block.timestamp + 365 days);
+
+        // Should still be able to end since there's no end time
+        vm.expectEmit(true, false, false, false);
+        emit CapitalDistributorPlugin.CampaignEnded(campaignId);
+        capitalDistributorPlugin.endCampaign(campaignId);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test ending a campaign just before its end time
+    function test_EndCampaignJustBeforeEndTime() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDao));
+
+        // Create campaign that ends in 100 seconds
+        uint256 endTime = block.timestamp + 100;
+        uint256 campaignId = createCampaignWithParams(false, 0, endTime);
+
+        // Warp to one second before end time
+        vm.warp(endTime - 1);
+
+        // Should be able to end
+        vm.expectEmit(true, false, false, false);
+        emit CapitalDistributorPlugin.CampaignEnded(campaignId);
+        capitalDistributorPlugin.endCampaign(campaignId);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test ending a paused campaign after its end time
+    function test_EndPausedCampaignAfterEndTime() public {
+        mintTokensToDAO(1 ether);
+        vm.startPrank(address(createdDao));
+
+        // Create campaign that ends in 100 seconds
+        uint256 endTime = block.timestamp + 100;
+        uint256 campaignId = createCampaignWithParams(false, 0, endTime);
+
+        // Pause the campaign while it's active
+        capitalDistributorPlugin.pauseCampaign(campaignId);
+
+        // Warp to after end time
+        vm.warp(endTime + 1);
+
+        // Attempt to end should revert
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector,
+                campaignId,
+                block.timestamp,
+                0,
+                endTime
+            )
+        );
+        capitalDistributorPlugin.endCampaign(campaignId);
+
+        vm.stopPrank();
     }
 }

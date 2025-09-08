@@ -13,29 +13,29 @@ interface IAllocatorStrategyFactory {
 
     /// @notice Emitted when a strategy instance is deployed.
     event StrategyDeployed(
-        bytes32 indexed strategyTypeId, address indexed strategy, bytes32 indexed paramsHash, address deployer
+        bytes32 indexed strategyId, address indexed strategy, bytes32 indexed paramsHash, address deployer
     );
 
     /// @notice Thrown when trying to register a strategy type that already exists.
-    error StrategyTypeAlreadyExists(bytes32 strategyTypeId);
+    error StrategyTypeAlreadyExists(bytes32 strategyId);
 
     /// @notice Thrown when trying to use a strategy type that doesn't exist.
-    error StrategyTypeNotFound(bytes32 strategyTypeId);
+    error StrategyTypeNotFound(bytes32 strategyId);
 
     /// @notice Thrown when trying to deploy a strategy that already exists.
     error StrategyAlreadyDeployed(bytes32 paramsHash, address existingStrategy);
 
     /// @notice Thrown when strategy deployment fails.
-    error StrategyDeploymentFailed(bytes32 strategyTypeId);
+    error StrategyDeploymentFailed(bytes32 strategyId);
 
     /**
      * @notice Deploys a new instance of a registered strategy type.
-     * @param _strategyTypeId The strategy type to deploy.
+     * @param _strategyId The strategy type to deploy.
      * @param _params Deployment parameters for the strategy.
      * @return strategy The address of the deployed strategy.
      */
     function deployStrategy(
-        bytes32 _strategyTypeId,
+        bytes32 _strategyId,
         IDAO _dao,
         bytes calldata _params
     )
@@ -44,12 +44,12 @@ interface IAllocatorStrategyFactory {
 
     /**
      * @notice Gets an existing strategy instance or deploys a new one if it doesn't exist.
-     * @param _strategyTypeId The strategy type to get or deploy.
+     * @param _strategyId The strategy type to get or deploy.
      * @param _params Deployment parameters for the strategy.
      * @return strategy The address of the existing or newly deployed strategy.
      */
     function getOrDeployStrategy(
-        bytes32 _strategyTypeId,
+        bytes32 _strategyId,
         IDAO _dao,
         bytes calldata _params
     )

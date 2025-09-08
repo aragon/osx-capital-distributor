@@ -90,7 +90,7 @@ contract CapitalDistributorPluginInitializeTest is Test {
         );
 
         vm.expectRevert(
-            abi.encodeWithSelector(CapitalDistributorPlugin.ZeroAddress.selector, "_allocatorStrategyFactory")
+            abi.encodeWithSelector(CapitalDistributorPlugin.InvalidParameter.selector, "_allocatorStrategyFactory")
         );
         new ERC1967Proxy(address(implementation), initData);
     }

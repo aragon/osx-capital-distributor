@@ -109,7 +109,7 @@ contract SablierLinearPayoutActionEncoder is PayoutActionEncoderBase {
         if (msg.sender != address(dao()) && msg.sender != owner()) {
             revert OnlyDAO(msg.sender);
         }
-        StreamConfig memory config = abi.decode(_auxData, (StreamConfig));
+        StreamConfig memory config = decodeSetupCampaignParams(_auxData);
 
         if (config.sablierContract == address(0)) {
             revert ZeroAddressNotAllowed();
@@ -214,6 +214,20 @@ contract SablierLinearPayoutActionEncoder is PayoutActionEncoderBase {
     /// @return config The stream configuration
     function getCampaignStreamConfig(uint256 _campaignId) external view returns (StreamConfig memory config) {
         return campaignStreamConfigs[_campaignId];
+    }
+
+    /// @notice Encodes the stream configuration parameters for setupCampaign
+    /// @param _config The stream configuration to encode
+    /// @return The encoded parameters
+    function encodeSetupCampaignParams(StreamConfig memory _config) external pure returns (bytes memory) {
+        return abi.encode(_config);
+    }
+
+    /// @notice Decodes the stream configuration parameters from setupCampaign
+    /// @param _data The encoded parameters
+    /// @return config The decoded stream configuration
+    function decodeSetupCampaignParams(bytes memory _data) public pure returns (StreamConfig memory config) {
+        return abi.decode(_data, (StreamConfig));
     }
 
     /// @inheritdoc PayoutActionEncoderBase
