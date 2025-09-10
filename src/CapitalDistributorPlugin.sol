@@ -391,7 +391,7 @@ contract CapitalDistributorPlugin is
      * @param _campaignId The unique identifier for the campaign.
      * @return The campaign strategy id.
      */
-    function getCampaignstrategyId(uint256 _campaignId) public view returns (bytes32) {
+    function getCampaignStrategyId(uint256 _campaignId) public view returns (bytes32) {
         return campaigns[_campaignId].allocationStrategy.strategyId();
     }
 
