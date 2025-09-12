@@ -69,8 +69,22 @@ claim-all-proofs-dry: ## Claim tokens for all proof files in fixtures/proofs
 		--private-key $(PRIVATE_KEY) \
 		-vvv
 
-.PHONY: claim-proof-file-dry
+.PHONY: claim-proof-file
 claim-proof-file: ## Claim for a specific proof file (use PROOF_FILE=filename.json)
+	@if [ -z "$(PROOF_FILE)" ]; then \
+		printf "$${COLOR_YELLOW}⚠️  Please set PROOF_FILE=filename.json$${COLOR_RESET}\n"; \
+		exit 1; \
+	fi
+	@printf "$${COLOR_GREEN}Claiming from proof file: $(PROOF_FILE)$${COLOR_RESET}\n"
+	@forge script script/utils/ClaimMerkleCampaignWithProofs.s.sol:ClaimMerkleCampaignWithProofs \
+		--private-key $(PRIVATE_KEY) \
+		--broadcast \
+		--sig "claimForFile(string)" \
+		"$(PROOF_FILE)" \
+		-vvv
+
+.PHONY: claim-proof-file-dry
+claim-proof-file-dry: ## Claim for a specific proof file (use PROOF_FILE=filename.json)
 	@if [ -z "$(PROOF_FILE)" ]; then \
 		printf "$${COLOR_YELLOW}⚠️  Please set PROOF_FILE=filename.json$${COLOR_RESET}\n"; \
 		exit 1; \

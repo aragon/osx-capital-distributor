@@ -32,6 +32,8 @@ contract Deploy is BaseScript {
     string daoName;
     address[] pluginAddress;
     address adminOwner;
+    uint32 feeBasisPoints;
+    address feeRecipient;
 
     AllocatorStrategyFactory public allocatorStrategyFactory;
     ActionEncoderFactory public actionEncoderFactory;
@@ -46,6 +48,8 @@ contract Deploy is BaseScript {
         nameWithEntropy =
             vm.envOr("PLUGIN_NAME", string.concat("osx-capital-distributor-", vm.toString(block.timestamp)));
         daoName = vm.envOr("DAO_NAME", string.concat("osx-capital-distributor-", vm.toString(block.timestamp)));
+        feeRecipient = vm.envOr("FEE_RECIPIENT", address(0));
+        feeBasisPoints = uint32(vm.envOr("FEE_BASIS_POINTS", uint256(0)));
     }
 
     function run() public broadcast {
@@ -55,7 +59,11 @@ contract Deploy is BaseScript {
         // 2. Add the AllocationStrategies to the Factory registry
         MerkleDistributorStrategy merkleDistributorStrategy = new MerkleDistributorStrategy();
         allocatorStrategyFactory.registerStrategyType(
-            toBytes32("merkle-distributor-strategy"), address(merkleDistributorStrategy), "0x00", address(0), 0
+            toBytes32("merkle-distributor-strategy"),
+            address(merkleDistributorStrategy),
+            "0x00",
+            feeRecipient,
+            feeBasisPoints
         );
 
         // 3. Add the ActionEncoders to the Factory registry
