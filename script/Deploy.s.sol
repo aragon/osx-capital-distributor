@@ -35,7 +35,7 @@ contract Deploy is BaseScript {
         address adminPlugin;
         address pluginSetup;
         address pluginRepo;
-        address pluginMantainer;
+        address pluginMaintainer;
         address allocatorStrategyFactory;
         address actionEncoderFactory;
         address merkleDistributorStrategy;
@@ -56,7 +56,7 @@ contract Deploy is BaseScript {
     string daoName;
     string daoUri;
     address[] pluginAddress;
-    address pluginMantainer;
+    address pluginMaintainer;
     address adminOwner;
     uint32 feeBasisPoints;
     address feeRecipient;
@@ -92,8 +92,8 @@ contract Deploy is BaseScript {
         nameWithEntropy = vm.envOr("PLUGIN_NAME", string.concat("osx-capital-distributor-", vm.toString(timestamp)));
         console.log("PLUGIN_NAME:", nameWithEntropy);
 
-        pluginMantainer = vm.envAddress("PLUGIN_MANTAINER");
-        console.log("PLUGIN_MANTAINER:", pluginMantainer);
+        pluginMaintainer = vm.envAddress("PLUGIN_MAINTAINER");
+        console.log("PLUGIN_MAINTAINER:", pluginMaintainer);
 
         daoName = vm.envOr("DAO_NAME", string.concat("osx-capital-distributor-", vm.toString(timestamp)));
         console.log("DAO_NAME:", daoName);
@@ -146,7 +146,7 @@ contract Deploy is BaseScript {
             toBytes32("vault-deposit-encoder"), address(vaultDepositPayoutActionEncoder), "0x00"
         );
 
-        deployment.pluginMantainer = pluginMantainer;
+        deployment.pluginMaintainer = pluginMaintainer;
 
         // 4. Deploying the Plugin Setup
         CapitalDistributorPluginSetup pluginSetup = deployPluginSetup();
@@ -189,7 +189,7 @@ contract Deploy is BaseScript {
 
     function deployPluginRepo(address pluginSetup) public returns (PluginRepo pluginRepo) {
         pluginRepo = pluginRepoFactory.createPluginRepoWithFirstVersion(
-            nameWithEntropy, pluginSetup, pluginManteiner, "0x00", "0x00"
+            nameWithEntropy, pluginSetup, pluginMaintainer, "0x00", "0x00"
         );
     }
 
