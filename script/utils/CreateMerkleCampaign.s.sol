@@ -69,7 +69,7 @@ contract CreateMerkleCampaign is Script {
      *      - CAMPAIGN_BUDGET: Total budget for the campaign (in wei)
      */
     function run() external {
-        vm.createSelectFork("sepolia");
+        vm.createSelectFork(vm.envString("CHAIN_NAME"));
 
         // Load configuration from environment variables
         address daoAddress = vm.envAddress("DAO_ADDRESS");

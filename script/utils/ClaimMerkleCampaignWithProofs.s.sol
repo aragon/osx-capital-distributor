@@ -45,7 +45,7 @@ contract ClaimMerkleCampaignWithProofs is Script {
      */
 
     function run() external {
-        vm.createSelectFork("sepolia");
+        vm.createSelectFork(vm.envString("CHAIN_NAME"));
 
         // Load configuration from environment variables
         address pluginAddress = vm.envAddress("CAPITAL_DISTRIBUTOR_ADDRESS");

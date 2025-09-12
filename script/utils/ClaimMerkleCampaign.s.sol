@@ -19,7 +19,7 @@ contract ClaimMerkleCampaign is Script {
      * @notice Claim tokens from a Merkle campaign using environment variables
      */
     function run() external {
-        vm.createSelectFork("sepolia");
+        vm.createSelectFork(vm.envString("CHAIN_NAME"));
 
         // Load configuration from environment variables
         address pluginAddress = vm.envAddress("CAPITAL_DISTRIBUTOR_ADDRESS");

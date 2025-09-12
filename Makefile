@@ -22,6 +22,23 @@ help: ## Show this help message
 	@printf "Targets:\n"
 	@awk -F':.*?##' -v yellow="$(COLOR_YELLOW)" -v reset="$(COLOR_RESET)" '/^[a-zA-Z_-]+:.*?##/ {printf "  %s%-25s%s %s\n", yellow, $$1, reset, $$2}' $(MAKEFILE_LIST) | sort
 
+	# ===== Deployment =====
+
+.PHONY: deploy-dry
+deploy-dry: ## Deploy the Capital Distributor plugin
+		@printf "$${COLOR_YELLOW}Dry run: Deploying Capital Distributor plugin...$${COLOR_RESET}\n"
+		@forge script script/Deploy.s.sol:Deploy \
+			--private-key $(PRIVATE_KEY) \
+			-vvv
+
+.PHONY: deploy
+deploy: ## Deploy the Capital Distributor plugin
+		@printf "$${COLOR_GREEN}Deploying Capital Distributor plugin...$${COLOR_RESET}\n"
+		@forge script script/Deploy.s.sol:Deploy \
+			--private-key $(PRIVATE_KEY) \
+			--broadcast \
+			-vvv
+
 # ===== Campaign Management =====
 
 .PHONY: create-campaign
