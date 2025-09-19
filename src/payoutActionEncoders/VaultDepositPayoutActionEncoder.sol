@@ -34,10 +34,14 @@ contract VaultDepositPayoutActionEncoder is PayoutActionEncoderBase {
     error OnlyOwner(address caller);
 
     // @inheritdoc PayoutActionEncoderBase
-    function setupCampaign(uint256 _campaignId, bytes calldata _auxData) external override {
-        if (msg.sender != owner()) {
-            revert OnlyOwner(msg.sender);
-        }
+    function setupCampaign(
+        uint256 _campaignId,
+        bytes calldata _auxData
+    )
+        external
+        override
+        auth(ENCODER_MANAGER_PERMISSION_ID)
+    {
         address vaultAddress = decodeSetupCampaignParams(_auxData);
         if (vaultAddress == address(0)) {
             revert ZeroAddressNotAllowed();

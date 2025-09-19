@@ -26,6 +26,11 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
     bytes32 public constant CAMPAIGN_MANAGER_PERMISSION_ID = keccak256("CAMPAIGN_MANAGER_PERMISSION");
     bytes32 public constant SET_METADATA_PERMISSION_ID = keccak256("SET_METADATA_PERMISSION");
     bytes32 public constant MANAGE_SELECTORS_PERMISSION_ID = keccak256("MANAGE_SELECTORS_PERMISSION");
+    bytes32 public constant STRATEGY_MANAGER_PERMISSION_ID = keccak256("STRATEGY_MANAGER_PERMISSION");
+    bytes32 public constant ENCODER_MANAGER_PERMISSION_ID = keccak256("ENCODER_MANAGER_PERMISSION");
+
+    /// @notice A special address encoding permissions that are valid for any address `who` or `where`.
+    address private constant ANY_ADDR = address(type(uint160).max);
 
     /// @notice The address of the `CapitalDistributorPlugin` base contract.
     CapitalDistributorPlugin private immutable CAPITAL_DISTRIBUTOR_PLUGIN_BASE;
@@ -73,7 +78,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
         );
 
         // Prepare permissions
-        PermissionLib.MultiTargetPermission[] memory permissions = new PermissionLib.MultiTargetPermission[](5);
+        PermissionLib.MultiTargetPermission[] memory permissions = new PermissionLib.MultiTargetPermission[](9);
 
         // Request the permissions to be granted
 
@@ -121,6 +126,42 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             permissionId: MANAGE_SELECTORS_PERMISSION_ID
         });
 
+        // The DAO can manage the encoders
+        permissions[5] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Grant,
+            where: ANY_ADDR,
+            who: _dao,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: ENCODER_MANAGER_PERMISSION_ID
+        });
+
+        // The DAO can manage the strategies
+        permissions[6] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Grant,
+            where: ANY_ADDR,
+            who: _dao,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: STRATEGY_MANAGER_PERMISSION_ID
+        });
+
+        // The plugin can manage the encoders
+        permissions[7] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Grant,
+            where: ANY_ADDR,
+            who: plugin,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: ENCODER_MANAGER_PERMISSION_ID
+        });
+
+        // The plugin can manage the strategies
+        permissions[8] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Grant,
+            where: ANY_ADDR,
+            who: plugin,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: STRATEGY_MANAGER_PERMISSION_ID
+        });
+
         preparedSetupData.helpers = helpers;
         preparedSetupData.permissions = permissions;
     }
@@ -143,7 +184,7 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
         address executeCondition = _payload.currentHelpers[0];
 
         // Set permissions to be Revoked.
-        permissions = new PermissionLib.MultiTargetPermission[](5);
+        permissions = new PermissionLib.MultiTargetPermission[](9);
 
         permissions[0] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Revoke,
@@ -183,6 +224,42 @@ contract CapitalDistributorPluginSetup is PluginUpgradeableSetup {
             who: _dao,
             condition: PermissionLib.NO_CONDITION,
             permissionId: MANAGE_SELECTORS_PERMISSION_ID
+        });
+
+        // The DAO can manage the encoders
+        permissions[5] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Revoke,
+            where: ANY_ADDR,
+            who: _dao,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: ENCODER_MANAGER_PERMISSION_ID
+        });
+
+        // The DAO can manage the strategies
+        permissions[6] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Revoke,
+            where: ANY_ADDR,
+            who: _dao,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: STRATEGY_MANAGER_PERMISSION_ID
+        });
+
+        // The plugin can manage the encoders
+        permissions[7] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Revoke,
+            where: ANY_ADDR,
+            who: _payload.plugin,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: ENCODER_MANAGER_PERMISSION_ID
+        });
+
+        // The plugin can manage the strategies
+        permissions[8] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Revoke,
+            where: ANY_ADDR,
+            who: _payload.plugin,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: STRATEGY_MANAGER_PERMISSION_ID
         });
     }
 

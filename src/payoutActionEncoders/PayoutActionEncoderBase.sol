@@ -3,7 +3,6 @@ pragma solidity ^0.8.29;
 
 import { IPayoutActionEncoder } from "../interfaces/IPayoutActionEncoder.sol";
 import { DaoAuthorizableUpgradeable } from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { ERC165Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import { Action } from "@aragon/commons/executors/IExecutor.sol";
@@ -13,17 +12,15 @@ import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 /// @notice Base contract implementing the IPayoutActionEncoder interface.
 /// @dev Provides common functionality for action encoders. Implementing contracts should override
 /// abstract functions to define specific allocation logic.
-abstract contract PayoutActionEncoderBase is
-    IPayoutActionEncoder,
-    DaoAuthorizableUpgradeable,
-    OwnableUpgradeable,
-    ERC165Upgradeable
-{
+abstract contract PayoutActionEncoderBase is IPayoutActionEncoder, DaoAuthorizableUpgradeable, ERC165Upgradeable {
     bytes32 public encoderId;
+
+    bytes32 public constant ENCODER_MANAGER_PERMISSION_ID = keccak256("ENCODER_MANAGER_PERMISSION");
 
     // =========================================================================
     // Constructor
     // =========================================================================
+
     constructor() {
         // Disable initializers to prevent implementation contract from being initialized
         _disableInitializers();
@@ -36,12 +33,9 @@ abstract contract PayoutActionEncoderBase is
     /// @notice Initializes the action encoder with the given parameters
     /// @param _encoderId The type ID of the strategy
     /// @param _dao The DAO that will control this strategy
-    function initialize(bytes32 _encoderId, IDAO _dao, address _owner, bytes calldata) public virtual initializer {
+    function initialize(bytes32 _encoderId, IDAO _dao, bytes calldata) public virtual initializer {
         __DaoAuthorizableUpgradeable_init(_dao);
-        // Owner will be set directly to the plugin who's calling the initialize
-        __Ownable_init();
         __ERC165_init();
-        _transferOwnership(_owner);
 
         encoderId = _encoderId;
     }

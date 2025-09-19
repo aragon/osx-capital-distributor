@@ -135,18 +135,20 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
      * @notice Deploys a new instance of a registered strategy type.
      * @param _strategyId The strategy type to deploy.
      * @param _dao The DAO address for initialization.
+     * @param _plugin The plugin address for initialization.
      * @param _deploymentParams Additional deployment parameters.
      * @return strategy The address of the deployed strategy.
      */
     function deployStrategy(
         bytes32 _strategyId,
         IDAO _dao,
+        address _plugin,
         bytes calldata _deploymentParams
     )
         public
         returns (address strategy)
     {
-        bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, _deploymentParams);
+        bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, _plugin, _deploymentParams);
 
         // Check if strategy with these parameters already exists
         address existingStrategy = deployedInstances[deploymentId];
@@ -154,38 +156,41 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
             revert InstanceAlreadyDeployed(deploymentId, existingStrategy);
         }
 
-        return _deployStrategy(_strategyId, _dao, _deploymentParams, deploymentId);
+        return _deployStrategy(_strategyId, _dao, _plugin, _deploymentParams, deploymentId);
     }
 
     /**
      * @notice Gets an existing strategy instance or deploys a new one if it doesn't exist.
      * @param _strategyId The strategy type to get or deploy.
      * @param _dao The DAO address for initialization.
+     * @param _plugin The plugin address for initialization.
      * @param _deploymentParams Additional deployment parameters.
      * @return strategy The address of the existing or newly deployed strategy.
      */
     function getOrDeployStrategy(
         bytes32 _strategyId,
         IDAO _dao,
+        address _plugin,
         bytes calldata _deploymentParams
     )
         external
         returns (address strategy)
     {
-        bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, _deploymentParams);
+        bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, _plugin, _deploymentParams);
 
         strategy = deployedInstances[deploymentId];
         if (strategy != address(0)) {
             return strategy;
         }
 
-        return _deployStrategy(_strategyId, _dao, _deploymentParams, deploymentId);
+        return _deployStrategy(_strategyId, _dao, _plugin, _deploymentParams, deploymentId);
     }
 
     /**
      * @notice Checks if a strategy with given parameters already exists.
      * @param _strategyId The strategy type ID.
      * @param _dao The DAO address.
+     * @param _plugin The plugin address.
      * @param _deploymentParams Additional deployment parameters.
      * @return exists True if the strategy exists, false otherwise.
      * @return strategy The address of the existing strategy (zero if doesn't exist).
@@ -193,13 +198,14 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     function hasDeployment(
         bytes32 _strategyId,
         IDAO _dao,
+        address _plugin,
         bytes calldata _deploymentParams
     )
         external
         view
         returns (bool exists, address strategy)
     {
-        bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, _deploymentParams);
+        bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, _plugin, _deploymentParams);
         strategy = deployedInstances[deploymentId];
         // Avoid redundant comparison by using inline assembly for gas optimization
         assembly {
@@ -230,6 +236,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
      * @notice Internal function to deploy a strategy with pre-computed hash.
      * @param _strategyId The strategy type to deploy.
      * @param _dao The DAO address for initialization.
+     * @param _plugin The plugin address for initialization.
      * @param _deploymentParams Additional deployment parameters.
      * @param _deploymentId Pre-computed deployment identifier.
      * @return strategy The address of the deployed strategy.
@@ -237,6 +244,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     function _deployStrategy(
         bytes32 _strategyId,
         IDAO _dao,
+        address _plugin,
         bytes calldata _deploymentParams,
         bytes32 _deploymentId
     )
@@ -252,7 +260,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
 
         // Initialize the strategy
         bytes memory initCalldata = abi.encodeWithSignature(
-            "initialize(bytes32,address,address,bytes)", _strategyId, address(_dao), msg.sender, _deploymentParams
+            "initialize(bytes32,address,address,bytes)", _strategyId, address(_dao), _plugin, _deploymentParams
         );
 
         // Deploy and initialize using base class utility
@@ -262,7 +270,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         deployedInstances[_deploymentId] = strategy;
         instanceToType[strategy] = _strategyId;
 
-        emit InstanceDeployed(_strategyId, strategy, _deploymentId, msg.sender);
+        emit InstanceDeployed(_strategyId, strategy, _deploymentId, _plugin);
         emit StrategyDeployed(_strategyId, strategy);
 
         return strategy;

@@ -75,17 +75,19 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
     /// @notice Deploys a new instance of a registered action encoder type
     /// @param _encoderId The unique identifier for the action encoder
     /// @param _dao The DAO address for which the encoder is being deployed
+    /// @param _plugin The plugin address for which the encoder is being deployed
     /// @param _initializationParams Initialization parameters for the action encoder
     /// @return encoder The address of the deployed action encoder instance
     function deployActionEncoder(
         bytes32 _encoderId,
         IDAO _dao,
+        address _plugin,
         bytes calldata _initializationParams
     )
         public
         returns (IPayoutActionEncoder encoder)
     {
-        bytes32 deploymentId = _computeDeploymentId(_encoderId, _dao, _initializationParams);
+        bytes32 deploymentId = _computeDeploymentId(_encoderId, _dao, _plugin, _initializationParams);
 
         // Check if encoder with these parameters already exists
         IPayoutActionEncoder existingEncoder = deployedInstances[deploymentId];
@@ -93,48 +95,52 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
             revert InstanceAlreadyDeployed(deploymentId, address(existingEncoder));
         }
 
-        return _deployActionEncoder(_encoderId, _dao, _initializationParams, deploymentId);
+        return _deployActionEncoder(_encoderId, _dao, _plugin, _initializationParams, deploymentId);
     }
 
     /// @notice Gets an existing action encoder or deploys a new one if it doesn't exist
     /// @param _encoderId The unique identifier for the action encoder
     /// @param _dao The DAO address for which the encoder is being deployed
+    /// @param _plugin The plugin address for which the encoder is being deployed
     /// @param _initializationParams Initialization parameters for the action encoder
     /// @return encoder The address of the action encoder instance
     function getOrDeployActionEncoder(
         bytes32 _encoderId,
         IDAO _dao,
+        address _plugin,
         bytes calldata _initializationParams
     )
         external
         returns (IPayoutActionEncoder encoder)
     {
-        bytes32 deploymentId = _computeDeploymentId(_encoderId, _dao, _initializationParams);
+        bytes32 deploymentId = _computeDeploymentId(_encoderId, _dao, _plugin, _initializationParams);
 
         encoder = deployedInstances[deploymentId];
         if (address(encoder) != address(0)) {
             return encoder;
         }
 
-        return _deployActionEncoder(_encoderId, _dao, _initializationParams, deploymentId);
+        return _deployActionEncoder(_encoderId, _dao, _plugin, _initializationParams, deploymentId);
     }
 
     /// @notice Checks if an action encoder deployment exists for given parameters
     /// @param _encoderId The unique identifier for the action encoder
     /// @param _dao The DAO address to check for
+    /// @param _plugin The plugin address to check for
     /// @param _initializationParams Additional deployment parameters
     /// @return exists True if a deployment exists, false otherwise
     /// @return encoder The address of the deployed encoder if it exists, zero address otherwise
     function hasDeployment(
         bytes32 _encoderId,
         IDAO _dao,
+        address _plugin,
         bytes calldata _initializationParams
     )
         external
         view
         returns (bool exists, IPayoutActionEncoder encoder)
     {
-        bytes32 deploymentId = _computeDeploymentId(_encoderId, _dao, _initializationParams);
+        bytes32 deploymentId = _computeDeploymentId(_encoderId, _dao, _plugin, _initializationParams);
         encoder = deployedInstances[deploymentId];
         exists = address(encoder) != address(0);
     }
@@ -148,6 +154,7 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
     function _deployActionEncoder(
         bytes32 _encoderId,
         IDAO _dao,
+        address _plugin,
         bytes calldata _initializationParams,
         bytes32 _deploymentId
     )
@@ -161,7 +168,7 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
         }
 
         bytes memory initCalldata = abi.encodeWithSignature(
-            "initialize(bytes32,address,address,bytes)", _encoderId, address(_dao), msg.sender, _initializationParams
+            "initialize(bytes32,address,bytes)", _encoderId, address(_dao), _initializationParams
         );
 
         address instance = _deployAndInitialize(_encoderId, encoderType.implementation, initCalldata);
@@ -170,7 +177,7 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
         deployedInstances[_deploymentId] = encoder;
         instanceToType[address(encoder)] = _encoderId;
 
-        emit InstanceDeployed(_encoderId, address(encoder), _deploymentId, msg.sender);
+        emit InstanceDeployed(_encoderId, address(encoder), _deploymentId, _plugin);
         emit ActionEncoderDeployed(_encoderId, encoder);
 
         return encoder;

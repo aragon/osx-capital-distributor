@@ -31,12 +31,15 @@ interface IAllocatorStrategyFactory {
     /**
      * @notice Deploys a new instance of a registered strategy type.
      * @param _strategyId The strategy type to deploy.
+     * @param _dao The DAO address.
+     * @param _plugin The plugin address.
      * @param _params Deployment parameters for the strategy.
      * @return strategy The address of the deployed strategy.
      */
     function deployStrategy(
         bytes32 _strategyId,
         IDAO _dao,
+        address _plugin,
         bytes calldata _params
     )
         external
@@ -45,12 +48,15 @@ interface IAllocatorStrategyFactory {
     /**
      * @notice Gets an existing strategy instance or deploys a new one if it doesn't exist.
      * @param _strategyId The strategy type to get or deploy.
+     * @param _dao The DAO address.
+     * @param _plugin The plugin address.
      * @param _params Deployment parameters for the strategy.
      * @return strategy The address of the existing or newly deployed strategy.
      */
     function getOrDeployStrategy(
         bytes32 _strategyId,
         IDAO _dao,
+        address _plugin,
         bytes calldata _params
     )
         external
