@@ -28,12 +28,14 @@ interface IActionEncoderFactory {
      * @notice Gets an existing action encoder or deploys a new one if it doesn't exist
      * @param _encoderId The unique identifier for the action encoder
      * @param _dao The DAO address for which the encoder is being deployed
+     * @param _plugin The plugin address for which the encoder is being deployed
      * @param _params Initialization parameters for the action encoder
      * @return actionEncoder The address of the action encoder instance
      */
     function getOrDeployActionEncoder(
         bytes32 _encoderId,
         IDAO _dao,
+        address _plugin,
         bytes calldata _params
     )
         external

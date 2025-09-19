@@ -313,8 +313,9 @@ contract CapitalDistributorPlugin is
 
         // Deploy and setup allocation strategy
         {
-            address strategyAddress =
-                allocatorStrategyFactory.getOrDeployStrategy(_strategy.strategyId, dao(), _strategy.strategyParams);
+            address strategyAddress = allocatorStrategyFactory.getOrDeployStrategy(
+                _strategy.strategyId, dao(), address(this), _strategy.strategyParams
+            );
             if (strategyAddress == address(0)) {
                 revert FactoryDeploymentFailed("AllocatorStrategy");
             }
@@ -331,7 +332,7 @@ contract CapitalDistributorPlugin is
         // Setup action encoder if provided
         if (_payout.actionEncoderId != bytes32(0)) {
             IPayoutActionEncoder actionEncoder = actionEncoderFactory.getOrDeployActionEncoder(
-                _payout.actionEncoderId, dao(), _payout.actionEncoderInitData
+                _payout.actionEncoderId, dao(), address(this), _payout.actionEncoderInitData
             );
             campaign.actionEncoder = actionEncoder;
 

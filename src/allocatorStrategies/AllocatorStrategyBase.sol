@@ -4,7 +4,6 @@ pragma solidity ^0.8.29;
 import { IAllocatorStrategy } from "../interfaces/IAllocatorStrategy.sol";
 import { IAllocatorStrategyFactory } from "../interfaces/IAllocatorStrategyFactory.sol";
 import { DaoAuthorizableUpgradeable } from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { ERC165Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
@@ -13,15 +12,12 @@ import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 /// @notice Base contract implementing the IAllocatorStrategy interface.
 /// @dev Provides common functionality for allocation strategies. Implementing contracts should override
 /// abstract functions to define specific allocation logic.
-abstract contract AllocatorStrategyBase is
-    IAllocatorStrategy,
-    DaoAuthorizableUpgradeable,
-    OwnableUpgradeable,
-    ERC165Upgradeable
-{
+abstract contract AllocatorStrategyBase is IAllocatorStrategy, DaoAuthorizableUpgradeable, ERC165Upgradeable {
     bytes32 public strategyId;
     address public plugin;
     address public factory;
+
+    bytes32 public constant STRATEGY_MANAGER_PERMISSION_ID = keccak256("STRATEGY_MANAGER_PERMISSION");
 
     // =========================================================================
     // Constructor
@@ -42,10 +38,6 @@ abstract contract AllocatorStrategyBase is
     function initialize(bytes32 _strategyId, IDAO _dao, address _plugin, bytes calldata) public virtual initializer {
         __DaoAuthorizableUpgradeable_init(_dao);
         __ERC165_init();
-
-        // Set plugin as owner for backward compatibility, but store plugin separately
-        __Ownable_init();
-        _transferOwnership(_plugin);
 
         plugin = _plugin;
         strategyId = _strategyId;
