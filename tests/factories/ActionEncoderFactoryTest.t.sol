@@ -200,7 +200,7 @@ contract ActionEncoderFactoryTest is Test {
         assertTrue(address(encoder1) != address(0));
 
         // Second deployment with same parameters should revert
-        bytes32 deploymentId = keccak256(abi.encode(VAULT_ENCODER_ID, address(dao), auxData));
+        bytes32 deploymentId = keccak256(abi.encode(VAULT_ENCODER_ID, address(dao), address(this), auxData));
         vm.expectRevert(
             abi.encodeWithSelector(FactoryBase.InstanceAlreadyDeployed.selector, deploymentId, address(encoder1))
         );
@@ -275,7 +275,8 @@ contract ActionEncoderFactoryTest is Test {
         bytes memory auxData = abi.encode(address(0x123));
 
         // Should not exist initially
-        (bool exists, IPayoutActionEncoder encoder) = factory.hasDeployment(VAULT_ENCODER_ID, dao, auxData);
+        (bool exists, IPayoutActionEncoder encoder) =
+            factory.hasDeployment(VAULT_ENCODER_ID, dao, address(this), auxData);
         assertFalse(exists);
         assertEq(address(encoder), address(0));
 
@@ -283,7 +284,7 @@ contract ActionEncoderFactoryTest is Test {
         IPayoutActionEncoder deployedEncoder = factory.deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
 
         // Should exist after deployment
-        (exists, encoder) = factory.hasDeployment(VAULT_ENCODER_ID, dao, auxData);
+        (exists, encoder) = factory.hasDeployment(VAULT_ENCODER_ID, dao, address(this), auxData);
         assertTrue(exists);
         assertEq(address(encoder), address(deployedEncoder));
     }
@@ -417,7 +418,7 @@ contract ActionEncoderFactoryTest is Test {
 
         // Instance exists check gas test
         gasStart = gasleft();
-        factory.hasDeployment(VAULT_ENCODER_ID, dao, auxData);
+        factory.hasDeployment(VAULT_ENCODER_ID, dao, address(this), auxData);
         gasUsed = gasStart - gasleft();
         console2.log("Gas used for hasDeployment:", gasUsed);
         assertTrue(gasUsed < 10_000);

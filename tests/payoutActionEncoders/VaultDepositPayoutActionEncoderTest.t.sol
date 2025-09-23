@@ -8,6 +8,7 @@ import { ActionEncoderFactory } from "../../src/factories/ActionEncoderFactory.s
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 import { Action } from "@aragon/commons/executors/IExecutor.sol";
+import { DaoUnauthorized } from "@aragon/commons/permission/auth/auth.sol";
 
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
 import { AragonTest } from "../helpers/AragonTest.sol";
@@ -89,7 +90,11 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
         address newVault = makeAddr("newVault");
 
         vm.prank(testAlice);
-        vm.expectRevert(abi.encodeWithSelector(VaultDepositPayoutActionEncoder.OnlyOwner.selector, testAlice));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DaoUnauthorized.selector, createdDao, encoder, testAlice, keccak256("ENCODER_MANAGER_PERMISSION")
+            )
+        );
         encoder.setupCampaign(CAMPAIGN_ID, abi.encode(newVault));
     }
 

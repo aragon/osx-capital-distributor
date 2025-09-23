@@ -55,6 +55,13 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         // Set up mock-generated test data
         setupMockGeneratedData();
+
+        address strategyDeployment = capitalDistributorPlugin.deployStrategy(toBytes32("merkle-strategy"), "");
+
+        createdDao.grant(strategyDeployment, address(createdDao), keccak256("STRATEGY_MANAGER_PERMISSION"));
+        createdDao.grant(
+            strategyDeployment, address(capitalDistributorPlugin), keccak256("STRATEGY_MANAGER_PERMISSION")
+        );
     }
 
     function setupMerkleTreeData() internal {
@@ -565,13 +572,10 @@ contract MerkleDistributorStrategyTest is AragonTest {
         bytes memory newRootData = abi.encode(newRoot);
 
         vm.expectRevert(abi.encodeWithSelector(MerkleDistributorStrategy.CampaignNotPaused.selector, campaignId));
-
-        // Call directly on strategy but from DAO context
-        vm.stopPrank();
-        vm.prank(address(createdDao));
         MerkleDistributorStrategy(address(campaign.allocationStrategy)).updateCampaignMerkleRoot(
             campaignId, newRootData
         );
+        vm.stopPrank();
     }
 
     function test_UpdateMerkleRootFailsOnActiveCampaign() public {
