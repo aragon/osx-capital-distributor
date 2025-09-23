@@ -3,6 +3,7 @@ pragma solidity ^0.8.29;
 
 import { IPayoutActionEncoder } from "../interfaces/IPayoutActionEncoder.sol";
 import { DaoAuthorizableUpgradeable } from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
+import { DaoUnauthorized } from "@aragon/commons/permission/auth/auth.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { ERC165Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
@@ -19,6 +20,9 @@ abstract contract PayoutActionEncoderBase is
     OwnableUpgradeable,
     ERC165Upgradeable
 {
+    /// @notice The ID of the permission required to manage encoder operations
+    bytes32 public constant ENCODER_MANAGER_PERMISSION_ID = keccak256("ENCODER_MANAGER_PERMISSION");
+
     bytes32 public encoderId;
 
     // =========================================================================
@@ -78,5 +82,44 @@ abstract contract PayoutActionEncoderBase is
     /// @return True if the contract supports the interface
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         return interfaceId == type(IPayoutActionEncoder).interfaceId || super.supportsInterface(interfaceId);
+    }
+
+    /**
+     * @dev Leaves the contract without owner. It will not be possible to call
+     * `onlyOwner` functions.
+     *
+     * NOTE: Renouncing ownership will leave the contract without an owner.
+     * Make sure to give permissions to the DAO to manage the encoder.
+     */
+    function renounceOwnership() public override authOrOwner(ENCODER_MANAGER_PERMISSION_ID) {
+        super.renounceOwnership();
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     */
+    function transferOwnership(address newOwner) public override authOrOwner(ENCODER_MANAGER_PERMISSION_ID) {
+        super.transferOwnership(newOwner);
+    }
+
+    /**
+     * @dev Checks if the sender is the owner or has the required permission.
+     */
+    function _checkAuthOrOwner(bytes32 _permissionId) internal view {
+        if (owner() != _msgSender() && !dao().hasPermission(address(this), _msgSender(), _permissionId, _msgData())) {
+            revert DaoUnauthorized({
+                dao: address(dao()),
+                where: address(this),
+                who: _msgSender(),
+                permissionId: _permissionId
+            });
+        }
+    }
+
+    /// @notice Modifier that checks both ownership and DAO permission
+    /// @dev Custom modifier for strategy management functions
+    modifier authOrOwner(bytes32 _permissionId) {
+        _checkAuthOrOwner(_permissionId);
+        _;
     }
 }

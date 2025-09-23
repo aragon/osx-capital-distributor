@@ -19,11 +19,6 @@ interface IAllocatorStrategy is IERC165 {
     event AllocationCampaignCreated(address indexed _dao, uint256 indexed _campaignId);
 
     // =========================================================================
-    // Errors
-    // =========================================================================
-    error OnlyDAOAllowed(address account);
-
-    // =========================================================================
     // View Functions
     // =========================================================================
 

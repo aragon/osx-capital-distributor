@@ -85,7 +85,7 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
         public
         returns (IPayoutActionEncoder encoder)
     {
-        bytes32 deploymentId = _computeDeploymentId(_encoderId, _dao, _initializationParams);
+        bytes32 deploymentId = _computeDeploymentId(_encoderId, _dao, msg.sender, _initializationParams);
 
         // Check if encoder with these parameters already exists
         IPayoutActionEncoder existingEncoder = deployedInstances[deploymentId];
@@ -109,7 +109,7 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
         external
         returns (IPayoutActionEncoder encoder)
     {
-        bytes32 deploymentId = _computeDeploymentId(_encoderId, _dao, _initializationParams);
+        bytes32 deploymentId = _computeDeploymentId(_encoderId, _dao, msg.sender, _initializationParams);
 
         encoder = deployedInstances[deploymentId];
         if (address(encoder) != address(0)) {
@@ -128,13 +128,14 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
     function hasDeployment(
         bytes32 _encoderId,
         IDAO _dao,
+        address _plugin,
         bytes calldata _initializationParams
     )
         external
         view
         returns (bool exists, IPayoutActionEncoder encoder)
     {
-        bytes32 deploymentId = _computeDeploymentId(_encoderId, _dao, _initializationParams);
+        bytes32 deploymentId = _computeDeploymentId(_encoderId, _dao, _plugin, _initializationParams);
         encoder = deployedInstances[deploymentId];
         exists = address(encoder) != address(0);
     }

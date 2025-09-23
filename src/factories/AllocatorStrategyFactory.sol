@@ -146,7 +146,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         public
         returns (address strategy)
     {
-        bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, _deploymentParams);
+        bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, msg.sender, _deploymentParams);
 
         // Check if strategy with these parameters already exists
         address existingStrategy = deployedInstances[deploymentId];
@@ -172,7 +172,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         external
         returns (address strategy)
     {
-        bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, _deploymentParams);
+        bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, msg.sender, _deploymentParams);
 
         strategy = deployedInstances[deploymentId];
         if (strategy != address(0)) {
@@ -193,13 +193,14 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     function hasDeployment(
         bytes32 _strategyId,
         IDAO _dao,
+        address _plugin,
         bytes calldata _deploymentParams
     )
         external
         view
         returns (bool exists, address strategy)
     {
-        bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, _deploymentParams);
+        bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, _plugin, _deploymentParams);
         strategy = deployedInstances[deploymentId];
         // Avoid redundant comparison by using inline assembly for gas optimization
         assembly {
