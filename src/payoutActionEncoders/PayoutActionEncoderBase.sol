@@ -92,14 +92,15 @@ abstract contract PayoutActionEncoderBase is
      * Make sure to give permissions to the DAO to manage the encoder.
      */
     function renounceOwnership() public override authOrOwner(ENCODER_MANAGER_PERMISSION_ID) {
-        super.renounceOwnership();
+        _transferOwnership(address(0));
     }
 
     /**
      * @dev Transfers ownership of the contract to a new account (`newOwner`).
      */
     function transferOwnership(address newOwner) public override authOrOwner(ENCODER_MANAGER_PERMISSION_ID) {
-        super.transferOwnership(newOwner);
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        _transferOwnership(newOwner);
     }
 
     /**
