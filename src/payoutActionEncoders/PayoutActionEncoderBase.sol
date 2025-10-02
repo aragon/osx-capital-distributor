@@ -20,9 +20,6 @@ abstract contract PayoutActionEncoderBase is
     OwnableUpgradeable,
     ERC165Upgradeable
 {
-    /// @notice The ID of the permission required to manage encoder operations
-    bytes32 public constant ENCODER_MANAGER_PERMISSION_ID = keccak256("ENCODER_MANAGER_PERMISSION");
-
     bytes32 public encoderId;
 
     // =========================================================================
@@ -91,36 +88,31 @@ abstract contract PayoutActionEncoderBase is
      * NOTE: Renouncing ownership will leave the contract without an owner.
      * Make sure to give permissions to the DAO to manage the encoder.
      */
-    function renounceOwnership() public override authOrOwner(ENCODER_MANAGER_PERMISSION_ID) {
+    function renounceOwnership() public override ownerOrDao {
         _transferOwnership(address(0));
     }
 
     /**
      * @dev Transfers ownership of the contract to a new account (`newOwner`).
      */
-    function transferOwnership(address newOwner) public override authOrOwner(ENCODER_MANAGER_PERMISSION_ID) {
+    function transferOwnership(address newOwner) public override ownerOrDao {
         require(newOwner != address(0), "Ownable: new owner is the zero address");
         _transferOwnership(newOwner);
     }
 
     /**
-     * @dev Checks if the sender is the owner or has the required permission.
+     * @dev Checks if the sender is the owner or is DAO
      */
-    function _checkAuthOrOwner(bytes32 _permissionId) internal view {
-        if (owner() != _msgSender() && !dao().hasPermission(address(this), _msgSender(), _permissionId, _msgData())) {
-            revert DaoUnauthorized({
-                dao: address(dao()),
-                where: address(this),
-                who: _msgSender(),
-                permissionId: _permissionId
-            });
+    function _checkOwnerOrDao() internal view {
+        if (owner() != _msgSender() && address(dao()) != _msgSender()) {
+            revert NotAuthorized(_msgSender());
         }
     }
 
-    /// @notice Modifier that checks both ownership and DAO permission
+    /// @notice Modifier that checks both ownership or is DAO
     /// @dev Custom modifier for strategy management functions
-    modifier authOrOwner(bytes32 _permissionId) {
-        _checkAuthOrOwner(_permissionId);
+    modifier ownerOrDao() {
+        _checkOwnerOrDao();
         _;
     }
 }

@@ -12,21 +12,14 @@ import { MerkleDistributorStrategy } from "../src/allocatorStrategies/MerkleDist
 import { VaultDepositPayoutActionEncoder } from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
 import { AllocatorStrategyBase } from "../src/allocatorStrategies/AllocatorStrategyBase.sol";
 import { PayoutActionEncoderBase } from "../src/payoutActionEncoders/PayoutActionEncoderBase.sol";
-import { DaoUnauthorized } from "@aragon/commons/permission/auth/auth.sol";
+import { IAllocatorStrategy } from "../src/interfaces/IAllocatorStrategy.sol";
+import { IPayoutActionEncoder } from "../src/interfaces/IPayoutActionEncoder.sol";
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
 import { IPluginRepo } from "@aragon/osx/framework/plugin/repo/IPluginRepo.sol";
 
-contract AuthOrOwnerTest is AragonTest {
+contract OwnerOrDaoTest is AragonTest {
     MintableERC20 token;
     CapitalDistributorPlugin capitalDistributorPlugin;
-
-    address testAlice = makeAddr("testAlice");
-    address testBob = makeAddr("testBob");
-    address charlie = makeAddr("charlie");
-
-    bytes32 constant STRATEGY_MANAGER_PERMISSION_ID = keccak256("STRATEGY_MANAGER_PERMISSION");
-    bytes32 constant ENCODER_MANAGER_PERMISSION_ID = keccak256("ENCODER_MANAGER_PERMISSION");
-    bytes32 constant CAMPAIGN_MANAGER_PERMISSION_ID = keccak256("CAMPAIGN_MANAGER_PERMISSION");
 
     function setUp() public {
         // Deploy token
@@ -56,7 +49,7 @@ contract AuthOrOwnerTest is AragonTest {
     }
 
     // =========================================================================
-    // MerkleDistributorStrategy authOrOwner Tests
+    // MerkleDistributorStrategy OwnerOrDao Tests
     // =========================================================================
 
     function test_MerkleStrategy_SetAllocationCampaign_AsOwner() public {
@@ -74,20 +67,16 @@ contract AuthOrOwnerTest is AragonTest {
         assertEq(strategy.getCampaignMerkleRoot(1), merkleRoot);
     }
 
-    function test_MerkleStrategy_SetAllocationCampaign_WithPermission() public {
+    function test_MerkleStrategy_SetAllocationCampaign_AsDao() public {
         // Deploy strategy
         vm.prank(address(createdDao));
         address strategyAddr = capitalDistributorPlugin.deployStrategy(toBytes32("merkle-strategy"), "");
         MerkleDistributorStrategy strategy = MerkleDistributorStrategy(strategyAddr);
 
-        // Grant permission to testAlice
-        vm.prank(address(createdDao));
-        createdDao.grant(address(strategy), testAlice, STRATEGY_MANAGER_PERMISSION_ID);
-
-        // Alice should be able to call setAllocationCampaign
+        // DAO should be able to call setAllocationCampaign
         bytes32 merkleRoot = keccak256("test-merkle-root");
 
-        vm.prank(testAlice);
+        vm.prank(address(createdDao));
         strategy.setAllocationCampaign(2, abi.encode(merkleRoot));
 
         assertEq(strategy.getCampaignMerkleRoot(2), merkleRoot);
@@ -102,12 +91,8 @@ contract AuthOrOwnerTest is AragonTest {
         // Bob without permission should not be able to call
         bytes32 merkleRoot = keccak256("test-merkle-root");
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                DaoUnauthorized.selector, createdDao, address(strategy), testBob, STRATEGY_MANAGER_PERMISSION_ID
-            )
-        );
-        vm.prank(testBob);
+        vm.expectRevert(abi.encodeWithSelector(IAllocatorStrategy.NotAuthorized.selector, bob));
+        vm.prank(bob);
         strategy.setAllocationCampaign(3, abi.encode(merkleRoot));
     }
 
@@ -140,7 +125,7 @@ contract AuthOrOwnerTest is AragonTest {
         assertEq(strategy.getCampaignMerkleRoot(campaignId), newRoot);
     }
 
-    function test_MerkleStrategy_UpdateMerkleRoot_WithPermission() public {
+    function test_MerkleStrategy_UpdateMerkleRoot_AsDao() public {
         // Setup campaign
         vm.startPrank(address(createdDao));
         address strategyAddr = capitalDistributorPlugin.deployStrategy(toBytes32("merkle-strategy"), "");
@@ -159,16 +144,12 @@ contract AuthOrOwnerTest is AragonTest {
 
         capitalDistributorPlugin.pauseCampaign(campaignId);
 
-        // Grant permission to charlie
-        createdDao.grant(address(strategy), charlie, STRATEGY_MANAGER_PERMISSION_ID);
-        vm.stopPrank();
-
-        // Charlie updates merkle root
-        bytes32 newRoot = keccak256("charlie-new-root");
-        vm.prank(charlie);
+        // DAO updates merkle root
+        bytes32 newRoot = keccak256("dao-new-root");
         strategy.updateCampaignMerkleRoot(campaignId, abi.encode(newRoot));
 
         assertEq(strategy.getCampaignMerkleRoot(campaignId), newRoot);
+        vm.stopPrank();
     }
 
     function test_MerkleStrategy_RenounceOwnership_AsOwner() public {
@@ -184,17 +165,14 @@ contract AuthOrOwnerTest is AragonTest {
         assertEq(strategy.owner(), address(0));
     }
 
-    function test_MerkleStrategy_RenounceOwnership_WithPermission() public {
+    function test_MerkleStrategy_RenounceOwnership_AsDao() public {
         vm.startPrank(address(createdDao));
         address strategyAddr = capitalDistributorPlugin.deployStrategy(toBytes32("merkle-strategy"), "");
         MerkleDistributorStrategy strategy = MerkleDistributorStrategy(strategyAddr);
-
-        // Grant permission to testAlice
-        createdDao.grant(address(strategy), testAlice, STRATEGY_MANAGER_PERMISSION_ID);
         vm.stopPrank();
 
-        // Now with the fix, testAlice can renounce ownership with permission
-        vm.prank(testAlice);
+        // DAO can renounce ownership
+        vm.prank(address(createdDao));
         strategy.renounceOwnership();
 
         assertEq(strategy.owner(), address(0));
@@ -208,29 +186,26 @@ contract AuthOrOwnerTest is AragonTest {
         address initialOwner = strategy.owner();
 
         vm.prank(initialOwner);
-        strategy.transferOwnership(testBob);
+        strategy.transferOwnership(bob);
 
-        assertEq(strategy.owner(), testBob);
+        assertEq(strategy.owner(), bob);
     }
 
-    function test_MerkleStrategy_TransferOwnership_WithPermission() public {
+    function test_MerkleStrategy_TransferOwnership_AsDao() public {
         vm.startPrank(address(createdDao));
         address strategyAddr = capitalDistributorPlugin.deployStrategy(toBytes32("merkle-strategy"), "");
         MerkleDistributorStrategy strategy = MerkleDistributorStrategy(strategyAddr);
-
-        // Grant permission to testAlice
-        createdDao.grant(address(strategy), testAlice, STRATEGY_MANAGER_PERMISSION_ID);
         vm.stopPrank();
 
-        // Now with the fix, testAlice can transfer ownership with permission
-        vm.prank(testAlice);
-        strategy.transferOwnership(charlie);
+        // DAO can transfer ownership
+        vm.prank(address(createdDao));
+        strategy.transferOwnership(carol);
 
-        assertEq(strategy.owner(), charlie);
+        assertEq(strategy.owner(), carol);
     }
 
     // =========================================================================
-    // VaultDepositPayoutActionEncoder authOrOwner Tests
+    // VaultDepositPayoutActionEncoder OwnerOrDao Tests
     // =========================================================================
 
     function test_VaultEncoder_SetupCampaign_AsOwner() public {
@@ -247,19 +222,15 @@ contract AuthOrOwnerTest is AragonTest {
         assertEq(encoder.campaignVaults(1), vault);
     }
 
-    function test_VaultEncoder_SetupCampaign_WithPermission() public {
-        vm.startPrank(address(createdDao));
+    function test_VaultEncoder_SetupCampaign_AsDao() public {
+        vm.prank(address(createdDao));
         VaultDepositPayoutActionEncoder encoder = VaultDepositPayoutActionEncoder(
             address(capitalDistributorPlugin.deployActionEncoder(toBytes32("vault-encoder"), ""))
         );
 
-        // Grant permission to testAlice
-        createdDao.grant(address(encoder), testAlice, ENCODER_MANAGER_PERMISSION_ID);
-        vm.stopPrank();
-
         address vault = makeAddr("vault");
 
-        vm.prank(testAlice);
+        vm.prank(address(createdDao));
         encoder.setupCampaign(2, abi.encode(vault));
 
         assertEq(encoder.campaignVaults(2), vault);
@@ -273,12 +244,8 @@ contract AuthOrOwnerTest is AragonTest {
 
         address vault = makeAddr("vault");
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                DaoUnauthorized.selector, createdDao, address(encoder), testBob, ENCODER_MANAGER_PERMISSION_ID
-            )
-        );
-        vm.prank(testBob);
+        vm.expectRevert(abi.encodeWithSelector(IPayoutActionEncoder.NotAuthorized.selector, bob));
+        vm.prank(bob);
         encoder.setupCampaign(3, abi.encode(vault));
     }
 
@@ -296,18 +263,15 @@ contract AuthOrOwnerTest is AragonTest {
         assertEq(encoder.owner(), address(0));
     }
 
-    function test_VaultEncoder_RenounceOwnership_WithPermission() public {
+    function test_VaultEncoder_RenounceOwnership_AsDao() public {
         vm.startPrank(address(createdDao));
         VaultDepositPayoutActionEncoder encoder = VaultDepositPayoutActionEncoder(
             address(capitalDistributorPlugin.deployActionEncoder(toBytes32("vault-encoder"), ""))
         );
-
-        // Grant permission to testAlice
-        createdDao.grant(address(encoder), testAlice, ENCODER_MANAGER_PERMISSION_ID);
         vm.stopPrank();
 
-        // Now with the fix, testAlice can renounce ownership with permission
-        vm.prank(testAlice);
+        // DAO can renounce ownership
+        vm.prank(address(createdDao));
         encoder.renounceOwnership();
 
         assertEq(encoder.owner(), address(0));
@@ -322,26 +286,23 @@ contract AuthOrOwnerTest is AragonTest {
         address initialOwner = encoder.owner();
 
         vm.prank(initialOwner);
-        encoder.transferOwnership(testBob);
+        encoder.transferOwnership(bob);
 
-        assertEq(encoder.owner(), testBob);
+        assertEq(encoder.owner(), bob);
     }
 
-    function test_VaultEncoder_TransferOwnership_WithPermission() public {
+    function test_VaultEncoder_TransferOwnership_AsDao() public {
         vm.startPrank(address(createdDao));
         VaultDepositPayoutActionEncoder encoder = VaultDepositPayoutActionEncoder(
             address(capitalDistributorPlugin.deployActionEncoder(toBytes32("vault-encoder"), ""))
         );
-
-        // Grant permission to testAlice
-        createdDao.grant(address(encoder), testAlice, ENCODER_MANAGER_PERMISSION_ID);
         vm.stopPrank();
 
-        // Now with the fix, testAlice can transfer ownership with permission
-        vm.prank(testAlice);
-        encoder.transferOwnership(charlie);
+        // DAO can transfer ownership
+        vm.prank(address(createdDao));
+        encoder.transferOwnership(carol);
 
-        assertEq(encoder.owner(), charlie);
+        assertEq(encoder.owner(), carol);
     }
 
     // =========================================================================
@@ -354,90 +315,95 @@ contract AuthOrOwnerTest is AragonTest {
         address strategyAddr = capitalDistributorPlugin.deployStrategy(toBytes32("merkle-strategy"), "");
         MerkleDistributorStrategy strategy = MerkleDistributorStrategy(strategyAddr);
 
-        // Transfer ownership to testAlice
+        // Transfer ownership to alice
         vm.prank(strategy.owner());
-        strategy.transferOwnership(testAlice);
+        strategy.transferOwnership(alice);
 
         // Alice as new owner can set allocation
-        bytes32 merkleRoot = keccak256("testAlice-merkle-root");
-        vm.prank(testAlice);
+        bytes32 merkleRoot = keccak256("alice-merkle-root");
+        vm.prank(alice);
         strategy.setAllocationCampaign(10, abi.encode(merkleRoot));
 
         assertEq(strategy.getCampaignMerkleRoot(10), merkleRoot);
     }
 
-    function test_PermissionAfterOwnershipRenounced() public {
-        // Test that permission still works after ownership is renounced
+    function test_DaoCanOperateAfterOwnershipRenounced() public {
+        // Test that DAO can still operate after ownership is renounced
         vm.startPrank(address(createdDao));
         address strategyAddr = capitalDistributorPlugin.deployStrategy(toBytes32("merkle-strategy"), "");
         MerkleDistributorStrategy strategy = MerkleDistributorStrategy(strategyAddr);
-
-        // Grant permission to testBob before renouncing
-        createdDao.grant(address(strategy), testBob, STRATEGY_MANAGER_PERMISSION_ID);
         vm.stopPrank();
 
         // Renounce ownership
         vm.prank(strategy.owner());
         strategy.renounceOwnership();
 
-        // Bob can still operate with permission even though there's no owner
-        bytes32 merkleRoot = keccak256("testBob-merkle-root");
-        vm.prank(testBob);
+        // DAO can still operate even though there's no owner
+        bytes32 merkleRoot = keccak256("dao-merkle-root");
+        vm.prank(address(createdDao));
         strategy.setAllocationCampaign(20, abi.encode(merkleRoot));
 
         assertEq(strategy.getCampaignMerkleRoot(20), merkleRoot);
         assertEq(strategy.owner(), address(0));
     }
 
-    function test_RevokePermissionAfterGrant() public {
-        // Test revoking permissions
+    function test_OnlyOwnerOrDaoCanOperate() public {
+        // Test that only owner or DAO can operate, not other users
         vm.startPrank(address(createdDao));
         address strategyAddr = capitalDistributorPlugin.deployStrategy(toBytes32("merkle-strategy"), "");
         MerkleDistributorStrategy strategy = MerkleDistributorStrategy(strategyAddr);
-
-        // Grant permission to testAlice
-        createdDao.grant(address(strategy), testAlice, STRATEGY_MANAGER_PERMISSION_ID);
-
-        // Alice can operate
-        bytes32 merkleRoot1 = keccak256("testAlice-can-operate");
-        vm.startPrank(testAlice);
-        strategy.setAllocationCampaign(30, abi.encode(merkleRoot1));
         vm.stopPrank();
 
-        // Revoke permission
-        vm.prank(address(createdDao));
-        createdDao.revoke(address(strategy), testAlice, STRATEGY_MANAGER_PERMISSION_ID);
+        // Owner can operate
+        bytes32 merkleRoot1 = keccak256("owner-can-operate");
+        vm.prank(strategy.owner());
+        strategy.setAllocationCampaign(30, abi.encode(merkleRoot1));
+        assertEq(strategy.getCampaignMerkleRoot(30), merkleRoot1);
 
-        // Alice cannot operate anymore
-        bytes32 merkleRoot2 = keccak256("testAlice-cannot-operate");
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                DaoUnauthorized.selector, createdDao, address(strategy), testAlice, STRATEGY_MANAGER_PERMISSION_ID
-            )
-        );
-        vm.prank(testAlice);
+        // DAO can operate
+        bytes32 merkleRoot2 = keccak256("dao-can-operate");
+        vm.prank(address(createdDao));
         strategy.setAllocationCampaign(31, abi.encode(merkleRoot2));
+        assertEq(strategy.getCampaignMerkleRoot(31), merkleRoot2);
+
+        // Regular users cannot operate
+        bytes32 merkleRoot3 = keccak256("alice-cannot-operate");
+        vm.expectRevert(abi.encodeWithSelector(IAllocatorStrategy.NotAuthorized.selector, alice));
+        vm.prank(alice);
+        strategy.setAllocationCampaign(32, abi.encode(merkleRoot3));
     }
 
-    function test_MultipleUsersWithPermission() public {
-        // Test multiple users with same permission
+    function test_OwnerTransferAndDaoAccess() public {
+        // Test owner transfer and DAO access remain independent
         vm.startPrank(address(createdDao));
         address strategyAddr = capitalDistributorPlugin.deployStrategy(toBytes32("merkle-strategy"), "");
         MerkleDistributorStrategy strategy = MerkleDistributorStrategy(strategyAddr);
-
-        // Grant permission to both testAlice and testBob
-        createdDao.grant(address(strategy), testAlice, STRATEGY_MANAGER_PERMISSION_ID);
-        createdDao.grant(address(strategy), testBob, STRATEGY_MANAGER_PERMISSION_ID);
         vm.stopPrank();
 
-        // Both can operate
-        vm.prank(testAlice);
-        strategy.setAllocationCampaign(40, abi.encode(keccak256("testAlice-root")));
+        // Initial owner and DAO can both operate
+        address initialOwner = strategy.owner();
 
-        vm.prank(testBob);
-        strategy.setAllocationCampaign(41, abi.encode(keccak256("testBob-root")));
+        vm.prank(initialOwner);
+        strategy.setAllocationCampaign(40, abi.encode(keccak256("initial-owner-root")));
 
-        assertEq(strategy.getCampaignMerkleRoot(40), keccak256("testAlice-root"));
-        assertEq(strategy.getCampaignMerkleRoot(41), keccak256("testBob-root"));
+        vm.prank(address(createdDao));
+        strategy.setAllocationCampaign(41, abi.encode(keccak256("dao-root-1")));
+
+        // Transfer ownership to alice
+        vm.prank(initialOwner);
+        strategy.transferOwnership(alice);
+
+        // New owner (Alice) can operate
+        vm.prank(alice);
+        strategy.setAllocationCampaign(42, abi.encode(keccak256("alice-as-owner-root")));
+
+        // DAO can still operate after ownership transfer
+        vm.prank(address(createdDao));
+        strategy.setAllocationCampaign(43, abi.encode(keccak256("dao-root-2")));
+
+        // Initial owner can no longer operate
+        vm.expectRevert(abi.encodeWithSelector(IAllocatorStrategy.NotAuthorized.selector, initialOwner));
+        vm.prank(initialOwner);
+        strategy.setAllocationCampaign(44, abi.encode(keccak256("should-fail")));
     }
 }

@@ -10,6 +10,11 @@ import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol
 /// Implementing contracts will define the specific logic for allocation and eligibility.
 interface IAllocatorStrategy is IERC165 {
     // =========================================================================
+    // Errors
+    // =========================================================================
+    error NotAuthorized(address _sender);
+
+    // =========================================================================
     // Events
     // =========================================================================
 
