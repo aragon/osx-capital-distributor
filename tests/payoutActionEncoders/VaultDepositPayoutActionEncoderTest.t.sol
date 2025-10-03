@@ -91,11 +91,7 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
         address newVault = makeAddr("newVault");
 
         vm.prank(testAlice);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IPayoutActionEncoder.NotAuthorized.selector, testAlice
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(IPayoutActionEncoder.NotAuthorized.selector, testAlice));
         encoder.setupCampaign(CAMPAIGN_ID, abi.encode(newVault));
     }
 
