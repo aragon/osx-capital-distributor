@@ -4,7 +4,6 @@ pragma solidity ^0.8.29;
 import { IAllocatorStrategy } from "../interfaces/IAllocatorStrategy.sol";
 import { IAllocatorStrategyFactory } from "../interfaces/IAllocatorStrategyFactory.sol";
 import { DaoAuthorizableUpgradeable } from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
-import { DaoUnauthorized } from "@aragon/commons/permission/auth/auth.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { ERC165Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";

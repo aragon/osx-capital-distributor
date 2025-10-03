@@ -3,7 +3,6 @@ pragma solidity ^0.8.29;
 
 import { IPayoutActionEncoder } from "../interfaces/IPayoutActionEncoder.sol";
 import { DaoAuthorizableUpgradeable } from "@aragon/commons/permission/auth/DaoAuthorizableUpgradeable.sol";
-import { DaoUnauthorized } from "@aragon/commons/permission/auth/auth.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { ERC165Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
