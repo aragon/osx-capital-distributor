@@ -55,13 +55,6 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         // Set up mock-generated test data
         setupMockGeneratedData();
-
-        address strategyDeployment = capitalDistributorPlugin.deployStrategy(toBytes32("merkle-strategy"), "");
-
-        createdDao.grant(strategyDeployment, address(createdDao), keccak256("STRATEGY_MANAGER_PERMISSION"));
-        createdDao.grant(
-            strategyDeployment, address(capitalDistributorPlugin), keccak256("STRATEGY_MANAGER_PERMISSION")
-        );
     }
 
     function setupMerkleTreeData() internal {
