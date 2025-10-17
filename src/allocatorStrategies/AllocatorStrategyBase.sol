@@ -121,9 +121,10 @@ abstract contract AllocatorStrategyBase is
     /**
      * @dev Checks if the sender is the owner or is DAO
      */
-    function _checkOwnerOrDao() internal view {
-        if (owner() != _msgSender() && address(dao()) != _msgSender()) {
-            revert NotAuthorized(_msgSender());
+    function _checkOwnerOrDao() internal view virtual {
+        address sender = _msgSender();
+        if (owner() != sender && address(dao()) != sender) {
+            revert NotAuthorized(sender);
         }
     }
 
