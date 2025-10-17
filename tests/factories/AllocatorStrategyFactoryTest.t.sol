@@ -189,7 +189,7 @@ contract AllocatorStrategyFactoryTest is Test {
         assertTrue(strategy1 != address(0));
 
         // Second deployment with same parameters should revert
-        bytes32 deploymentId = keccak256(abi.encode(MERKLE_STRATEGY_ID, address(dao), auxData));
+        bytes32 deploymentId = keccak256(abi.encode(MERKLE_STRATEGY_ID, address(dao), address(this), auxData));
         vm.expectRevert(abi.encodeWithSelector(FactoryBase.InstanceAlreadyDeployed.selector, deploymentId, strategy1));
         factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
     }
@@ -265,7 +265,7 @@ contract AllocatorStrategyFactoryTest is Test {
         bytes memory auxData = abi.encode(bytes32(keccak256("test-merkle-root")));
 
         // Should not exist initially
-        (bool exists, address strategy) = factory.hasDeployment(MERKLE_STRATEGY_ID, dao, auxData);
+        (bool exists, address strategy) = factory.hasDeployment(MERKLE_STRATEGY_ID, dao, address(this), auxData);
         assertFalse(exists);
         assertEq(strategy, address(0));
 
@@ -273,7 +273,7 @@ contract AllocatorStrategyFactoryTest is Test {
         address deployedStrategy = factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
 
         // Should exist after deployment
-        (exists, strategy) = factory.hasDeployment(MERKLE_STRATEGY_ID, dao, auxData);
+        (exists, strategy) = factory.hasDeployment(MERKLE_STRATEGY_ID, dao, address(this), auxData);
         assertTrue(exists);
         assertEq(strategy, deployedStrategy);
     }
@@ -404,7 +404,7 @@ contract AllocatorStrategyFactoryTest is Test {
 
         // Instance exists check gas test
         gasStart = gasleft();
-        factory.hasDeployment(MERKLE_STRATEGY_ID, dao, auxData);
+        factory.hasDeployment(MERKLE_STRATEGY_ID, dao, address(this), auxData);
         gasUsed = gasStart - gasleft();
         console2.log("Gas used for hasDeployment:", gasUsed);
         assertTrue(gasUsed < 10_000);

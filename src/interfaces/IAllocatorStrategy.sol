@@ -10,6 +10,11 @@ import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol
 /// Implementing contracts will define the specific logic for allocation and eligibility.
 interface IAllocatorStrategy is IERC165 {
     // =========================================================================
+    // Errors
+    // =========================================================================
+    error NotAuthorized(address _sender);
+
+    // =========================================================================
     // Events
     // =========================================================================
 
@@ -17,11 +22,6 @@ interface IAllocatorStrategy is IERC165 {
     /// @param _dao The address of the DAO creating the campaign.
     /// @param _campaignId The unique identifier for the newly created campaign.
     event AllocationCampaignCreated(address indexed _dao, uint256 indexed _campaignId);
-
-    // =========================================================================
-    // Errors
-    // =========================================================================
-    error OnlyDAOAllowed(address account);
 
     // =========================================================================
     // View Functions

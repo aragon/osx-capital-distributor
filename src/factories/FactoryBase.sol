@@ -146,13 +146,14 @@ abstract contract FactoryBase is ReentrancyGuard {
     function _computeDeploymentId(
         bytes32 _typeId,
         IDAO _dao,
+        address _plugin,
         bytes memory _deploymentParams
     )
         internal
         pure
         returns (bytes32 deploymentId)
     {
-        return keccak256(abi.encode(_typeId, address(_dao), _deploymentParams));
+        return keccak256(abi.encode(_typeId, address(_dao), _plugin, _deploymentParams));
     }
 
     /// @notice Checks if a type is registered

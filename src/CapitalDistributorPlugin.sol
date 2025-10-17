@@ -266,6 +266,49 @@ contract CapitalDistributorPlugin is
         actionEncoderFactory = _actionEncoderFactory;
     }
 
+    /// @notice Deploys a new strategy using the allocator strategy factory.
+    /// @param _strategyId The ID of the strategy to deploy.
+    /// @param _deploymentParams The parameters for the strategy deployment.
+    /// @return strategyAddress The address of the deployed strategy.
+    function deployStrategy(
+        bytes32 _strategyId,
+        bytes calldata _deploymentParams
+    )
+        external
+        auth(CAMPAIGN_MANAGER_PERMISSION_ID)
+        returns (address strategyAddress)
+    {
+        // Deploy and setup allocation strategy
+        {
+            strategyAddress = allocatorStrategyFactory.deployStrategy(_strategyId, dao(), _deploymentParams);
+            if (strategyAddress == address(0)) {
+                revert FactoryDeploymentFailed("AllocatorStrategy");
+            }
+        }
+    }
+
+    /// @notice Deploys a new action encoder using the action encoder factory.
+    /// @param _actionEncoderId The ID of the action encoder to deploy.
+    /// @param _deploymentParams The parameters for the action encoder deployment.
+    /// @return actionEncoderAddress The address of the deployed action encoder.
+    function deployActionEncoder(
+        bytes32 _actionEncoderId,
+        bytes calldata _deploymentParams
+    )
+        external
+        auth(CAMPAIGN_MANAGER_PERMISSION_ID)
+        returns (address actionEncoderAddress)
+    {
+        // Deploy and setup action encoder
+        {
+            actionEncoderAddress =
+                address(actionEncoderFactory.deployActionEncoder(_actionEncoderId, dao(), _deploymentParams));
+            if (actionEncoderAddress == address(0)) {
+                revert FactoryDeploymentFailed("ActionEncoder");
+            }
+        }
+    }
+
     /**
      * @notice Creates the details for a specific campaign.
      * @dev This function allows an authorized address to configure a new campaign.

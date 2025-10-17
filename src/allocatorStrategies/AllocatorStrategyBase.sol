@@ -98,4 +98,40 @@ abstract contract AllocatorStrategyBase is
     {
         return interfaceId == type(IAllocatorStrategy).interfaceId || super.supportsInterface(interfaceId);
     }
+
+    /**
+     * @dev Leaves the contract without owner. It will not be possible to call
+     * `onlyOwner` functions.
+     *
+     * NOTE: Renouncing ownership will leave the contract without an owner.
+     * Make sure to give permissions to the DAO to manage the strategy.
+     */
+    function renounceOwnership() public override ownerOrDao {
+        _transferOwnership(address(0));
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     */
+    function transferOwnership(address newOwner) public override ownerOrDao {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        _transferOwnership(newOwner);
+    }
+
+    /**
+     * @dev Checks if the sender is the owner or is DAO
+     */
+    function _checkOwnerOrDao() internal view virtual {
+        address sender = _msgSender();
+        if (owner() != sender && address(dao()) != sender) {
+            revert NotAuthorized(sender);
+        }
+    }
+
+    /// @notice Modifier that checks both ownership or is DAO
+    /// @dev Custom modifier for strategy management functions
+    modifier ownerOrDao() {
+        _checkOwnerOrDao();
+        _;
+    }
 }

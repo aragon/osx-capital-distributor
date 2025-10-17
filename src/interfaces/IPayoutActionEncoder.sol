@@ -7,7 +7,10 @@ import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 /// @title IPayoutActionEncoder
 /// @notice Interface for contracts that construct the DAO actions required to execute a payout.
 interface IPayoutActionEncoder {
-    error OnlyDAOAllowed(address account);
+    // =========================================================================
+    // Errors
+    // =========================================================================
+    error NotAuthorized(address _sender);
 
     /// @notice Retrieves the encoder ID associated with a campaign.
     /// @return The encoder ID.

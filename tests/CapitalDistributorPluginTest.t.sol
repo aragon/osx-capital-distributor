@@ -1377,13 +1377,13 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.stopPrank();
     }
 
-    /// @notice Test getCampaignstrategyId function
-    function test_GetCampaignstrategyId() public {
+    /// @notice Test getCampaignStrategyId function
+    function test_GetCampaignStrategyId() public {
         vm.startPrank(address(createdDao));
 
         uint256 campaignId = createBasicCampaign();
 
-        bytes32 strategyId = capitalDistributorPlugin.getCampaignstrategyId(campaignId);
+        bytes32 strategyId = capitalDistributorPlugin.getCampaignStrategyId(campaignId);
         assertEq(strategyId, toBytes32("mock-strategy"), "Strategy ID should match");
 
         vm.stopPrank();
