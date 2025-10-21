@@ -345,21 +345,36 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.stopPrank();
     }
 
-    /// @notice Test campaign creation with past end time
+    /// @notice Test campaign creation with past end time should fail
     function test_CreateCampaignWithPastEndTime() public {
         vm.startPrank(address(createdDao));
 
         uint64 pastEndTime = uint64(block.timestamp - 86_400); // 1 day in the past
 
-        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+        vm.expectRevert(CapitalDistributorPlugin.InvalidTimeBounds.selector);
+        capitalDistributorPlugin.createCampaign(
             "ipfs://mock-campaign-metadata",
             CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
             CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
             CapitalDistributorPlugin.CampaignSettings(0, pastEndTime)
         );
 
-        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        assertEq(campaign.endTime, pastEndTime, "Past end time not equal");
+        vm.stopPrank();
+    }
+
+    /// @notice Test campaign creation with past start time should fail
+    function test_CreateCampaignWithPastStartTime() public {
+        vm.startPrank(address(createdDao));
+
+        uint64 pastStartTime = uint64(block.timestamp - 3600); // 1 hour in the past
+
+        vm.expectRevert(CapitalDistributorPlugin.InvalidTimeBounds.selector);
+        capitalDistributorPlugin.createCampaign(
+            "ipfs://mock-campaign-metadata",
+            CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
+            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
+            CapitalDistributorPlugin.CampaignSettings(pastStartTime, 0)
+        );
 
         vm.stopPrank();
     }

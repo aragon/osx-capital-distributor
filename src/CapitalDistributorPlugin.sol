@@ -343,7 +343,13 @@ contract CapitalDistributorPlugin is
         if (address(_payout.token) == address(0)) {
             revert ZeroAddress("_token");
         }
-        if (_settings.startTime > 0 && _settings.endTime > 0 && _settings.startTime >= _settings.endTime) {
+
+        // Validate that time bounds are in the future if set
+        if (_settings.startTime > 0 && _settings.startTime < block.timestamp) {
+            revert InvalidTimeBounds();
+        }
+        if (_settings.endTime > 0 && (_settings.endTime <= block.timestamp || _settings.startTime >= _settings.endTime))
+        {
             revert InvalidTimeBounds();
         }
 
