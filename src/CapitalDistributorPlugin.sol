@@ -6,6 +6,7 @@ import { ERC165Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/int
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { SafeCastUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 import { Action, IExecutor } from "@aragon/commons/executors/IExecutor.sol";
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
@@ -14,6 +15,7 @@ import { MetadataExtensionUpgradeable } from "@aragon/commons/utils/metadata/Met
 
 import { IAllocatorStrategy } from "./interfaces/IAllocatorStrategy.sol";
 import { IPayoutActionEncoder } from "./interfaces/IPayoutActionEncoder.sol";
+import { ICapitalDistributorPlugin } from "./interfaces/ICapitalDistributorPlugin.sol";
 import { AllocatorStrategyFactory } from "./factories/AllocatorStrategyFactory.sol";
 import { ActionEncoderFactory } from "./factories/ActionEncoderFactory.sol";
 import { RatioUtils } from "./utils/RatioUtils.sol";
@@ -27,7 +29,8 @@ contract CapitalDistributorPlugin is
     Initializable,
     ERC165Upgradeable,
     PluginUUPSUpgradeable,
-    MetadataExtensionUpgradeable
+    MetadataExtensionUpgradeable,
+    ICapitalDistributorPlugin
 {
     using SafeCastUpgradeable for uint256;
 
@@ -37,16 +40,6 @@ contract CapitalDistributorPlugin is
     /// @notice Maximum number of batches claims allowed
     uint256 public constant MAX_BATCH_SIZE = 50;
 
-    /// @notice Represents the different states a campaign can be in
-    /// @dev ACTIVE: Normal operation, claims allowed
-    /// @dev PAUSED: Temporarily paused (for updates), can be resumed
-    /// @dev ENDED: Permanently ended, cannot be resumed
-    enum CampaignState {
-        ACTIVE,
-        PAUSED,
-        ENDED
-    }
-
     /// @notice The AllocatorStrategyFactory instance used to deploy strategies.
     AllocatorStrategyFactory public allocatorStrategyFactory;
 
@@ -55,27 +48,6 @@ contract CapitalDistributorPlugin is
 
     /// @notice The number of campaigns created.
     uint256 public numCampaigns = 0;
-
-    /**
-     * @notice Represents a distribution campaign.
-     * @custom:storage-location erc7201:capital.distributor.campaigns.struct
-     * @param metadataURI URI pointing to the campaign's metadata (e.g., IPFS hash).
-     * @param allocationStrategy The contract address responsible for determining allocation logic.
-     * @param token The address of the token that will be used for the payouts
-     * @param actionEncoder The logic to execute when claiming the payout
-     * @param state The current state of the campaign (ACTIVE, PAUSED, or ENDED)
-     * @param startTime The timestamp when the campaign becomes active (0 means no start time restriction)
-     * @param endTime The timestamp when the campaign ends (0 means no end time restriction)
-     */
-    struct Campaign {
-        bytes metadataUri;
-        IAllocatorStrategy allocationStrategy;
-        IERC20 token;
-        IPayoutActionEncoder actionEncoder;
-        CampaignState state;
-        uint64 startTime;
-        uint64 endTime;
-    }
 
     /**
      * @notice Stores the amount claimed by a receiver for a specific campaign.
@@ -90,39 +62,6 @@ contract CapitalDistributorPlugin is
      */
     mapping(uint256 campaignId => Campaign) public campaigns;
 
-    /**
-     * @notice Strategy configuration for a campaign
-     * @param strategyId The strategy type ID to deploy or use
-     * @param strategyParams Deployment parameters for the strategy
-     * @param initData Additional data needed to initialize the allocation strategy
-     */
-    struct StrategyConfig {
-        bytes32 strategyId;
-        bytes strategyParams;
-        bytes initData;
-    }
-
-    /**
-     * @notice Payout configuration for a campaign
-     * @param token The token address that will be used for payouts
-     * @param actionEncoderId The action encoder type ID to deploy (use bytes32(0) for simple transfers)
-     * @param actionEncoderInitData Additional data needed to initialize the action encoder
-     */
-    struct PayoutConfig {
-        IERC20 token;
-        bytes32 actionEncoderId;
-        bytes actionEncoderInitData;
-    }
-
-    /**
-     * @notice Campaign settings for time bounds and claim behavior
-     * @param startTime The timestamp when the campaign becomes active (0 means no start time restriction)
-     * @param endTime The timestamp when the campaign ends (0 means no end time restriction)
-     */
-    struct CampaignSettings {
-        uint64 startTime;
-        uint64 endTime;
-    }
 
     /**
      * @notice Emitted when a campaign's details are created.
@@ -877,10 +816,10 @@ contract CapitalDistributorPlugin is
         public
         view
         virtual
-        override(ERC165Upgradeable, PluginUUPSUpgradeable, MetadataExtensionUpgradeable)
+        override(ERC165Upgradeable, PluginUUPSUpgradeable, MetadataExtensionUpgradeable, IERC165)
         returns (bool)
     {
-        return super.supportsInterface(_interfaceId);
+        return _interfaceId == type(ICapitalDistributorPlugin).interfaceId || super.supportsInterface(_interfaceId);
     }
 
     /// @notice Internal helper to check if a campaign exists

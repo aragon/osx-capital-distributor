@@ -6,6 +6,7 @@ import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 import { IAllocatorStrategy } from "../interfaces/IAllocatorStrategy.sol";
 import { IAllocatorStrategyFactory } from "../interfaces/IAllocatorStrategyFactory.sol";
+import { ICapitalDistributorPlugin } from "../interfaces/ICapitalDistributorPlugin.sol";
 import { FactoryBase } from "./FactoryBase.sol";
 
 /// @title AllocatorStrategyFactory
@@ -63,6 +64,22 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     /// @notice Error thrown when querying fee for a strategy not deployed by this factory
     /// @param strategyInstance The strategy instance address that was not found
     error StrategyNotFound(address strategyInstance);
+
+    /// @notice Error thrown when an unauthorized caller tries to deploy strategies
+    /// @param caller The address that attempted the unauthorized call
+    error UnauthorizedCaller(address caller);
+
+    /// @notice Modifier to ensure only CapitalDistributorPlugin contracts can deploy strategies
+    modifier onlyCapitalDistributorPlugin() {
+        try IERC165(msg.sender).supportsInterface(type(ICapitalDistributorPlugin).interfaceId) returns (bool supported) {
+            if (!supported) {
+                revert UnauthorizedCaller(msg.sender);
+            }
+        } catch {
+            revert UnauthorizedCaller(msg.sender);
+        }
+        _;
+    }
 
     /**
      * @notice Registers a new strategy type in the factory.
@@ -144,6 +161,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         bytes calldata _deploymentParams
     )
         public
+        onlyCapitalDistributorPlugin
         returns (address strategy)
     {
         bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, msg.sender, _deploymentParams);
@@ -170,6 +188,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         bytes calldata _deploymentParams
     )
         external
+        onlyCapitalDistributorPlugin
         returns (address strategy)
     {
         bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, msg.sender, _deploymentParams);

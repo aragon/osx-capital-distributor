@@ -5,6 +5,7 @@ import { Test, console2 } from "forge-std/Test.sol";
 import { AragonTest } from "./helpers/AragonTest.sol";
 import { MintableERC20 } from "./mocks/MintableERC20.sol";
 import { CapitalDistributorPlugin } from "../src/CapitalDistributorPlugin.sol";
+import { ICapitalDistributorPlugin } from "../src/interfaces/ICapitalDistributorPlugin.sol";
 import { CapitalDistributorPluginSetup } from "../src/CapitalDistributorPluginSetup.sol";
 import { AllocatorStrategyFactory } from "../src/factories/AllocatorStrategyFactory.sol";
 import { ActionEncoderFactory } from "../src/factories/ActionEncoderFactory.sol";
@@ -106,11 +107,11 @@ contract OwnerOrDaoTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             "ipfs://metadata",
-            CapitalDistributorPlugin.StrategyConfig(
+            ICapitalDistributorPlugin.StrategyConfig(
                 toBytes32("merkle-strategy"), "", abi.encode(keccak256("initial-root"))
             ),
-            CapitalDistributorPlugin.PayoutConfig(token, bytes32(0), ""),
-            CapitalDistributorPlugin.CampaignSettings(0, 0)
+            ICapitalDistributorPlugin.PayoutConfig(token, bytes32(0), ""),
+            ICapitalDistributorPlugin.CampaignSettings(0, 0)
         );
 
         // Pause campaign
@@ -135,11 +136,11 @@ contract OwnerOrDaoTest is AragonTest {
 
         uint256 campaignId = capitalDistributorPlugin.createCampaign(
             "ipfs://metadata",
-            CapitalDistributorPlugin.StrategyConfig(
+            ICapitalDistributorPlugin.StrategyConfig(
                 toBytes32("merkle-strategy"), "", abi.encode(keccak256("initial-root"))
             ),
-            CapitalDistributorPlugin.PayoutConfig(token, bytes32(0), ""),
-            CapitalDistributorPlugin.CampaignSettings(0, 0)
+            ICapitalDistributorPlugin.PayoutConfig(token, bytes32(0), ""),
+            ICapitalDistributorPlugin.CampaignSettings(0, 0)
         );
 
         capitalDistributorPlugin.pauseCampaign(campaignId);

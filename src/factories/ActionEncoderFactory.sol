@@ -6,6 +6,7 @@ import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 import { IPayoutActionEncoder } from "../interfaces/IPayoutActionEncoder.sol";
 import { IActionEncoderFactory } from "../interfaces/IActionEncoderFactory.sol";
+import { ICapitalDistributorPlugin } from "../interfaces/ICapitalDistributorPlugin.sol";
 import { FactoryBase } from "./FactoryBase.sol";
 
 /// @title ActionEncoderFactory
@@ -26,6 +27,22 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
     /// @param implementation The address of the implementation contract
     /// @param metadata The metadata associated with the action encoder type
     event ActionEncoderTypeRegistered(bytes32 indexed encoderId, address indexed implementation, string metadata);
+
+    /// @notice Error thrown when an unauthorized caller tries to deploy action encoders
+    /// @param caller The address that attempted the unauthorized call
+    error UnauthorizedCaller(address caller);
+
+    /// @notice Modifier to ensure only CapitalDistributorPlugin contracts can deploy action encoders
+    modifier onlyCapitalDistributorPlugin() {
+        try IERC165(msg.sender).supportsInterface(type(ICapitalDistributorPlugin).interfaceId) returns (bool supported) {
+            if (!supported) {
+                revert UnauthorizedCaller(msg.sender);
+            }
+        } catch {
+            revert UnauthorizedCaller(msg.sender);
+        }
+        _;
+    }
 
     /// @param _encoderId The unique identifier for the action encoder
     /// @param _encoderImplementation The address of the implementation contract
@@ -83,6 +100,7 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
         bytes calldata _initializationParams
     )
         public
+        onlyCapitalDistributorPlugin
         returns (IPayoutActionEncoder encoder)
     {
         bytes32 deploymentId = _computeDeploymentId(_encoderId, _dao, msg.sender, _initializationParams);
@@ -107,6 +125,7 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
         bytes calldata _initializationParams
     )
         external
+        onlyCapitalDistributorPlugin
         returns (IPayoutActionEncoder encoder)
     {
         bytes32 deploymentId = _computeDeploymentId(_encoderId, _dao, msg.sender, _initializationParams);
