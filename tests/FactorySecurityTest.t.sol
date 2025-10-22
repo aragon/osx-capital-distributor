@@ -9,7 +9,6 @@ import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 import { Action } from "@aragon/commons/executors/IExecutor.sol";
 import { AllocatorStrategyFactory } from "../src/factories/AllocatorStrategyFactory.sol";
 import { ActionEncoderFactory } from "../src/factories/ActionEncoderFactory.sol";
-import { ICapitalDistributorPlugin } from "../src/interfaces/ICapitalDistributorPlugin.sol";
 import { IAllocatorStrategy } from "../src/interfaces/IAllocatorStrategy.sol";
 import { IPayoutActionEncoder } from "../src/interfaces/IPayoutActionEncoder.sol";
 import { CapitalDistributorPluginMock } from "./mocks/CapitalDistributorPluginMock.sol";
