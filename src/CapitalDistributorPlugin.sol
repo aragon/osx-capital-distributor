@@ -173,11 +173,6 @@ contract CapitalDistributorPlugin is
     /// @param campaignId The ID of the non-existent campaign.
     error CampaignNotFound(uint256 campaignId);
 
-    /// @notice Thrown when the DAO in strategy params doesn't match the plugin's DAO.
-    /// @param expected The expected DAO address.
-    /// @param provided The provided DAO address.
-    error DAOMismatch(address expected, address provided);
-
     /// @notice Thrown when empty metadata URI is provided.
     error EmptyMetadataURI();
 
