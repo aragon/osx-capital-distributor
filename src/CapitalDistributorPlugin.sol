@@ -34,6 +34,9 @@ contract CapitalDistributorPlugin is
     /// @notice The ID of the permission required to create a campaign.
     bytes32 public constant CAMPAIGN_MANAGER_PERMISSION_ID = keccak256("CAMPAIGN_MANAGER_PERMISSION");
 
+    /// @notice Maximum number of batches claims allowed
+    uint256 public constant MAX_BATCH_SIZE = 50;
+
     /// @notice Represents the different states a campaign can be in
     /// @dev ACTIVE: Normal operation, claims allowed
     /// @dev PAUSED: Temporarily paused (for updates), can be resumed
@@ -227,6 +230,11 @@ contract CapitalDistributorPlugin is
 
     /// @notice Thrown when the token doesn't revert under invalid transfers
     error InvalidToken(address token);
+
+    /// @notice Thrown when batch operation exceeds maximum allowed size
+    /// @param provided The provided batch size
+    /// @param maximum The maximum allowed batch size
+    error BatchSizeExceeded(uint256 provided, uint256 maximum);
 
     /// @notice Initializes the component to be used by inheriting contracts.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
@@ -777,6 +785,9 @@ contract CapitalDistributorPlugin is
         returns (uint256[] memory amounts)
     {
         uint256 length = _campaignIds.length;
+        if (length > MAX_BATCH_SIZE) {
+            revert BatchSizeExceeded(length, MAX_BATCH_SIZE);
+        }
         if (length != _recipients.length || length != _strategiesAuxData.length || length != _encodersAuxData.length) {
             revert ArrayLengthMismatch();
         }

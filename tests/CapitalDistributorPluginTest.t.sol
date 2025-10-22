@@ -850,12 +850,16 @@ contract CapitalDistributorPluginTest is AragonTest {
         mintTokensToDAO(1 ether);
         vm.startPrank(address(createdDao));
 
-        uint64 pastEnd = uint64(block.timestamp - 1);
-        uint256 campaignId = createCampaignWithParams(0, pastEnd);
+        // Create campaign with future end time first
+        uint64 futureEnd = uint64(block.timestamp + 1000);
+        uint256 campaignId = createCampaignWithParams(0, futureEnd);
+
+        // Warp time to after the end date
+        vm.warp(futureEnd + 1);
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector, campaignId, block.timestamp, 0, pastEnd
+                CapitalDistributorPlugin.CampaignOutsideTimeBounds.selector, campaignId, block.timestamp, 0, futureEnd
             )
         );
         capitalDistributorPlugin.claimCampaignPayout(campaignId, alice, "", "");
@@ -1325,6 +1329,50 @@ contract CapitalDistributorPluginTest is AragonTest {
         vm.stopPrank();
     }
 
+    /// @notice Test batch claim fails when exceeding maximum batch size
+    function test_BatchClaimFailsWithExcessiveBatchSize() public {
+        vm.startPrank(address(createdDao));
+        
+        // Create arrays larger than MAX_BATCH_SIZE (50)
+        uint256 oversizedLength = 51;
+        uint256[] memory campaignIds = new uint256[](oversizedLength);
+        address[] memory recipients = new address[](oversizedLength);
+        bytes[] memory strategiesAuxData = new bytes[](oversizedLength);
+        bytes[] memory encodersAuxData = new bytes[](oversizedLength);
+
+        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.BatchSizeExceeded.selector, oversizedLength, 50));
+        capitalDistributorPlugin.batchClaimCampaignPayout(campaignIds, recipients, strategiesAuxData, encodersAuxData);
+
+        vm.stopPrank();
+    }
+
+    /// @notice Test batch claim succeeds at maximum batch size
+    function test_BatchClaimSucceedsAtMaxBatchSize() public {
+        vm.startPrank(address(createdDao));
+        
+        // Create arrays exactly at MAX_BATCH_SIZE (50)
+        uint256 maxLength = 50;
+        uint256[] memory campaignIds = new uint256[](maxLength);
+        address[] memory recipients = new address[](maxLength);
+        bytes[] memory strategiesAuxData = new bytes[](maxLength);
+        bytes[] memory encodersAuxData = new bytes[](maxLength);
+
+        // This should not revert due to batch size (though it may revert for other reasons like non-existent campaigns)
+        // We're just testing that the batch size validation passes
+        try capitalDistributorPlugin.batchClaimCampaignPayout(campaignIds, recipients, strategiesAuxData, encodersAuxData) {
+            // If it succeeds, that's fine
+        } catch (bytes memory reason) {
+            // If it fails, it should NOT be due to BatchSizeExceeded
+            assertNotEq(
+                keccak256(reason),
+                keccak256(abi.encodeWithSelector(CapitalDistributorPlugin.BatchSizeExceeded.selector, maxLength, 50)),
+                "Should not fail due to batch size limit"
+            );
+        }
+
+        vm.stopPrank();
+    }
+
     /// @notice Test batch claim with partial success
     function test_BatchClaimPartialSuccess() public {
         mintTokensToDAO(2 ether);
@@ -1461,15 +1509,22 @@ contract CapitalDistributorPluginTest is AragonTest {
         uint256 futureCampaignId = createCampaignWithParams(futureStart, 0);
         assertFalse(capitalDistributorPlugin.isCampaignActive(futureCampaignId), "Future campaign should be inactive");
 
-        // Expired campaign
-        uint64 pastEnd = uint64(block.timestamp - 1);
-        uint256 expiredCampaignId = createCampaignWithParams(0, pastEnd);
+        // Create campaign that will be expired by warping time
+        uint64 futureEnd = uint64(block.timestamp + 500);
+        uint256 expiredCampaignId = createCampaignWithParams(0, futureEnd);
+        
+        // Warp time to after the end date
+        vm.warp(futureEnd + 1);
         assertFalse(capitalDistributorPlugin.isCampaignActive(expiredCampaignId), "Expired campaign should be inactive");
 
-        // Active campaign with time bounds
-        uint64 activeStart = uint64(block.timestamp - 100);
-        uint64 activeEnd = uint64(block.timestamp + 100);
+        // Reset time and create active campaign with time bounds  
+        vm.warp(block.timestamp - (futureEnd + 1));
+        uint64 activeStart = uint64(block.timestamp + 50);
+        uint64 activeEnd = uint64(block.timestamp + 200);
         uint256 activeCampaignId = createCampaignWithParams(activeStart, activeEnd);
+        
+        // Warp to within the active period
+        vm.warp(activeStart + 50);
         assertTrue(
             capitalDistributorPlugin.isCampaignActive(activeCampaignId), "Campaign within bounds should be active"
         );
