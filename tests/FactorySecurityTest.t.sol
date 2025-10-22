@@ -191,7 +191,6 @@ contract MockUnauthorizedCaller {
 // This contract intentionally does NOT implement ICapitalDistributorPlugin
 }
 
-
 /// @notice Mock strategy implementation for testing
 contract MockStrategy {
     function strategyId() external pure returns (bytes32) {

@@ -1333,7 +1333,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test batch claim fails when exceeding maximum batch size
     function test_BatchClaimFailsWithExcessiveBatchSize() public {
         vm.startPrank(address(createdDao));
-        
+
         // Create arrays larger than MAX_BATCH_SIZE (50)
         uint256 oversizedLength = 51;
         uint256[] memory campaignIds = new uint256[](oversizedLength);
@@ -1341,7 +1341,9 @@ contract CapitalDistributorPluginTest is AragonTest {
         bytes[] memory strategiesAuxData = new bytes[](oversizedLength);
         bytes[] memory encodersAuxData = new bytes[](oversizedLength);
 
-        vm.expectRevert(abi.encodeWithSelector(CapitalDistributorPlugin.BatchSizeExceeded.selector, oversizedLength, 50));
+        vm.expectRevert(
+            abi.encodeWithSelector(CapitalDistributorPlugin.BatchSizeExceeded.selector, oversizedLength, 50)
+        );
         capitalDistributorPlugin.batchClaimCampaignPayout(campaignIds, recipients, strategiesAuxData, encodersAuxData);
 
         vm.stopPrank();
@@ -1350,7 +1352,7 @@ contract CapitalDistributorPluginTest is AragonTest {
     /// @notice Test batch claim succeeds at maximum batch size
     function test_BatchClaimSucceedsAtMaxBatchSize() public {
         vm.startPrank(address(createdDao));
-        
+
         // Create arrays exactly at MAX_BATCH_SIZE (50)
         uint256 maxLength = 50;
         uint256[] memory campaignIds = new uint256[](maxLength);
@@ -1360,7 +1362,9 @@ contract CapitalDistributorPluginTest is AragonTest {
 
         // This should not revert due to batch size (though it may revert for other reasons like non-existent campaigns)
         // We're just testing that the batch size validation passes
-        try capitalDistributorPlugin.batchClaimCampaignPayout(campaignIds, recipients, strategiesAuxData, encodersAuxData) {
+        try capitalDistributorPlugin.batchClaimCampaignPayout(
+            campaignIds, recipients, strategiesAuxData, encodersAuxData
+        ) {
             // If it succeeds, that's fine
         } catch (bytes memory reason) {
             // If it fails, it should NOT be due to BatchSizeExceeded
@@ -1513,17 +1517,17 @@ contract CapitalDistributorPluginTest is AragonTest {
         // Create campaign that will be expired by warping time
         uint64 futureEnd = uint64(block.timestamp + 500);
         uint256 expiredCampaignId = createCampaignWithParams(0, futureEnd);
-        
+
         // Warp time to after the end date
         vm.warp(futureEnd + 1);
         assertFalse(capitalDistributorPlugin.isCampaignActive(expiredCampaignId), "Expired campaign should be inactive");
 
-        // Reset time and create active campaign with time bounds  
+        // Reset time and create active campaign with time bounds
         vm.warp(block.timestamp - (futureEnd + 1));
         uint64 activeStart = uint64(block.timestamp + 50);
         uint64 activeEnd = uint64(block.timestamp + 200);
         uint256 activeCampaignId = createCampaignWithParams(activeStart, activeEnd);
-        
+
         // Warp to within the active period
         vm.warp(activeStart + 50);
         assertTrue(

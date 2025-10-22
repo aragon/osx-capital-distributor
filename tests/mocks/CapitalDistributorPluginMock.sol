@@ -79,16 +79,15 @@ contract CapitalDistributorPluginMock is ICapitalDistributorPlugin {
         StrategyConfig calldata,
         PayoutConfig calldata,
         CampaignSettings calldata
-    ) external pure returns (uint256) {
+    )
+        external
+        pure
+        returns (uint256)
+    {
         return 0;
     }
 
-    function claimCampaignPayout(
-        uint256,
-        address,
-        bytes calldata,
-        bytes calldata
-    ) external pure returns (uint256) {
+    function claimCampaignPayout(uint256, address, bytes calldata, bytes calldata) external pure returns (uint256) {
         return 0;
     }
 
@@ -97,7 +96,11 @@ contract CapitalDistributorPluginMock is ICapitalDistributorPlugin {
         address,
         bytes calldata,
         bytes calldata
-    ) external pure returns (uint256) {
+    )
+        external
+        pure
+        returns (uint256)
+    {
         return 0;
     }
 
@@ -106,7 +109,11 @@ contract CapitalDistributorPluginMock is ICapitalDistributorPlugin {
         address[] calldata,
         bytes[] calldata,
         bytes[] calldata
-    ) external pure returns (uint256[] memory) {
+    )
+        external
+        pure
+        returns (uint256[] memory)
+    {
         return new uint256[](0);
     }
 

@@ -71,7 +71,8 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
 
     /// @notice Modifier to ensure only CapitalDistributorPlugin contracts can deploy strategies
     modifier onlyCapitalDistributorPlugin() {
-        try IERC165(msg.sender).supportsInterface(type(ICapitalDistributorPlugin).interfaceId) returns (bool supported) {
+        try IERC165(msg.sender).supportsInterface(type(ICapitalDistributorPlugin).interfaceId) returns (bool supported)
+        {
             if (!supported) {
                 revert UnauthorizedCaller(msg.sender);
             }

@@ -62,7 +62,6 @@ contract CapitalDistributorPlugin is
      */
     mapping(uint256 campaignId => Campaign) public campaigns;
 
-
     /**
      * @notice Emitted when a campaign's details are created.
      * @param campaignId The unique identifier of the campaign that was created.

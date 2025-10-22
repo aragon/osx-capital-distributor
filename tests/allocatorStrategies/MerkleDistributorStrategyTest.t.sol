@@ -559,7 +559,9 @@ contract MerkleDistributorStrategyTest is AragonTest {
 
         // Verify campaign is ended
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        assertEq(uint8(campaign.state), uint8(ICapitalDistributorPlugin.CampaignState.ENDED), "Campaign should be ended");
+        assertEq(
+            uint8(campaign.state), uint8(ICapitalDistributorPlugin.CampaignState.ENDED), "Campaign should be ended"
+        );
 
         // Try to update merkle root on ended campaign
         bytes32 newRoot = keccak256("new-merkle-root");
