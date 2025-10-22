@@ -10,9 +10,11 @@ import { IPayoutActionEncoder } from "./IPayoutActionEncoder.sol";
 
 /// @title ICapitalDistributorPlugin
 /// @notice Interface for the CapitalDistributorPlugin contract
-/// @dev This interface is used by factories to verify that only authentic CapitalDistributorPlugin contracts can deploy
-/// strategies and action encoders
 interface ICapitalDistributorPlugin is IERC165 {
+    // ====================================
+    // Configuration Structs
+    // ====================================
+
     /// @notice Represents the different states a campaign can be in
     /// @dev ACTIVE: Normal operation, claims allowed
     /// @dev PAUSED: Temporarily paused (for updates), can be resumed
@@ -23,17 +25,14 @@ interface ICapitalDistributorPlugin is IERC165 {
         ENDED
     }
 
-    /**
-     * @notice Represents a distribution campaign.
-     * @custom:storage-location erc7201:capital.distributor.campaigns.struct
-     * @param metadataURI URI pointing to the campaign's metadata (e.g., IPFS hash).
-     * @param allocationStrategy The contract address responsible for determining allocation logic.
-     * @param token The address of the token that will be used for the payouts
-     * @param actionEncoder The logic to execute when claiming the payout
-     * @param state The current state of the campaign (ACTIVE, PAUSED, or ENDED)
-     * @param startTime The timestamp when the campaign becomes active (0 means no start time restriction)
-     * @param endTime The timestamp when the campaign ends (0 means no end time restriction)
-     */
+    /// @notice Represents a distribution campaign.
+    /// @param metadataURI URI pointing to the campaign's metadata (e.g., IPFS hash).
+    /// @param allocationStrategy The contract address responsible for determining allocation logic.
+    /// @param token The address of the token that will be used for the payouts
+    /// @param actionEncoder The logic to execute when claiming the payout
+    /// @param state The current state of the campaign (ACTIVE, PAUSED, or ENDED)
+    /// @param startTime The timestamp when the campaign becomes active (0 means no start time restriction)
+    /// @param endTime The timestamp when the campaign ends (0 means no end time restriction)
     struct Campaign {
         bytes metadataUri;
         IAllocatorStrategy allocationStrategy;
@@ -44,9 +43,143 @@ interface ICapitalDistributorPlugin is IERC165 {
         uint64 endTime;
     }
 
-    /// @notice Returns the permission ID required to manage campaigns
-    /// @return The bytes32 permission ID for campaign management
-    function CAMPAIGN_MANAGER_PERMISSION_ID() external view returns (bytes32);
+    /// @notice Strategy configuration for a campaign
+    /// @param strategyId The strategy type ID to deploy or use
+    /// @param strategyParams Deployment parameters for the strategy
+    /// @param initData Additional data needed to initialize the allocation strategy
+    struct StrategyConfig {
+        bytes32 strategyId;
+        bytes strategyParams;
+        bytes initData;
+    }
+
+    /// @notice Payout configuration for a campaign
+    /// @param token The token address that will be used for payouts
+    /// @param actionEncoderId The action encoder type ID to deploy (use bytes32(0) for simple transfers)
+    /// @param actionEncoderInitData Additional data needed to initialize the action encoder
+    struct PayoutConfig {
+        IERC20 token;
+        bytes32 actionEncoderId;
+        bytes actionEncoderInitData;
+    }
+
+    /// @notice Campaign settings for time bounds and claim behavior
+    /// @param startTime The timestamp when the campaign becomes active (0 means no start time restriction)
+    /// @param endTime The timestamp when the campaign ends (0 means no end time restriction)
+    struct CampaignSettings {
+        uint64 startTime;
+        uint64 endTime;
+    }
+
+    // ====================================
+    // Core Campaign Management Functions
+    // ====================================
+
+    /// @notice Creates a new distribution campaign with the specified configuration
+    /// @param _metadataURI URI pointing to the campaign's metadata (e.g., IPFS hash)
+    /// @param _strategy Strategy configuration including type, params, and init data
+    /// @param _payout Payout configuration including token and action encoder settings
+    /// @param _settings Campaign time bounds and behavior settings
+    /// @return id The ID of the newly created campaign
+    function createCampaign(
+        bytes calldata _metadataURI,
+        StrategyConfig calldata _strategy,
+        PayoutConfig calldata _payout,
+        CampaignSettings calldata _settings
+    )
+        external
+        returns (uint256 id);
+
+    /// @notice Claims payout from a campaign for the message sender
+    /// @param _campaignId The ID of the campaign to claim from
+    /// @param _recipient The address that will receive the payout
+    /// @param _strategyAuxData Additional data required by the allocation strategy
+    /// @param _encoderAuxData Additional data required by the action encoder
+    /// @return amountToSend The amount of tokens that will be sent
+    function claimCampaignPayout(
+        uint256 _campaignId,
+        address _recipient,
+        bytes calldata _strategyAuxData,
+        bytes calldata _encoderAuxData
+    )
+        external
+        returns (uint256 amountToSend);
+
+    /// @notice Claims payout from a campaign to a specific address
+    /// @param _campaignId The ID of the campaign to claim from
+    /// @param _payoutAddress The address that will receive the payout
+    /// @param _strategyAuxData Additional data required by the allocation strategy
+    /// @param _encoderAuxData Additional data required by the action encoder
+    /// @return amountToSend The amount of tokens that will be sent
+    function claimCampaignPayoutToAddress(
+        uint256 _campaignId,
+        address _payoutAddress,
+        bytes calldata _strategyAuxData,
+        bytes calldata _encoderAuxData
+    )
+        external
+        returns (uint256 amountToSend);
+
+    /// @notice Claims payouts from multiple campaigns in a single transaction
+    /// @param _campaignIds Array of campaign IDs to claim from
+    /// @param _recipients Array of recipient addresses for each claim
+    /// @param _strategiesAuxData Array of strategy auxiliary data for each claim
+    /// @param _encodersAuxData Array of encoder auxiliary data for each claim
+    /// @return amounts Array of amounts that will be sent for each claim
+    function batchClaimCampaignPayout(
+        uint256[] calldata _campaignIds,
+        address[] calldata _recipients,
+        bytes[] calldata _strategiesAuxData,
+        bytes[] calldata _encodersAuxData
+    )
+        external
+        returns (uint256[] memory amounts);
+
+    // ====================================
+    // Campaign State Management Functions
+    // ====================================
+
+    /// @notice Pauses an active campaign, temporarily disabling claims
+    /// @param _campaignId The ID of the campaign to pause
+    function pauseCampaign(uint256 _campaignId) external;
+
+    /// @notice Resumes a paused campaign, re-enabling claims
+    /// @param _campaignId The ID of the campaign to resume
+    function resumeCampaign(uint256 _campaignId) external;
+
+    /// @notice Permanently ends a campaign, disabling all future claims
+    /// @param _campaignId The ID of the campaign to end
+    function endCampaign(uint256 _campaignId) external;
+
+    // ====================================
+    // Factory Integration Functions
+    // ====================================
+
+    /// @notice Deploys a new allocation strategy using the strategy factory
+    /// @param _strategyId The ID of the strategy to deploy
+    /// @param _deploymentParams The parameters for the strategy deployment
+    /// @return strategyAddress The address of the deployed strategy
+    function deployStrategy(
+        bytes32 _strategyId,
+        bytes calldata _deploymentParams
+    )
+        external
+        returns (address strategyAddress);
+
+    /// @notice Deploys a new action encoder using the action encoder factory
+    /// @param _actionEncoderId The ID of the action encoder to deploy
+    /// @param _deploymentParams The parameters for the action encoder deployment
+    /// @return actionEncoderAddress The address of the deployed action encoder
+    function deployActionEncoder(
+        bytes32 _actionEncoderId,
+        bytes calldata _deploymentParams
+    )
+        external
+        returns (address actionEncoderAddress);
+
+    // ====================================
+    // View functions
+    // ====================================
 
     /// @notice Returns the total number of campaigns created
     /// @return The current campaign count
@@ -107,130 +240,4 @@ interface ICapitalDistributorPlugin is IERC165 {
     /// @param _campaignId The campaign ID to query
     /// @return types Comma-separated string of Solidity type strings
     function getEncoderClaimEncodingTypes(uint256 _campaignId) external view returns (string memory types);
-
-    // ====================================
-    // Configuration Structs
-    // ====================================
-
-    /**
-     * @notice Strategy configuration for a campaign
-     * @param strategyId The strategy type ID to deploy or use
-     * @param strategyParams Deployment parameters for the strategy
-     * @param initData Additional data needed to initialize the allocation strategy
-     */
-    struct StrategyConfig {
-        bytes32 strategyId;
-        bytes strategyParams;
-        bytes initData;
-    }
-
-    /**
-     * @notice Payout configuration for a campaign
-     * @param token The token address that will be used for payouts
-     * @param actionEncoderId The action encoder type ID to deploy (use bytes32(0) for simple transfers)
-     * @param actionEncoderInitData Additional data needed to initialize the action encoder
-     */
-    struct PayoutConfig {
-        IERC20 token;
-        bytes32 actionEncoderId;
-        bytes actionEncoderInitData;
-    }
-
-    /**
-     * @notice Campaign settings for time bounds and claim behavior
-     * @param startTime The timestamp when the campaign becomes active (0 means no start time restriction)
-     * @param endTime The timestamp when the campaign ends (0 means no end time restriction)
-     */
-    struct CampaignSettings {
-        uint64 startTime;
-        uint64 endTime;
-    }
-
-    // ====================================
-    // Core Campaign Management Functions
-    // ====================================
-
-    /// @notice Creates a new distribution campaign with the specified configuration
-    /// @param _metadataURI URI pointing to the campaign's metadata (e.g., IPFS hash)
-    /// @param _strategy Strategy configuration including type, params, and init data
-    /// @param _payout Payout configuration including token and action encoder settings
-    /// @param _settings Campaign time bounds and behavior settings
-    /// @return id The ID of the newly created campaign
-    function createCampaign(
-        bytes calldata _metadataURI,
-        StrategyConfig calldata _strategy,
-        PayoutConfig calldata _payout,
-        CampaignSettings calldata _settings
-    ) external returns (uint256 id);
-
-    /// @notice Claims payout from a campaign for the message sender
-    /// @param _campaignId The ID of the campaign to claim from
-    /// @param _recipient The address that will receive the payout
-    /// @param _strategyAuxData Additional data required by the allocation strategy
-    /// @param _encoderAuxData Additional data required by the action encoder
-    /// @return amountToSend The amount of tokens that will be sent
-    function claimCampaignPayout(
-        uint256 _campaignId,
-        address _recipient,
-        bytes calldata _strategyAuxData,
-        bytes calldata _encoderAuxData
-    ) external returns (uint256 amountToSend);
-
-    /// @notice Claims payout from a campaign to a specific address
-    /// @param _campaignId The ID of the campaign to claim from
-    /// @param _payoutAddress The address that will receive the payout
-    /// @param _strategyAuxData Additional data required by the allocation strategy
-    /// @param _encoderAuxData Additional data required by the action encoder
-    /// @return amountToSend The amount of tokens that will be sent
-    function claimCampaignPayoutToAddress(
-        uint256 _campaignId,
-        address _payoutAddress,
-        bytes calldata _strategyAuxData,
-        bytes calldata _encoderAuxData
-    ) external returns (uint256 amountToSend);
-
-    /// @notice Claims payouts from multiple campaigns in a single transaction
-    /// @param _campaignIds Array of campaign IDs to claim from
-    /// @param _recipients Array of recipient addresses for each claim
-    /// @param _strategiesAuxData Array of strategy auxiliary data for each claim
-    /// @param _encodersAuxData Array of encoder auxiliary data for each claim
-    /// @return amounts Array of amounts that will be sent for each claim
-    function batchClaimCampaignPayout(
-        uint256[] calldata _campaignIds,
-        address[] calldata _recipients,
-        bytes[] calldata _strategiesAuxData,
-        bytes[] calldata _encodersAuxData
-    ) external returns (uint256[] memory amounts);
-
-    // ====================================
-    // Campaign State Management Functions
-    // ====================================
-
-    /// @notice Pauses an active campaign, temporarily disabling claims
-    /// @param _campaignId The ID of the campaign to pause
-    function pauseCampaign(uint256 _campaignId) external;
-
-    /// @notice Resumes a paused campaign, re-enabling claims
-    /// @param _campaignId The ID of the campaign to resume
-    function resumeCampaign(uint256 _campaignId) external;
-
-    /// @notice Permanently ends a campaign, disabling all future claims
-    /// @param _campaignId The ID of the campaign to end
-    function endCampaign(uint256 _campaignId) external;
-
-    // ====================================
-    // Factory Integration Functions
-    // ====================================
-
-    /// @notice Deploys a new allocation strategy using the strategy factory
-    /// @param _strategyId The ID of the strategy to deploy
-    /// @param _deploymentParams The parameters for the strategy deployment
-    /// @return strategyAddress The address of the deployed strategy
-    function deployStrategy(bytes32 _strategyId, bytes calldata _deploymentParams) external returns (address strategyAddress);
-
-    /// @notice Deploys a new action encoder using the action encoder factory
-    /// @param _actionEncoderId The ID of the action encoder to deploy
-    /// @param _deploymentParams The parameters for the action encoder deployment
-    /// @return actionEncoderAddress The address of the deployed action encoder
-    function deployActionEncoder(bytes32 _actionEncoderId, bytes calldata _deploymentParams) external returns (address actionEncoderAddress);
 }
