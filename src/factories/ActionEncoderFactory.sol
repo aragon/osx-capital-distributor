@@ -3,6 +3,7 @@ pragma solidity ^0.8.29;
 
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import { ERC165Checker } from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 import { IPayoutActionEncoder } from "../interfaces/IPayoutActionEncoder.sol";
 import { IActionEncoderFactory } from "../interfaces/IActionEncoderFactory.sol";
@@ -15,6 +16,7 @@ import { FactoryBase } from "./FactoryBase.sol";
 /// @dev This contract allows registering and deploying action encoders instances on demand.
 contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
     using Clones for address;
+    using ERC165Checker for address;
 
     /// @notice Maps deployment IDs to deployed encoder addresses
     mapping(bytes32 deploymentId => IPayoutActionEncoder encoder) public deployedInstances;
@@ -34,12 +36,7 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
 
     /// @notice Modifier to ensure only CapitalDistributorPlugin contracts can deploy action encoders
     modifier onlyCapitalDistributorPlugin() {
-        try IERC165(msg.sender).supportsInterface(type(ICapitalDistributorPlugin).interfaceId) returns (bool supported)
-        {
-            if (!supported) {
-                revert UnauthorizedCaller(msg.sender);
-            }
-        } catch {
+        if (!msg.sender.supportsERC165InterfaceUnchecked(type(ICapitalDistributorPlugin).interfaceId)) {
             revert UnauthorizedCaller(msg.sender);
         }
         _;
@@ -70,15 +67,7 @@ contract ActionEncoderFactory is FactoryBase, IActionEncoderFactory {
         }
 
         // Validate that the implementation supports the IPayoutActionEncoder interface
-        try IERC165(_encoderImplementation).supportsInterface(type(IPayoutActionEncoder).interfaceId) returns (
-            bool supported
-        ) {
-            if (!supported) {
-                revert InvalidImplementation(
-                    _encoderImplementation, "Implementation must support IPayoutActionEncoder interface"
-                );
-            }
-        } catch {
+        if (!_encoderImplementation.supportsERC165InterfaceUnchecked(type(IPayoutActionEncoder).interfaceId)) {
             revert InvalidImplementation(
                 _encoderImplementation, "Implementation must support IPayoutActionEncoder interface"
             );

@@ -818,7 +818,7 @@ contract CapitalDistributorPlugin is
         override(ERC165Upgradeable, PluginUUPSUpgradeable, MetadataExtensionUpgradeable, IERC165)
         returns (bool)
     {
-        return _interfaceId == type(ICapitalDistributorPlugin).interfaceId || super.supportsInterface(_interfaceId);
+        return super.supportsInterface(_interfaceId) || _interfaceId == type(ICapitalDistributorPlugin).interfaceId;
     }
 
     /// @notice Internal helper to check if a campaign exists
