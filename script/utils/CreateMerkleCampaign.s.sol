@@ -3,6 +3,7 @@ pragma solidity ^0.8.29;
 
 import { Script, console } from "forge-std/Script.sol";
 import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
+import { ICapitalDistributorPlugin } from "../../src/interfaces/ICapitalDistributorPlugin.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IDAO } from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import { Action } from "@aragon/osx-commons-contracts/src/executors/IExecutor.sol";
@@ -97,7 +98,7 @@ contract CreateMerkleCampaign is Script {
         bytes memory strategyAuxData = abi.encode(merkleRoot);
 
         // Create time bounds
-        CapitalDistributorPlugin.CampaignSettings memory settings = CapitalDistributorPlugin.CampaignSettings(0, 0);
+        ICapitalDistributorPlugin.CampaignSettings memory settings = ICapitalDistributorPlugin.CampaignSettings(0, 0);
 
         // Prepare actions array (now 3 actions)
         Action[] memory actions = new Action[](3);
@@ -130,12 +131,12 @@ contract CreateMerkleCampaign is Script {
             data: abi.encodeWithSelector(
                 CapitalDistributorPlugin.createCampaign.selector,
                 metadataURI,
-                CapitalDistributorPlugin.StrategyConfig({
+                ICapitalDistributorPlugin.StrategyConfig({
                     strategyId: MERKLE_STRATEGY_TYPE,
                     strategyParams: "", // Merkle strategy doesn't need strategyParams
                     initData: strategyAuxData
                 }),
-                CapitalDistributorPlugin.PayoutConfig({
+                ICapitalDistributorPlugin.PayoutConfig({
                     actionEncoderId: bytes32(0), // No special encoder
                     actionEncoderInitData: "",
                     token: IERC20(token)

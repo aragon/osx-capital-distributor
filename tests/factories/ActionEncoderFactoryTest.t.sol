@@ -13,6 +13,7 @@ import { VaultDepositPayoutActionEncoder } from "../../src/payoutActionEncoders/
 import { PayoutActionEncoderBase } from "../../src/payoutActionEncoders/PayoutActionEncoderBase.sol";
 import { Action } from "@aragon/commons/executors/IExecutor.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import { CapitalDistributorPluginMock } from "../mocks/CapitalDistributorPluginMock.sol";
 
 /// @title ActionEncoderFactory Test Suite
 /// @author AragonX - 2025
@@ -22,6 +23,7 @@ contract ActionEncoderFactoryTest is Test {
     ActionEncoderFactory factory;
     DAO dao;
     DAO dao2;
+    CapitalDistributorPluginMock pluginMock;
 
     address alice = makeAddr("alice");
     address bob = makeAddr("bob");
@@ -51,10 +53,41 @@ contract ActionEncoderFactoryTest is Test {
         bytes32 indexed typeId, address indexed instance, bytes32 indexed deploymentId, address deployer
     );
 
+    /// @notice Helper function to deploy action encoder through authorized plugin mock
+    function _deployActionEncoder(
+        bytes32 encoderId,
+        IDAO daoAddr,
+        bytes memory auxData
+    )
+        internal
+        returns (IPayoutActionEncoder)
+    {
+        vm.startPrank(address(pluginMock));
+        IPayoutActionEncoder encoder = factory.deployActionEncoder(encoderId, daoAddr, auxData);
+        vm.stopPrank();
+        return encoder;
+    }
+
+    /// @notice Helper function to get or deploy action encoder through authorized plugin mock
+    function _getOrDeployActionEncoder(
+        bytes32 encoderId,
+        IDAO daoAddr,
+        bytes memory auxData
+    )
+        internal
+        returns (IPayoutActionEncoder)
+    {
+        vm.startPrank(address(pluginMock));
+        IPayoutActionEncoder encoder = factory.getOrDeployActionEncoder(encoderId, daoAddr, auxData);
+        vm.stopPrank();
+        return encoder;
+    }
+
     function setUp() public {
         factory = new ActionEncoderFactory();
         dao = DAO(payable(makeAddr("dao")));
         dao2 = DAO(payable(makeAddr("dao2")));
+        pluginMock = new CapitalDistributorPluginMock();
 
         // Deploy encoder implementations
         vaultImplementation = new VaultDepositPayoutActionEncoder();
@@ -64,6 +97,7 @@ contract ActionEncoderFactoryTest is Test {
         vm.label(address(factory), "Factory");
         vm.label(address(dao), "DAO");
         vm.label(address(dao2), "DAO2");
+        vm.label(address(pluginMock), "PluginMock");
         vm.label(alice, "Alice");
         vm.label(bob, "Bob");
         vm.label(charlie, "Charlie");
@@ -79,8 +113,6 @@ contract ActionEncoderFactoryTest is Test {
 
     /// @notice Test successful action encoder type registration
     function test_RegisterActionEncoder_Success() public {
-        vm.startPrank(alice);
-
         vm.expectEmit(true, true, false, true);
         emit TypeRegistered(VAULT_ENCODER_ID, address(vaultImplementation), VAULT_METADATA, alice);
 
@@ -93,8 +125,6 @@ contract ActionEncoderFactoryTest is Test {
         assertEq(implementation, address(vaultImplementation));
         assertEq(metadata, VAULT_METADATA);
         assertTrue(factory.isTypeRegistered(VAULT_ENCODER_ID));
-
-        vm.stopPrank();
     }
 
     /// @notice Test multiple action encoder type registrations
@@ -167,12 +197,12 @@ contract ActionEncoderFactoryTest is Test {
         bytes memory auxData = abi.encode(address(0x123)); // Mock vault address
 
         vm.expectEmit(true, false, false, false);
-        emit InstanceDeployed(VAULT_ENCODER_ID, address(0), bytes32(0), address(this));
+        emit InstanceDeployed(VAULT_ENCODER_ID, address(0), bytes32(0), address(pluginMock));
 
         vm.expectEmit(true, false, false, false);
         emit ActionEncoderDeployed(VAULT_ENCODER_ID, IPayoutActionEncoder(address(0)));
 
-        IPayoutActionEncoder encoder = factory.deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
+        IPayoutActionEncoder encoder = _deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
 
         assertTrue(address(encoder) != address(0));
         assertEq(factory.instanceToType(address(encoder)), VAULT_ENCODER_ID);
@@ -186,7 +216,7 @@ contract ActionEncoderFactoryTest is Test {
         bytes memory auxData = abi.encode(address(0x123));
 
         vm.expectRevert(abi.encodeWithSelector(FactoryBase.TypeNotFound.selector, VAULT_ENCODER_ID));
-        factory.deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
+        _deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
     }
 
     /// @notice Test deployment with duplicate parameters
@@ -196,15 +226,15 @@ contract ActionEncoderFactoryTest is Test {
         bytes memory auxData = abi.encode(address(0x123));
 
         // First deployment should succeed
-        IPayoutActionEncoder encoder1 = factory.deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
+        IPayoutActionEncoder encoder1 = _deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
         assertTrue(address(encoder1) != address(0));
 
         // Second deployment with same parameters should revert
-        bytes32 deploymentId = keccak256(abi.encode(VAULT_ENCODER_ID, address(dao), address(this), auxData));
+        bytes32 deploymentId = keccak256(abi.encode(VAULT_ENCODER_ID, address(dao), address(pluginMock), auxData));
         vm.expectRevert(
             abi.encodeWithSelector(FactoryBase.InstanceAlreadyDeployed.selector, deploymentId, address(encoder1))
         );
-        factory.deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
+        _deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
     }
 
     /// @notice Test deployment with different auxiliary data creates different instances
@@ -214,8 +244,8 @@ contract ActionEncoderFactoryTest is Test {
         bytes memory auxData1 = abi.encode(address(0x123));
         bytes memory auxData2 = abi.encode(address(0x456));
 
-        IPayoutActionEncoder encoder1 = factory.deployActionEncoder(VAULT_ENCODER_ID, dao, auxData1);
-        IPayoutActionEncoder encoder2 = factory.deployActionEncoder(VAULT_ENCODER_ID, dao, auxData2);
+        IPayoutActionEncoder encoder1 = _deployActionEncoder(VAULT_ENCODER_ID, dao, auxData1);
+        IPayoutActionEncoder encoder2 = _deployActionEncoder(VAULT_ENCODER_ID, dao, auxData2);
 
         assertTrue(address(encoder1) != address(encoder2));
         assertEq(factory.instanceToType(address(encoder1)), VAULT_ENCODER_ID);
@@ -228,8 +258,8 @@ contract ActionEncoderFactoryTest is Test {
 
         bytes memory auxData = abi.encode(address(0x123));
 
-        IPayoutActionEncoder encoder1 = factory.deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
-        IPayoutActionEncoder encoder2 = factory.deployActionEncoder(VAULT_ENCODER_ID, dao2, auxData);
+        IPayoutActionEncoder encoder1 = _deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
+        IPayoutActionEncoder encoder2 = _deployActionEncoder(VAULT_ENCODER_ID, dao2, auxData);
 
         assertTrue(address(encoder1) != address(encoder2));
         assertEq(factory.instanceToType(address(encoder1)), VAULT_ENCODER_ID);
@@ -246,8 +276,8 @@ contract ActionEncoderFactoryTest is Test {
 
         bytes memory auxData = abi.encode(address(0x123));
 
-        IPayoutActionEncoder encoder1 = factory.deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
-        IPayoutActionEncoder encoder2 = factory.getOrDeployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
+        IPayoutActionEncoder encoder1 = _deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
+        IPayoutActionEncoder encoder2 = _getOrDeployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
 
         assertEq(address(encoder1), address(encoder2));
     }
@@ -258,7 +288,7 @@ contract ActionEncoderFactoryTest is Test {
 
         bytes memory auxData = abi.encode(address(0x123));
 
-        IPayoutActionEncoder encoder = factory.getOrDeployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
+        IPayoutActionEncoder encoder = _getOrDeployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
 
         assertTrue(address(encoder) != address(0));
         assertEq(factory.instanceToType(address(encoder)), VAULT_ENCODER_ID);
@@ -276,15 +306,15 @@ contract ActionEncoderFactoryTest is Test {
 
         // Should not exist initially
         (bool exists, IPayoutActionEncoder encoder) =
-            factory.hasDeployment(VAULT_ENCODER_ID, dao, address(this), auxData);
+            factory.hasDeployment(VAULT_ENCODER_ID, dao, address(pluginMock), auxData);
         assertFalse(exists);
         assertEq(address(encoder), address(0));
 
         // Deploy encoder
-        IPayoutActionEncoder deployedEncoder = factory.deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
+        IPayoutActionEncoder deployedEncoder = _deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
 
         // Should exist after deployment
-        (exists, encoder) = factory.hasDeployment(VAULT_ENCODER_ID, dao, address(this), auxData);
+        (exists, encoder) = factory.hasDeployment(VAULT_ENCODER_ID, dao, address(pluginMock), auxData);
         assertTrue(exists);
         assertEq(address(encoder), address(deployedEncoder));
     }
@@ -330,18 +360,7 @@ contract ActionEncoderFactoryTest is Test {
 
         // Deployment should fail due to malicious implementation's initialize function
         vm.expectRevert();
-        factory.deployActionEncoder(MALICIOUS_ENCODER_ID, dao, auxData);
-    }
-
-    /// @notice Test access control - anyone can register encoder types (no access control)
-    function test_Security_NoAccessControlOnRegistration() public {
-        vm.startPrank(maliciousActor);
-
-        // Should succeed - no access control on registration
-        factory.registerActionEncoder(MALICIOUS_ENCODER_ID, address(mockImplementation), MALICIOUS_METADATA);
-        assertTrue(factory.isTypeRegistered(MALICIOUS_ENCODER_ID));
-
-        vm.stopPrank();
+        _deployActionEncoder(MALICIOUS_ENCODER_ID, dao, auxData);
     }
 
     /// @notice Test large auxiliary data handling
@@ -355,7 +374,7 @@ contract ActionEncoderFactoryTest is Test {
         }
 
         // Should handle large data without issues
-        IPayoutActionEncoder encoder = factory.deployActionEncoder(MOCK_ENCODER_ID, dao, largeAuxData);
+        IPayoutActionEncoder encoder = _deployActionEncoder(MOCK_ENCODER_ID, dao, largeAuxData);
         assertTrue(address(encoder) != address(0));
     }
 
@@ -367,7 +386,7 @@ contract ActionEncoderFactoryTest is Test {
         bytes memory maliciousAuxData = abi.encode(address(maliciousActor), "injected data");
 
         // Deployment should succeed but malicious data should be contained
-        IPayoutActionEncoder encoder = factory.deployActionEncoder(MOCK_ENCODER_ID, dao, maliciousAuxData);
+        IPayoutActionEncoder encoder = _deployActionEncoder(MOCK_ENCODER_ID, dao, maliciousAuxData);
         assertTrue(address(encoder) != address(0));
 
         // Verify the encoder was initialized with correct parameters
@@ -384,7 +403,7 @@ contract ActionEncoderFactoryTest is Test {
 
         bytes memory auxData = abi.encode(address(0x123)); // Mock vault address
 
-        IPayoutActionEncoder encoder = factory.deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
+        IPayoutActionEncoder encoder = _deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
 
         // Test that the encoder can be used
         assertEq(encoder.getCreationEncodingTypes(), "address");
@@ -411,14 +430,14 @@ contract ActionEncoderFactoryTest is Test {
         // Deployment gas test
         bytes memory auxData = abi.encode(address(0x123));
         gasStart = gasleft();
-        factory.deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
+        _deployActionEncoder(VAULT_ENCODER_ID, dao, auxData);
         gasUsed = gasStart - gasleft();
         console2.log("Gas used for encoder deployment:", gasUsed);
         assertTrue(gasUsed < 250_000);
 
         // Instance exists check gas test
         gasStart = gasleft();
-        factory.hasDeployment(VAULT_ENCODER_ID, dao, address(this), auxData);
+        factory.hasDeployment(VAULT_ENCODER_ID, dao, address(pluginMock), auxData);
         gasUsed = gasStart - gasleft();
         console2.log("Gas used for hasDeployment:", gasUsed);
         assertTrue(gasUsed < 10_000);
@@ -433,7 +452,7 @@ contract ActionEncoderFactoryTest is Test {
         factory.registerActionEncoder(MOCK_ENCODER_ID, address(mockImplementation), MOCK_METADATA);
 
         bytes memory emptyAuxData = "";
-        IPayoutActionEncoder encoder = factory.deployActionEncoder(MOCK_ENCODER_ID, dao, emptyAuxData);
+        IPayoutActionEncoder encoder = _deployActionEncoder(MOCK_ENCODER_ID, dao, emptyAuxData);
 
         assertTrue(address(encoder) != address(0));
         assertEq(factory.instanceToType(address(encoder)), MOCK_ENCODER_ID);
@@ -449,7 +468,7 @@ contract ActionEncoderFactoryTest is Test {
             maxAuxData[i] = bytes1(uint8(i % 256));
         }
 
-        IPayoutActionEncoder encoder = factory.deployActionEncoder(MOCK_ENCODER_ID, dao, maxAuxData);
+        IPayoutActionEncoder encoder = _deployActionEncoder(MOCK_ENCODER_ID, dao, maxAuxData);
         assertTrue(address(encoder) != address(0));
     }
 
@@ -461,9 +480,9 @@ contract ActionEncoderFactoryTest is Test {
         bytes memory auxData1 = abi.encode(address(0x123));
         bytes memory auxData2 = abi.encode(address(0x456));
 
-        IPayoutActionEncoder encoder1 = factory.deployActionEncoder(VAULT_ENCODER_ID, dao, auxData1);
-        IPayoutActionEncoder encoder2 = factory.deployActionEncoder(MOCK_ENCODER_ID, dao, auxData2);
-        IPayoutActionEncoder encoder3 = factory.deployActionEncoder(VAULT_ENCODER_ID, dao2, auxData1);
+        IPayoutActionEncoder encoder1 = _deployActionEncoder(VAULT_ENCODER_ID, dao, auxData1);
+        IPayoutActionEncoder encoder2 = _deployActionEncoder(MOCK_ENCODER_ID, dao, auxData2);
+        IPayoutActionEncoder encoder3 = _deployActionEncoder(VAULT_ENCODER_ID, dao2, auxData1);
 
         assertTrue(address(encoder1) != address(encoder2));
         assertTrue(address(encoder1) != address(encoder3));
@@ -515,7 +534,7 @@ contract ActionEncoderFactoryTest is Test {
 
         factory.registerActionEncoder(encoderId, address(mockImplementation), "Fuzz Test Encoder");
 
-        IPayoutActionEncoder encoder = factory.deployActionEncoder(encoderId, IDAO(daoAddr), auxData);
+        IPayoutActionEncoder encoder = _deployActionEncoder(encoderId, IDAO(daoAddr), auxData);
         assertTrue(address(encoder) != address(0));
         assertEq(factory.instanceToType(address(encoder)), encoderId);
     }

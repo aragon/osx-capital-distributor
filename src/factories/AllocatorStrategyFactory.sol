@@ -3,9 +3,11 @@ pragma solidity ^0.8.29;
 
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import { ERC165Checker } from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 import { IAllocatorStrategy } from "../interfaces/IAllocatorStrategy.sol";
 import { IAllocatorStrategyFactory } from "../interfaces/IAllocatorStrategyFactory.sol";
+import { ICapitalDistributorPlugin } from "../interfaces/ICapitalDistributorPlugin.sol";
 import { FactoryBase } from "./FactoryBase.sol";
 
 /// @title AllocatorStrategyFactory
@@ -14,6 +16,7 @@ import { FactoryBase } from "./FactoryBase.sol";
 /// @dev This contract allows registering strategy types and deploying instances on demand.
 contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     using Clones for address;
+    using ERC165Checker for address;
 
     /// @notice Maximum fee in basis points (10% = 1000 basis points).
     uint32 public constant MAX_FEE_BASIS_POINTS = 1000;
@@ -64,6 +67,18 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
     /// @param strategyInstance The strategy instance address that was not found
     error StrategyNotFound(address strategyInstance);
 
+    /// @notice Error thrown when an unauthorized caller tries to deploy strategies
+    /// @param caller The address that attempted the unauthorized call
+    error UnauthorizedCaller(address caller);
+
+    /// @notice Modifier to ensure only CapitalDistributorPlugin contracts can deploy strategies
+    modifier onlyCapitalDistributorPlugin() {
+        if (!msg.sender.supportsERC165InterfaceUnchecked(type(ICapitalDistributorPlugin).interfaceId)) {
+            revert UnauthorizedCaller(msg.sender);
+        }
+        _;
+    }
+
     /**
      * @notice Registers a new strategy type in the factory.
      * @param _strategyId Unique identifier for the strategy type.
@@ -106,15 +121,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         }
 
         // Validate that the implementation supports the IAllocatorStrategy interface
-        try IERC165(_strategyImplementation).supportsInterface(type(IAllocatorStrategy).interfaceId) returns (
-            bool supported
-        ) {
-            if (!supported) {
-                revert InvalidImplementation(
-                    _strategyImplementation, "Implementation must support IAllocatorStrategy interface"
-                );
-            }
-        } catch {
+        if (!_strategyImplementation.supportsERC165InterfaceUnchecked(type(IAllocatorStrategy).interfaceId)) {
             revert InvalidImplementation(
                 _strategyImplementation, "Implementation must support IAllocatorStrategy interface"
             );
@@ -144,6 +151,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         bytes calldata _deploymentParams
     )
         public
+        onlyCapitalDistributorPlugin
         returns (address strategy)
     {
         bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, msg.sender, _deploymentParams);
@@ -170,6 +178,7 @@ contract AllocatorStrategyFactory is FactoryBase, IAllocatorStrategyFactory {
         bytes calldata _deploymentParams
     )
         external
+        onlyCapitalDistributorPlugin
         returns (address strategy)
     {
         bytes32 deploymentId = _computeDeploymentId(_strategyId, _dao, msg.sender, _deploymentParams);

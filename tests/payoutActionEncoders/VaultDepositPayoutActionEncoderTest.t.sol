@@ -10,6 +10,7 @@ import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 import { Action } from "@aragon/commons/executors/IExecutor.sol";
 import { DaoUnauthorized } from "@aragon/commons/permission/auth/auth.sol";
 import { IPayoutActionEncoder } from "../../src/interfaces/IPayoutActionEncoder.sol";
+import { CapitalDistributorPluginMock } from "../mocks/CapitalDistributorPluginMock.sol";
 
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
 import { AragonTest } from "../helpers/AragonTest.sol";
@@ -29,6 +30,7 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
 
     MockVault public mockVault;
     MockToken public mockToken;
+    CapitalDistributorPluginMock pluginMock;
 
     uint256 constant CAMPAIGN_ID = 1;
     uint256 constant DEFAULT_AMOUNT = 1000 ether;
@@ -47,10 +49,14 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
         VaultDepositPayoutActionEncoder implementation = new VaultDepositPayoutActionEncoder();
         factory.registerActionEncoder(VAULT_ENCODER_ID, address(implementation), VAULT_METADATA);
 
+        pluginMock = new CapitalDistributorPluginMock();
+
         // Deploy encoder instance
+        vm.startPrank(address(pluginMock));
         bytes memory auxData = abi.encode(address(mockVault));
         encoder =
             VaultDepositPayoutActionEncoder(address(factory.deployActionEncoder(VAULT_ENCODER_ID, createdDao, auxData)));
+        vm.stopPrank();
     }
 
     // ============================================
@@ -65,14 +71,14 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
         // Create a new DAO for this test
         DAO testDao = DAO(payable(address(new MockDAO())));
 
-        address newEncoder = address(factory.deployActionEncoder(VAULT_ENCODER_ID, IDAO(address(testDao)), auxData));
+        address newEncoder = _deployActionEncoder(VAULT_ENCODER_ID, IDAO(address(testDao)), auxData);
 
         VaultDepositPayoutActionEncoder deployedEncoder = VaultDepositPayoutActionEncoder(newEncoder);
 
         // Verify initialization
         assertEq(address(deployedEncoder.dao()), address(testDao));
         assertEq(deployedEncoder.encoderId(), VAULT_ENCODER_ID);
-        assertEq(deployedEncoder.owner(), address(this));
+        assertEq(deployedEncoder.owner(), address(pluginMock));
     }
 
     function test_SetupCampaign_Success() public {
@@ -324,7 +330,7 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
         address newVault = address(new MockVault());
         bytes memory auxData = abi.encode(newVault);
 
-        address newEncoderAddr = address(factory.deployActionEncoder(VAULT_ENCODER_ID, createdDao, auxData));
+        address newEncoderAddr = _deployActionEncoder(VAULT_ENCODER_ID, createdDao, auxData);
         VaultDepositPayoutActionEncoder newEncoder = VaultDepositPayoutActionEncoder(newEncoderAddr);
 
         // Setup campaign
@@ -377,7 +383,7 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
         address vault2 = address(new MockVault());
 
         VaultDepositPayoutActionEncoder encoder2 = VaultDepositPayoutActionEncoder(
-            address(factory.deployActionEncoder(VAULT_ENCODER_ID, IDAO(address(secondDao)), abi.encode(vault2)))
+            _deployActionEncoder(VAULT_ENCODER_ID, IDAO(address(secondDao)), abi.encode(vault2))
         );
 
         // Setup campaigns on both encoders
@@ -432,6 +438,14 @@ contract VaultDepositPayoutActionEncoderTest is AragonTest {
     // ============================================
     // Helper Functions
     // ============================================
+
+    /// @notice Helper function to deploy action encoder through authorized plugin mock
+    function _deployActionEncoder(bytes32 encoderId, IDAO daoAddr, bytes memory auxData) internal returns (address) {
+        vm.startPrank(address(pluginMock));
+        address newEncoder = address(factory.deployActionEncoder(encoderId, daoAddr, auxData));
+        vm.stopPrank();
+        return newEncoder;
+    }
 
     function slice(bytes memory data, uint256 start, uint256 length) internal pure returns (bytes memory) {
         bytes memory result = new bytes(length);
