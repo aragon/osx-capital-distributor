@@ -14,7 +14,7 @@ import { MerkleDistributorStrategy } from "../../src/allocatorStrategies/MerkleD
 import {
     VotingEscrowLockPayoutActionEncoder
 } from "../../src/payoutActionEncoders/VotingEscrowLockPayoutActionEncoder.sol";
-import { IVotingEscrowIncreasing } from "../../src/escrow/IVotingEscrowIncreasing.sol";
+import { IVotingEscrowIncreasing, IVotingEscrowCore } from "../../src/interfaces/IVotingEscrowIncreasing.sol";
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
 import { IPluginSetup } from "@aragon/commons/plugin/setup/IPluginSetup.sol";
 import { IPermissionCondition } from "@aragon/commons/permission/condition/IPermissionCondition.sol";
@@ -138,7 +138,8 @@ contract VotingEscrowLockIntegrationTest is Test {
         // Use the function signature to compute selector: createLockFor(uint256,address)
         ExecuteSelectorCondition.SelectorTarget memory createLockFor =
             ExecuteSelectorCondition.SelectorTarget({ where: VOTING_ESCROW, selectors: new bytes4[](1) });
-        createLockFor.selectors[0] = bytes4(keccak256("createLockFor(uint256,address)"));
+        createLockFor.selectors[0] = IVotingEscrowCore.createLockFor.selector;
+        // bytes4(keccak256("createLockFor(uint256,address)"));
         condition.allowSelectors(createLockFor);
 
         vm.stopPrank();
