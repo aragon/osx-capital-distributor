@@ -240,9 +240,7 @@ contract VotingEscrowLockPayoutTest is Test {
         // Get initial total locked amount
         uint256 totalLockedBefore = votingEscrow.totalLocked();
 
-        // DAO automatically distributes locks to all users in the merkle tree
-        // In practice, this could be done by the DAO through a proposal or automated script
-        // For each user in the distribution, DAO calls claimCampaignPayout with their merkle proof
+        // users claim their locks
         for (uint256 i = 0; i < recipients.length; i++) {
             address user = recipients[i].account;
             uint256 amount = claimAmounts[user];
@@ -252,7 +250,7 @@ contract VotingEscrowLockPayoutTest is Test {
             bytes memory strategyAuxData = merkleStrategy.encodeClaimParams(proof, amount);
 
             // DAO executes the claim on behalf of the user to create the lock
-            // In practice, this would be done through the DAO's governance mechanism
+            // initiated by the user
             vm.prank(user);
             uint256 amountSent = capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
 
@@ -313,6 +311,9 @@ contract VotingEscrowLockPayoutTest is Test {
         uint256 totalLockedAfter0 = votingEscrow.totalLocked();
         assertGe(totalLockedAfter0, totalLockedBefore + claimAmounts[user0], "Lock created for user 0");
 
+        vm.warp(block.timestamp + 1 days);
+        vm.roll(block.number + 10);
+
         // DAO distributes lock for user 2 second (skipping user 1)
         address user2 = recipients[2].account;
         bytes32[] memory proof2 = merkleProofs[user2];
@@ -323,6 +324,9 @@ contract VotingEscrowLockPayoutTest is Test {
 
         uint256 totalLockedAfter2 = votingEscrow.totalLocked();
         assertGe(totalLockedAfter2, totalLockedAfter0 + claimAmounts[user2], "Lock created for user 2");
+
+        vm.warp(block.timestamp + 1 days);
+        vm.roll(block.number + 10);
 
         // DAO distributes lock for user 1 third
         address user1 = recipients[1].account;
@@ -381,7 +385,8 @@ contract VotingEscrowLockPayoutTest is Test {
     /// @dev This tests the second part of the flow:
     ///      1. DAO creates locks for users through the plugin (capturing tokenIds from events)
     ///      2. Time passes and locks expire
-    ///      3. Users withdraw their tokens directly from the Voting Escrow contract
+    ///      3. Users withdraw their tokens directly from the Voting Escrow contract, after calling beginWithdrawal()
+    ///         and waiting for the withdrawal queue cooldown
     ///      4. Verify users received their tokens and locks are cleared
     function test_Fork_UsersClaimRewardsAfterLocksExpire() public {
         uint256 totalAmount = 0;
@@ -466,30 +471,41 @@ contract VotingEscrowLockPayoutTest is Test {
         // - Time elapsed since the ticket was queued
         // - Fee parameters (feePercent, minFeePercent, cooldown, minCooldown, slope)
         // The fee can be fixed, tiered, or dynamic (linear decay) based on configuration
+
         // Get the withdrawal queue contract address
         address queueAddress = votingEscrow.queue();
         IDynamicExitQueue exitQueue = IDynamicExitQueue(queueAddress);
 
+        // Store user balances before withdrawals for verification (using array indexed by recipient index)
+        uint256[] memory userBalancesBefore = new uint256[](recipients.length);
+        address lockNFT = votingEscrow.lockNFT();
+
+        // First loop: All users approve and begin withdrawal to enter the withdrawal queue
         for (uint256 i = 0; i < recipients.length; i++) {
             address user = recipients[i].account;
             uint256 tokenId = tokenIds[i];
-            uint256 lockedAmount = claimAmounts[user];
 
             // Get user's balance before withdrawal
-            uint256 userBalanceBefore = token.balanceOf(user);
+            userBalancesBefore[i] = token.balanceOf(user);
 
             // User must approve the voting escrow contract to transfer their NFT
             // This is required for beginWithdrawal() to transfer the NFT to the withdrawal queue
-            address lockNFT = votingEscrow.lockNFT();
             vm.prank(user);
             IERC721(lockNFT).approve(VOTING_ESCROW, tokenId);
 
             // First, user must begin withdrawal to enter the withdrawal queue
             vm.prank(user);
             votingEscrow.beginWithdrawal(tokenId);
+        }
 
-            // Wait for the withdrawal queue cooldown
-            vm.warp(block.timestamp + 2 weeks);
+        // Wait for the withdrawal queue cooldown period (all users wait together)
+        vm.warp(block.timestamp + 2 weeks);
+
+        // Second loop: All users calculate fees, withdraw, and verify
+        for (uint256 i = 0; i < recipients.length; i++) {
+            address user = recipients[i].account;
+            uint256 tokenId = tokenIds[i];
+            uint256 lockedAmount = claimAmounts[user];
 
             // Calculate the exit fee dynamically using the queue contract
             // This calculates the fee based on:
@@ -510,7 +526,7 @@ contract VotingEscrowLockPayoutTest is Test {
             uint256 userBalanceAfter = token.balanceOf(user);
             assertEq(
                 userBalanceAfter,
-                userBalanceBefore + expectedAmountAfterFee,
+                userBalancesBefore[i] + expectedAmountAfterFee,
                 "User should receive their tokens after withdrawal minus dynamically calculated exit fee"
             );
 

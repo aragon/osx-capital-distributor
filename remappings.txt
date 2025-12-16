@@ -17,5 +17,3 @@ forge-std/=node_modules/forge-std/src/
 @ensdomains/buffer/=node_modules/@ensdomains/buffer/
 
 @prb/math/=node_modules/@prb/math/
-
-@escrow/=src/escrow/
