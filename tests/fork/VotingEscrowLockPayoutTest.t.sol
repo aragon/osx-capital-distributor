@@ -16,6 +16,16 @@ import {
 } from "../../src/payoutActionEncoders/VotingEscrowLockPayoutActionEncoder.sol";
 import { IVotingEscrowIncreasing, IVotingEscrowCore } from "../../src/interfaces/IVotingEscrowIncreasing.sol";
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
+import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
+/// @notice Interface for the Dynamic Exit Queue contract
+/// @dev Used to calculate the exit fee dynamically based on time elapsed and fee parameters
+interface IDynamicExitQueue {
+    /// @notice Calculate the absolute fee amount for exiting a specific token
+    /// @param _tokenId The token ID to calculate fee for
+    /// @return Fee amount in underlying token units
+    function calculateFee(uint256 _tokenId) external view returns (uint256);
+}
 import { IPluginSetup } from "@aragon/commons/plugin/setup/IPluginSetup.sol";
 import { IPermissionCondition } from "@aragon/commons/permission/condition/IPermissionCondition.sol";
 import { PermissionLib } from "@aragon/commons/permission/PermissionLib.sol";
@@ -30,7 +40,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 ///      3. Plugin executes actions through DAO executor -> Locks created for users
 ///      4. Users receive veNFTs representing their locked positions
 ///      Note: After locks expire, users can claim their rewards (separate flow, not tested here)
-contract VotingEscrowLockIntegrationTest is Test {
+contract VotingEscrowLockPayoutTest is Test {
     // =============================================================================
     // Fork Configuration
     // =============================================================================
@@ -41,7 +51,8 @@ contract VotingEscrowLockIntegrationTest is Test {
     // =============================================================================
     address internal constant KATANA_DAO = 0x545A4657eefb4E5e3C3D016e5b4ff2E18b17C042;
     address internal constant VOTING_ESCROW = 0x33fb4429d67b2d022B9d40751d44A9DA9A84d02b;
-    address internal constant TOKEN = 0x7F1f4b4b29f5058fA32CC7a97141b8D7e5ABDC2d;
+    // address internal constant TOKEN = 0x7F1f4b4b29f5058fA32CC7a97141b8D7e5ABDC2d;
+    address internal constant TOKEN = 0xC194b4424123275745547B1b7D7203C29A886733;
 
     // User addresses from gist delegation structure
     address internal constant USER_0 = 0xfcffC2ac94d461b4C7A334DD1b7F7197f73e2a8f;
@@ -79,6 +90,7 @@ contract VotingEscrowLockIntegrationTest is Test {
     /// @dev Set up fork and deploy plugin on Katana DAO
     /// @notice Creates fork first, then sets up plugin similar to ExecuteConditionIntegrationTest
     function setUp() public {
+        // vm.setEvmVersion("london");
         // Create fork of Katana chain FIRST - before any contract deployments
         fork = vm.createSelectFork(vm.envString("KATANA_RPC_URL"));
 
@@ -241,7 +253,7 @@ contract VotingEscrowLockIntegrationTest is Test {
 
             // DAO executes the claim on behalf of the user to create the lock
             // In practice, this would be done through the DAO's governance mechanism
-            vm.prank(address(dao));
+            vm.prank(user);
             uint256 amountSent = capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
 
             assertEq(amountSent, amount, "Lock should be created for correct amount");
@@ -295,7 +307,7 @@ contract VotingEscrowLockIntegrationTest is Test {
         bytes32[] memory proof0 = merkleProofs[user0];
         bytes memory strategyAuxData0 = merkleStrategy.encodeClaimParams(proof0, claimAmounts[user0]);
 
-        vm.prank(address(dao));
+        vm.prank(user0);
         capitalDistributorPlugin.claimCampaignPayout(campaignId, user0, strategyAuxData0, "");
 
         uint256 totalLockedAfter0 = votingEscrow.totalLocked();
@@ -306,7 +318,7 @@ contract VotingEscrowLockIntegrationTest is Test {
         bytes32[] memory proof2 = merkleProofs[user2];
         bytes memory strategyAuxData2 = merkleStrategy.encodeClaimParams(proof2, claimAmounts[user2]);
 
-        vm.prank(address(dao));
+        vm.prank(user2);
         capitalDistributorPlugin.claimCampaignPayout(campaignId, user2, strategyAuxData2, "");
 
         uint256 totalLockedAfter2 = votingEscrow.totalLocked();
@@ -317,7 +329,7 @@ contract VotingEscrowLockIntegrationTest is Test {
         bytes32[] memory proof1 = merkleProofs[user1];
         bytes memory strategyAuxData1 = merkleStrategy.encodeClaimParams(proof1, claimAmounts[user1]);
 
-        vm.prank(address(dao));
+        vm.prank(user1);
         capitalDistributorPlugin.claimCampaignPayout(campaignId, user1, strategyAuxData1, "");
 
         uint256 totalLockedAfter1 = votingEscrow.totalLocked();
@@ -360,7 +372,7 @@ contract VotingEscrowLockIntegrationTest is Test {
 
         bytes memory strategyAuxData = merkleStrategy.encodeClaimParams(invalidProof, claimAmounts[user]);
 
-        vm.prank(address(dao));
+        vm.prank(user);
         vm.expectRevert(); // Should revert due to invalid merkle proof
         capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
     }
@@ -376,6 +388,9 @@ contract VotingEscrowLockIntegrationTest is Test {
         for (uint256 i = 0; i < recipients.length; i++) {
             totalAmount += recipients[i].amount;
         }
+
+        // Capture initial total locked before creating locks (since we're on a fork, there may be existing locks)
+        uint256 initialTotalLocked = votingEscrow.totalLocked();
 
         deal(address(token), address(dao), totalAmount);
 
@@ -397,6 +412,7 @@ contract VotingEscrowLockIntegrationTest is Test {
             }),
             ICapitalDistributorPlugin.CampaignSettings({ startTime: 0, endTime: 0 })
         );
+        vm.stopPrank();
 
         // Track tokenIds for each user as locks are created through the plugin
         uint256[] memory tokenIds = new uint256[](recipients.length);
@@ -409,6 +425,7 @@ contract VotingEscrowLockIntegrationTest is Test {
 
             // Record logs to capture tokenId from Deposit event
             vm.recordLogs();
+            vm.prank(user);
             capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
 
             // Extract tokenId from Deposit event
@@ -429,7 +446,6 @@ contract VotingEscrowLockIntegrationTest is Test {
             // Verify tokenId was captured
             assertGt(tokenIds[i], 0, "TokenId should be captured from event");
         }
-        vm.stopPrank();
 
         // Verify locks were created
         for (uint256 i = 0; i < recipients.length; i++) {
@@ -438,30 +454,64 @@ contract VotingEscrowLockIntegrationTest is Test {
         }
 
         // Fast forward time to when locks expire
-        // Voting escrow locks typically expire after a certain period (e.g., 4 years)
-        // For testing, we'll fast forward a significant amount of time
-        uint256 lockDuration = 4 * 365 days;
+        // minLock = 0, so we warp to 1 day after the current block timestamp
+        uint256 lockDuration = 0;
         vm.warp(block.timestamp + lockDuration + 1 days);
 
         // Now users can withdraw their tokens from the Voting Escrow
+        // Note: The withdrawal queue contract deducts a dynamic exit fee during withdrawal
+        // The fee is calculated by the DynamicExitQueue contract's calculateFee() function
+        // which considers:
+        // - The locked amount (underlying balance)
+        // - Time elapsed since the ticket was queued
+        // - Fee parameters (feePercent, minFeePercent, cooldown, minCooldown, slope)
+        // The fee can be fixed, tiered, or dynamic (linear decay) based on configuration
+        // Get the withdrawal queue contract address
+        address queueAddress = votingEscrow.queue();
+        IDynamicExitQueue exitQueue = IDynamicExitQueue(queueAddress);
+
         for (uint256 i = 0; i < recipients.length; i++) {
             address user = recipients[i].account;
             uint256 tokenId = tokenIds[i];
-            uint256 expectedAmount = claimAmounts[user];
+            uint256 lockedAmount = claimAmounts[user];
 
             // Get user's balance before withdrawal
             uint256 userBalanceBefore = token.balanceOf(user);
 
-            // User withdraws their tokens from Voting Escrow
+            // User must approve the voting escrow contract to transfer their NFT
+            // This is required for beginWithdrawal() to transfer the NFT to the withdrawal queue
+            address lockNFT = votingEscrow.lockNFT();
+            vm.prank(user);
+            IERC721(lockNFT).approve(VOTING_ESCROW, tokenId);
+
+            // First, user must begin withdrawal to enter the withdrawal queue
+            vm.prank(user);
+            votingEscrow.beginWithdrawal(tokenId);
+
+            // Wait for the withdrawal queue cooldown
+            vm.warp(block.timestamp + 2 weeks);
+
+            // Calculate the exit fee dynamically using the queue contract
+            // This calculates the fee based on:
+            // - Locked amount (underlying balance)
+            // - Time elapsed since queued
+            // - Fee parameters (feePercent, minFeePercent, cooldown, minCooldown, slope)
+            uint256 exitFee = exitQueue.calculateFee(tokenId);
+
+            // Calculate expected amount after withdrawal fee deduction
+            // The withdrawal queue contract deducts the calculated fee from the locked amount
+            uint256 expectedAmountAfterFee = lockedAmount - exitFee;
+
+            // Then, user can withdraw their tokens from Voting Escrow
             vm.prank(user);
             votingEscrow.withdraw(tokenId);
 
-            // Verify user received their tokens
+            // Verify user received their tokens after exit fee deduction
             uint256 userBalanceAfter = token.balanceOf(user);
             assertEq(
                 userBalanceAfter,
-                userBalanceBefore + expectedAmount,
-                "User should receive their tokens after withdrawal"
+                userBalanceBefore + expectedAmountAfterFee,
+                "User should receive their tokens after withdrawal minus dynamically calculated exit fee"
             );
 
             // Verify lock is cleared
@@ -469,9 +519,17 @@ contract VotingEscrowLockIntegrationTest is Test {
             assertEq(lockAfter.amount, 0, "Lock should be cleared after withdrawal");
         }
 
-        // Verify total locked decreased
+        // Verify total locked decreased after withdrawals
+        // Since we're on a fork, there may be existing locks before our test
+        // When we withdraw, the full locked amount is removed from totalLocked
+        // (the exit fee is deducted from user payout but doesn't affect totalLocked)
         uint256 finalTotalLocked = votingEscrow.totalLocked();
-        assertLt(finalTotalLocked, totalAmount, "Total locked should decrease after withdrawals");
+
+        assertEq(
+            finalTotalLocked,
+            initialTotalLocked,
+            "Total locked should be back to initial value after withdrawing all our locks"
+        );
     }
 
     // =============================================================================
