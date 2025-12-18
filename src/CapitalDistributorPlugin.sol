@@ -40,6 +40,9 @@ contract CapitalDistributorPlugin is
     /// @notice Maximum number of batches claims allowed
     uint256 public constant MAX_BATCH_SIZE = 50;
 
+    /// @notice Special value to allow all addresses to claim on behalf of others
+    uint256 public constant ALLOW_ALL_DELEGATES = type(uint256).max;
+
     /// @notice The AllocatorStrategyFactory instance used to deploy strategies.
     AllocatorStrategyFactory public allocatorStrategyFactory;
 
@@ -61,6 +64,9 @@ contract CapitalDistributorPlugin is
      * allocationStrategy, address token, address actionEncoder, CampaignState state)`
      */
     mapping(uint256 campaignId => Campaign) public campaigns;
+
+    /// @notice Stores whether delegated claims are allowed (0 = disabled, specific address = enabled for that address only, ALLOW_ALL_DELEGATES = enabled for all)
+    uint256 public delegatedClaimsConfig;
 
     /**
      * @notice Emitted when a campaign's details are created.
@@ -105,6 +111,11 @@ contract CapitalDistributorPlugin is
     /// @notice Emitted when a campaign is permanently ended.
     /// @param campaignId The ID of the campaign that was ended.
     event CampaignEnded(uint256 indexed campaignId);
+
+    /// @notice Emitted when delegated claims configuration is changed
+    /// @param who The address allowed to delegate claim (or ALLOW_ALL_DELEGATES for all)
+    /// @param allowed Whether delegated claims are allowed
+    event DelegatedClaimsToggled(uint256 indexed who, bool allowed);
 
     /// @notice Thrown when a zero address is provided where a valid address is required.
     /// @param parameter The name of the parameter that was zero.
@@ -174,6 +185,11 @@ contract CapitalDistributorPlugin is
     /// @param maximum The maximum allowed batch size
     error BatchSizeExceeded(uint256 provided, uint256 maximum);
 
+    /// @notice Thrown when unauthorized delegated claim is attempted
+    /// @param claimer The address attempting to claim
+    /// @param recipient The intended recipient
+    error UnauthorizedDelegatedClaim(address claimer, address recipient);
+
     /// @notice Initializes the component to be used by inheriting contracts.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
     /// @param _dao The IDAO interface of the associated DAO.
@@ -205,6 +221,9 @@ contract CapitalDistributorPlugin is
         __PluginUUPSUpgradeable_init(_dao);
         allocatorStrategyFactory = _allocatorStrategyFactory;
         actionEncoderFactory = _actionEncoderFactory;
+        
+        // Enable delegated claims for all by default
+        delegatedClaimsConfig = ALLOW_ALL_DELEGATES;
     }
 
     /// @notice Deploys a new strategy using the allocator strategy factory.
@@ -489,6 +508,13 @@ contract CapitalDistributorPlugin is
         public
         returns (uint256 amountToSend)
     {
+        // Check delegated claim authorization
+        if (msg.sender != _recipient) {
+            if (delegatedClaimsConfig != ALLOW_ALL_DELEGATES && delegatedClaimsConfig != uint256(uint160(msg.sender))) {
+                revert UnauthorizedDelegatedClaim(msg.sender, _recipient);
+            }
+        }
+        
         // Validate campaign is available for claims
         _requireClaimAvailable(_campaignId);
 
@@ -707,6 +733,21 @@ contract CapitalDistributorPlugin is
         emit CampaignEnded(_campaignId);
     }
 
+    /// @notice Toggles whether a specific address or all addresses can claim on behalf of others
+    /// @param who The address to toggle permission for (use ALLOW_ALL_DELEGATES to toggle for all)
+    /// @param allowed Whether to allow delegated claims
+    function toggleDelegatedClaims(uint256 who, bool allowed) external auth(CAMPAIGN_MANAGER_PERMISSION_ID) {
+        if (allowed) {
+            delegatedClaimsConfig = who;
+        } else {
+            // Only disable if currently set to this value
+            if (delegatedClaimsConfig == who) {
+                delegatedClaimsConfig = 0;
+            }
+        }
+        emit DelegatedClaimsToggled(who, allowed);
+    }
+
     /// @notice Claims payouts from multiple campaigns in a single transaction.
     /// @param _campaignIds Array of campaign IDs to claim from.
     /// @param _recipients Array of recipient addresses (must match campaignIds length).
@@ -899,5 +940,5 @@ contract CapitalDistributorPlugin is
     /// @notice This empty reserved space is put in place to allow future versions to add new variables without shifting
     /// down storage in the inheritance chain (see [OpenZeppelin's guide about storage
     /// gaps](https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps)).
-    uint256[44] private __gap;
+    uint256[43] private __gap;
 }

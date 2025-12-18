@@ -1,19 +1,19 @@
-forge-std/=node_modules/forge-std/src/
+forge-std/=lib/forge-std/src/
 
-@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
-@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/
+@openzeppelin/contracts/=lib/protocol-factory/lib/openzeppelin-contracts/contracts/
+@openzeppelin/contracts-upgradeable/=lib/protocol-factory/lib/openzeppelin-contracts-upgradeable/contracts/
 
-@aragon/protocol-factory/=node_modules/protocol-factory/
-@aragon/osx/=node_modules/@aragon/osx/packages/contracts/src/
-@aragon/commons/=node_modules/@aragon/osx-commons-repo/contracts/src/
-@aragon/osx-commons-contracts/=node_modules/@aragon/osx-commons-repo/contracts/
-@aragon/admin-plugin/=node_modules/@aragon/admin-plugin/packages/contracts/src/
-@aragon/multisig-plugin/=node_modules/@aragon/multisig-plugin/packages/contracts/src/
-@aragon/token-voting-plugin/=node_modules/@aragon/token-voting-plugin/src/
-@aragon/conditions/=node_modules/conditions/src/
-@aragon/staged-proposal-processor-plugin/=node_modules/staged-proposal-processor-plugin/src/
+@aragon/protocol-factory/=lib/protocol-factory/
+@aragon/osx/=lib/protocol-factory/lib/osx/packages/contracts/src/
+@aragon/commons/=lib/protocol-factory/lib/osx-commons/contracts/src/
+@aragon/osx-commons-contracts/=lib/protocol-factory/lib/osx-commons/contracts/
+@aragon/admin-plugin/=lib/protocol-factory/lib/admin-plugin/packages/contracts/src/
+@aragon/multisig-plugin/=lib/protocol-factory/lib/multisig-plugin/packages/contracts/src/
+@aragon/token-voting-plugin/=lib/protocol-factory/lib/token-voting-plugin/src/
+@aragon/conditions/=lib/conditions/src/
+@aragon/staged-proposal-processor-plugin/=lib/protocol-factory/lib/staged-proposal-processor-plugin/src/
 
-@ensdomains/ens-contracts/=node_modules/@ensdomains/ens-contracts/
-@ensdomains/buffer/=node_modules/@ensdomains/buffer/
+@ensdomains/ens-contracts/=lib/protocol-factory/lib/ens-contracts/
+@ensdomains/buffer/=lib/protocol-factory/lib/buffer/
 
-@prb/math/=node_modules/@prb/math/
+@prb/math/=lib/prb-math/src/
