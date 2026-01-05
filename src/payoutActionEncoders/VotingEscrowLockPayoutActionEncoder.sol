@@ -24,10 +24,15 @@ contract VotingEscrowLockPayoutActionEncoder is PayoutActionEncoderBase {
     /// @notice Mapping from campaignId to the Voting Escrow contract address for that campaign.
     mapping(uint256 => address) public campaignVotingEscrow;
 
+    bool public allowDelegatedClaims;
+
     /// @notice Emitted when a Voting Escrow address is set for a campaign.
     event CampaignVotingEscrowSet(
         uint256 indexed campaignId, address indexed votingEscrowAddress, address indexed setter
     );
+
+    /// @notice Emitted when the allow delegated claims flag is set.
+    event AllowDelegatedClaimsSet(bool allowDelegatedClaims, address indexed setter);
 
     /// @notice Thrown if the amount to payout is zero.
     error AmountCannotBeZero();
@@ -35,6 +40,8 @@ contract VotingEscrowLockPayoutActionEncoder is PayoutActionEncoderBase {
     error VotingEscrowNotSetForCampaign(uint256 campaignId);
     /// @notice Thrown if the Voting Escrow address to be set is the zero address.
     error ZeroAddressNotAllowed();
+    /// @notice Thrown when trying claim for someone else when delegated claims are not allowed.
+    error DelegatedClaimsNotAllowed(address caller, address recipient);
 
     /// @inheritdoc PayoutActionEncoderBase
     function setupCampaign(uint256 _campaignId, bytes calldata _auxData) external override ownerOrDao {
@@ -44,6 +51,11 @@ contract VotingEscrowLockPayoutActionEncoder is PayoutActionEncoderBase {
         }
         campaignVotingEscrow[_campaignId] = votingEscrowAddress;
         emit CampaignVotingEscrowSet(_campaignId, votingEscrowAddress, msg.sender);
+    }
+
+    function setAllowDelegatedClaims(bool _allowDelegatedClaims) external ownerOrDao {
+        allowDelegatedClaims = _allowDelegatedClaims;
+        emit AllowDelegatedClaimsSet(_allowDelegatedClaims, msg.sender);
     }
 
     /**
@@ -58,7 +70,7 @@ contract VotingEscrowLockPayoutActionEncoder is PayoutActionEncoderBase {
         IERC20 _token,
         address _recipient,
         uint256 _amount,
-        address,
+        address _caller,
         uint256 _campaignId,
         bytes memory
     )
@@ -69,6 +81,10 @@ contract VotingEscrowLockPayoutActionEncoder is PayoutActionEncoderBase {
     {
         if (_amount == 0) {
             revert AmountCannotBeZero();
+        }
+
+        if (!allowDelegatedClaims && _caller != _recipient) {
+            revert DelegatedClaimsNotAllowed(_caller, _recipient);
         }
 
         address votingEscrowAddress = campaignVotingEscrow[_campaignId];
