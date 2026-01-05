@@ -17,6 +17,7 @@ import {
 import { IVotingEscrowIncreasing, IVotingEscrowCore } from "../../src/interfaces/IVotingEscrowIncreasing.sol";
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import { console } from "forge-std/console.sol";
 
 /// @notice Interface for the Dynamic Exit Queue contract
 /// @dev Used to calculate the exit fee dynamically based on time elapsed and fee parameters
@@ -252,6 +253,110 @@ contract VotingEscrowLockPayoutTest is Test {
             // DAO executes the claim on behalf of the user to create the lock
             // initiated by the user
             vm.prank(user);
+            uint256 amountSent = capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
+
+            assertEq(amountSent, amount, "Lock should be created for correct amount");
+
+            // Verify lock was created by checking total locked increased
+            uint256 totalLockedAfter = votingEscrow.totalLocked();
+            assertGe(totalLockedAfter, totalLockedBefore + amount, "Total locked should increase");
+            totalLockedBefore = totalLockedAfter;
+        }
+
+        // Verify final state - all tokens are locked
+        uint256 finalTotalLocked = votingEscrow.totalLocked();
+        assertGe(finalTotalLocked, totalAmount, "All tokens should be locked");
+
+        // Note: After locks expire, users can claim their rewards (this would be a separate test)
+        // Users would need to provide merkle proofs at that time to verify their eligibility
+    }
+
+    /// @notice Test the complete flow: DAO creates campaign with merkle tree, automatically distributes locks to users
+    /// @dev This simulates the real flow where Katana DAO creates the merkle tree internally
+    ///      and automatically creates locks for all eligible users as a long-term aligned airdrop
+    function test_Fork_CompleteFlow_DAOCreatesLocksForUsers_WithDelegatedClaims() public {
+        // Calculate total amount needed
+        uint256 totalAmount = 0;
+        for (uint256 i = 0; i < recipients.length; i++) {
+            totalAmount += recipients[i].amount;
+        }
+
+        // Fund DAO with tokens
+        deal(address(token), address(dao), totalAmount);
+
+        // DAO creates campaign with MerkleDistributorStrategy and VotingEscrowLockPayoutActionEncoder
+        // The merkle root is created internally by the DAO based on the distribution it wants to make
+        vm.startPrank(address(dao));
+
+        // Setup encoder campaign (this sets the voting escrow address for the campaign)
+        bytes memory encoderInitData = votingEscrowEncoder.encodeSetupCampaignParams(VOTING_ESCROW);
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "ipfs://katana-long-term-aligned-airdrop",
+            ICapitalDistributorPlugin.StrategyConfig({
+                strategyId: toBytes32("merkle-distributor-strategy"),
+                strategyParams: "",
+                initData: abi.encode(merkleRoot) // DAO creates merkle root internally
+            }),
+            ICapitalDistributorPlugin.PayoutConfig({
+                actionEncoderId: toBytes32("voting-escrow-lock-encoder"),
+                actionEncoderInitData: encoderInitData,
+                token: token
+            }),
+            ICapitalDistributorPlugin.CampaignSettings({ startTime: 0, endTime: 0 })
+        );
+
+        vm.stopPrank();
+
+        // Verify campaign was created
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+        assertTrue(address(campaign.allocationStrategy) != address(0), "Strategy should be deployed");
+        assertTrue(address(campaign.actionEncoder) != address(0), "Encoder should be deployed");
+        assertEq(address(campaign.token), address(token), "Token should match");
+
+        // Get initial total locked amount
+        uint256 totalLockedBefore = votingEscrow.totalLocked();
+
+        address caller = address(0x123);
+
+        // users claim their locks
+        for (uint256 i = 0; i < recipients.length; i++) {
+            address user = recipients[i].account;
+            uint256 amount = claimAmounts[user];
+            bytes32[] memory proof = merkleProofs[user];
+
+            // Encode claim params for merkle strategy (DAO knows the proofs internally)
+            bytes memory strategyAuxData = merkleStrategy.encodeClaimParams(proof, amount);
+
+            // DAO executes the claim on behalf of the user to create the lock
+            // initiated by the user
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    VotingEscrowLockPayoutActionEncoder.DelegatedClaimsNotAllowed.selector, caller, user
+                )
+            );
+            vm.prank(caller);
+            capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
+        }
+
+        address owner = votingEscrowEncoder.owner();
+        // set allow delegated claims to true
+        vm.prank(owner);
+        votingEscrowEncoder.setAllowDelegatedClaims(true);
+        console.log("ALLOW_DELEGATED_CLAIMS", votingEscrowEncoder.allowDelegatedClaims());
+
+        // users claim their locks
+        for (uint256 i = 0; i < recipients.length; i++) {
+            address user = recipients[i].account;
+            uint256 amount = claimAmounts[user];
+            bytes32[] memory proof = merkleProofs[user];
+
+            // Encode claim params for merkle strategy (DAO knows the proofs internally)
+            bytes memory strategyAuxData = merkleStrategy.encodeClaimParams(proof, amount);
+
+            // DAO executes the claim on behalf of the user to create the lock
+            // initiated by a different user
+            vm.prank(caller);
             uint256 amountSent = capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
 
             assertEq(amountSent, amount, "Lock should be created for correct amount");
