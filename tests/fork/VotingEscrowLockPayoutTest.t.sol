@@ -31,6 +31,7 @@ import { IPluginSetup } from "@aragon/commons/plugin/setup/IPluginSetup.sol";
 import { IPermissionCondition } from "@aragon/commons/permission/condition/IPermissionCondition.sol";
 import { PermissionLib } from "@aragon/commons/permission/PermissionLib.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { IPayoutActionEncoder } from "../../src/interfaces/IPayoutActionEncoder.sol";
 
 /// @title VotingEscrowLockIntegrationTest
 /// @notice Integration test for the complete flow of Katana DAO creating voting escrow locks
@@ -198,7 +199,7 @@ contract VotingEscrowLockPayoutTest is Test {
     /// @notice Test the complete flow: DAO creates campaign with merkle tree, automatically distributes locks to users
     /// @dev This simulates the real flow where Katana DAO creates the merkle tree internally
     ///      and automatically creates locks for all eligible users as a long-term aligned airdrop
-    function test_Fork_CompleteFlow_DAOCreatesLocksForUsers() public {
+    function test_Fork_DAOCreatesLocksForUsers() public {
         // Calculate total amount needed
         uint256 totalAmount = 0;
         for (uint256 i = 0; i < recipients.length; i++) {
@@ -274,7 +275,7 @@ contract VotingEscrowLockPayoutTest is Test {
     /// @notice Test the complete flow: DAO creates campaign with merkle tree, automatically distributes locks to users
     /// @dev This simulates the real flow where Katana DAO creates the merkle tree internally
     ///      and automatically creates locks for all eligible users as a long-term aligned airdrop
-    function test_Fork_CompleteFlow_DAOCreatesLocksForUsers_WithDelegatedClaims() public {
+    function test_Fork_DAOCreatesLocksForUsers_WithDelegatedClaims() public {
         // Calculate total amount needed
         uint256 totalAmount = 0;
         for (uint256 i = 0; i < recipients.length; i++) {
@@ -319,7 +320,7 @@ contract VotingEscrowLockPayoutTest is Test {
 
         address caller = address(0x123);
 
-        // users claim their locks
+        // delegated claims not allowed by default
         for (uint256 i = 0; i < recipients.length; i++) {
             address user = recipients[i].account;
             uint256 amount = claimAmounts[user];
@@ -329,7 +330,7 @@ contract VotingEscrowLockPayoutTest is Test {
             bytes memory strategyAuxData = merkleStrategy.encodeClaimParams(proof, amount);
 
             // DAO executes the claim on behalf of the user to create the lock
-            // initiated by the user
+            // initiated by different user (caller)
             vm.expectRevert(
                 abi.encodeWithSelector(
                     VotingEscrowLockPayoutActionEncoder.DelegatedClaimsNotAllowed.selector, caller, user
@@ -339,13 +340,16 @@ contract VotingEscrowLockPayoutTest is Test {
             capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
         }
 
-        address owner = votingEscrowEncoder.owner();
         // set allow delegated claims to true
-        vm.prank(owner);
-        votingEscrowEncoder.setAllowDelegatedClaims(true);
-        console.log("ALLOW_DELEGATED_CLAIMS", votingEscrowEncoder.allowDelegatedClaims());
+        IPayoutActionEncoder actionEncoder = campaign.actionEncoder;
+        VotingEscrowLockPayoutActionEncoder veEncoder =
+            VotingEscrowLockPayoutActionEncoder(payable(address(actionEncoder)));
+        vm.prank(veEncoder.owner());
+        veEncoder.setAllowDelegatedClaims(true);
 
-        // users claim their locks
+        // locks claimed by users who don't own the locks, for those who do
+        // note that locks are still created for the users who own the locks i.e. who
+        // were supposed to receive the airdrop
         for (uint256 i = 0; i < recipients.length; i++) {
             address user = recipients[i].account;
             uint256 amount = claimAmounts[user];
