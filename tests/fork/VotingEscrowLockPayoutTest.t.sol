@@ -14,7 +14,7 @@ import { MerkleDistributorStrategy } from "../../src/allocatorStrategies/MerkleD
 import {
     VotingEscrowLockPayoutActionEncoder
 } from "../../src/payoutActionEncoders/VotingEscrowLockPayoutActionEncoder.sol";
-import { IVotingEscrowIncreasing, IVotingEscrowCore } from "../../src/interfaces/IVotingEscrowIncreasing.sol";
+import { IVotingEscrowIncreasing, IVotingEscrowCore } from "../interfaces/IVotingEscrowIncreasing.sol";
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { console } from "forge-std/console.sol";
@@ -340,12 +340,12 @@ contract VotingEscrowLockPayoutTest is Test {
             capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
         }
 
-        // set allow delegated claims to true
+        // set caller as allowed delegate for delegated claims
         IPayoutActionEncoder actionEncoder = campaign.actionEncoder;
         VotingEscrowLockPayoutActionEncoder veEncoder =
             VotingEscrowLockPayoutActionEncoder(payable(address(actionEncoder)));
         vm.prank(veEncoder.owner());
-        veEncoder.setAllowDelegatedClaims(true);
+        veEncoder.setAllowedDelegate(caller, true);
 
         // locks claimed by users who don't own the locks, for those who do
         // note that locks are still created for the users who own the locks i.e. who
@@ -377,6 +377,75 @@ contract VotingEscrowLockPayoutTest is Test {
 
         // Note: After locks expire, users can claim their rewards (this would be a separate test)
         // Users would need to provide merkle proofs at that time to verify their eligibility
+    }
+
+    /// @notice Test delegated claims with ANY_ADDR allowing all addresses to claim on behalf of others
+    /// @dev This simulates enabling any address to make delegated claims using the magic ANY_ADDR constant
+    function test_Fork_DelegatedClaims_AllowAllDelegates() public {
+        // Use only first recipient for this test
+        address user = recipients[0].account;
+        uint256 amount = recipients[0].amount;
+
+        // Build merkle tree with single recipient (single leaf is its own root)
+        bytes32 singleRecipientRoot = keccak256(abi.encodePacked(user, amount));
+
+        // Fund DAO with tokens
+        deal(address(token), address(dao), amount);
+
+        // DAO creates campaign
+        vm.startPrank(address(dao));
+
+        uint256 campaignId = capitalDistributorPlugin.createCampaign(
+            "ipfs://katana-single-recipient-any-delegate",
+            ICapitalDistributorPlugin.StrategyConfig({
+                strategyId: toBytes32("merkle-distributor-strategy"),
+                strategyParams: "",
+                initData: abi.encode(singleRecipientRoot)
+            }),
+            ICapitalDistributorPlugin.PayoutConfig({
+                actionEncoderId: toBytes32("voting-escrow-lock-encoder"),
+                actionEncoderInitData: votingEscrowEncoder.encodeSetupCampaignParams(VOTING_ESCROW),
+                token: token
+            }),
+            ICapitalDistributorPlugin.CampaignSettings({ startTime: 0, endTime: 0 })
+        );
+
+        vm.stopPrank();
+
+        // Get campaign encoder
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+        VotingEscrowLockPayoutActionEncoder veEncoder =
+            VotingEscrowLockPayoutActionEncoder(payable(address(campaign.actionEncoder)));
+
+        // Encode claim params (empty proof for single-leaf tree)
+        bytes memory strategyAuxData = merkleStrategy.encodeClaimParams(new bytes32[](0), amount);
+
+        // Initially, delegated claims should fail for random caller
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VotingEscrowLockPayoutActionEncoder.DelegatedClaimsNotAllowed.selector, address(0xCAFE), user
+            )
+        );
+        vm.prank(address(0xCAFE));
+        capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
+
+        // Enable ANY_ADDR - this allows ALL addresses to make delegated claims
+        // Cache values before vm.prank since it only affects next call
+        address anyAddr = veEncoder.ANY_ADDR();
+        vm.prank(veEncoder.owner());
+        veEncoder.setAllowedDelegate(anyAddr, true);
+
+        // Verify ANY_ADDR enables all delegates
+        assertTrue(veEncoder.canDelegate(address(0xCAFE)), "Random caller should now be able to delegate");
+        assertTrue(veEncoder.canDelegate(address(0xBEEF)), "Another random caller should also be able to delegate");
+
+        // Now any address can claim on behalf of the user
+        uint256 totalLockedBefore = votingEscrow.totalLocked();
+        vm.prank(address(0xCAFE));
+        uint256 amountSent = capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
+
+        assertEq(amountSent, amount, "Lock should be created for correct amount");
+        assertGe(votingEscrow.totalLocked(), totalLockedBefore + amount, "Total locked should increase");
     }
 
     /// @notice Test that DAO can distribute locks to users at different times

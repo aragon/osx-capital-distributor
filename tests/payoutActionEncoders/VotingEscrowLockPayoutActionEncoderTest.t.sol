@@ -7,7 +7,7 @@ import {
 } from "../../src/payoutActionEncoders/VotingEscrowLockPayoutActionEncoder.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import { Action } from "@aragon/commons/executors/IExecutor.sol";
-import { IVotingEscrowIncreasing } from "../../src/interfaces/IVotingEscrowIncreasing.sol";
+import { IVotingEscrowIncreasing } from "../interfaces/IVotingEscrowIncreasing.sol";
 import { IPayoutActionEncoder } from "../../src/interfaces/IPayoutActionEncoder.sol";
 
 contract VotingEscrowLockPayoutActionEncoderTest is Test {
@@ -98,35 +98,57 @@ contract VotingEscrowLockPayoutActionEncoderTest is Test {
         encoder.setupCampaign(campaignId + 1, auxData);
     }
 
-    // test to set allow delegated claims to true
-    function test_SetAllowDelegatedClaims_Success() public {
+    // test to set allowed delegate for specific address
+    function test_SetAllowedDelegate_Success() public {
+        address delegate = address(0x456);
         vm.expectEmit(true, true, true, true);
-        emit VotingEscrowLockPayoutActionEncoder.AllowDelegatedClaimsSet(true, encoder.owner());
+        emit VotingEscrowLockPayoutActionEncoder.AllowedDelegateSet(delegate, true, encoder.owner());
         vm.prank(encoder.owner());
-        encoder.setAllowDelegatedClaims(true);
+        encoder.setAllowedDelegate(delegate, true);
+        assertTrue(encoder.canDelegate(delegate));
     }
 
-    // test to set allow delegated claims to false
-    function test_SetAllowDelegatedClaims_RevertsIfNotOwner() public {
+    // test to set ANY_ADDR as allowed delegate (enables all addresses)
+    function test_SetAllowedDelegate_AnyAddr() public {
+        address delegate = address(0x456);
+        // Initially delegate cannot delegate
+        assertFalse(encoder.canDelegate(delegate));
+
+        // Enable ANY_ADDR - cache values before vm.prank since it only affects next call
+        address anyAddr = encoder.ANY_ADDR();
+        address owner = encoder.owner();
+        vm.prank(owner);
+        encoder.setAllowedDelegate(anyAddr, true);
+
+        // Now any address can delegate
+        assertTrue(encoder.canDelegate(delegate));
+        assertTrue(encoder.canDelegate(address(0x789)));
+    }
+
+    // test that non-owner cannot set allowed delegate
+    function test_SetAllowedDelegate_RevertsIfNotOwner() public {
         vm.expectRevert(abi.encodeWithSelector(IPayoutActionEncoder.NotAuthorized.selector, address(this)));
         vm.prank(address(this));
-        encoder.setAllowDelegatedClaims(true);
+        encoder.setAllowedDelegate(address(0x456), true);
     }
 
-    function test_BuildActions_DelegatedClaims() public {
+    function test_BuildActions_DelegatedClaims_SpecificAddress() public {
+        address caller = address(this);
+
+        // Initially, caller cannot delegate (not in allowlist)
         vm.expectRevert(
             abi.encodeWithSelector(
-                VotingEscrowLockPayoutActionEncoder.DelegatedClaimsNotAllowed.selector, address(this), recipient
+                VotingEscrowLockPayoutActionEncoder.DelegatedClaimsNotAllowed.selector, caller, recipient
             )
         );
-        encoder.buildActions(IERC20(mockToken), recipient, amount, address(this), campaignId, "");
+        encoder.buildActions(IERC20(mockToken), recipient, amount, caller, campaignId, "");
 
+        // Allow specific caller
         vm.prank(encoder.owner());
-        encoder.setAllowDelegatedClaims(true);
+        encoder.setAllowedDelegate(caller, true);
 
         // check that the actions are correct
-        Action[] memory actions =
-            encoder.buildActions(IERC20(mockToken), recipient, amount, address(this), campaignId, "");
+        Action[] memory actions = encoder.buildActions(IERC20(mockToken), recipient, amount, caller, campaignId, "");
         assertEq(actions.length, 2);
         assertEq(actions[0].to, mockToken);
         (address spender, uint256 approvedAmount) =
@@ -139,6 +161,28 @@ contract VotingEscrowLockPayoutActionEncoderTest is Test {
             abi.decode(slice(actions[1].data, 4, actions[1].data.length - 4), (uint256, address));
         assertEq(lockAmount, amount);
         assertEq(lockRecipient, recipient);
+    }
+
+    function test_BuildActions_DelegatedClaims_AnyAddr() public {
+        address caller = address(0x999);
+
+        // Initially, caller cannot delegate
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VotingEscrowLockPayoutActionEncoder.DelegatedClaimsNotAllowed.selector, caller, recipient
+            )
+        );
+        encoder.buildActions(IERC20(mockToken), recipient, amount, caller, campaignId, "");
+
+        // Allow ANY_ADDR (enables all addresses) - cache values before vm.prank
+        address anyAddr = encoder.ANY_ADDR();
+        address owner = encoder.owner();
+        vm.prank(owner);
+        encoder.setAllowedDelegate(anyAddr, true);
+
+        // Now any caller can make delegated claims
+        Action[] memory actions = encoder.buildActions(IERC20(mockToken), recipient, amount, caller, campaignId, "");
+        assertEq(actions.length, 2);
     }
 
     function slice(bytes memory data, uint256 start, uint256 length) internal pure returns (bytes memory) {

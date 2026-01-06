@@ -21,18 +21,25 @@ interface IVotingEscrow {
 /// @dev This contract is DaoAuthorizable. The DAO controlling this encoder instance
 ///      must grant permission for `setVotingEscrow`.
 contract VotingEscrowLockPayoutActionEncoder is PayoutActionEncoderBase {
+    /// @notice Magic address constant representing "any address" for delegate allowlist.
+    /// @dev When allowedDelegates[ANY_ADDR] is true, any address can claim on behalf of others.
+    address public constant ANY_ADDR = address(uint160(uint256(keccak256("ANY_ADDRESS"))));
+
     /// @notice Mapping from campaignId to the Voting Escrow contract address for that campaign.
     mapping(uint256 => address) public campaignVotingEscrow;
 
-    bool public allowDelegatedClaims;
+    /// @notice Mapping of addresses allowed to make delegated claims.
+    /// @dev If allowedDelegates[ANY_ADDR] is true, all addresses are allowed.
+    ///      Otherwise, only specific addresses with allowedDelegates[addr] = true can delegate.
+    mapping(address => bool) public allowedDelegates;
 
     /// @notice Emitted when a Voting Escrow address is set for a campaign.
     event CampaignVotingEscrowSet(
         uint256 indexed campaignId, address indexed votingEscrowAddress, address indexed setter
     );
 
-    /// @notice Emitted when the allow delegated claims flag is set.
-    event AllowDelegatedClaimsSet(bool allowDelegatedClaims, address indexed setter);
+    /// @notice Emitted when a delegate's permission is updated.
+    event AllowedDelegateSet(address indexed delegate, bool allowed, address indexed setter);
 
     /// @notice Thrown if the amount to payout is zero.
     error AmountCannotBeZero();
@@ -53,9 +60,26 @@ contract VotingEscrowLockPayoutActionEncoder is PayoutActionEncoderBase {
         emit CampaignVotingEscrowSet(_campaignId, votingEscrowAddress, msg.sender);
     }
 
-    function setAllowDelegatedClaims(bool _allowDelegatedClaims) external ownerOrDao {
-        allowDelegatedClaims = _allowDelegatedClaims;
-        emit AllowDelegatedClaimsSet(_allowDelegatedClaims, msg.sender);
+    /// @notice Sets whether an address is allowed to make delegated claims.
+    /// @param _delegate The address to update permission for. Use ANY_ADDR to allow/disallow all addresses.
+    /// @param _allowed Whether the delegate is allowed to claim on behalf of others.
+    /// @dev When _delegate is ANY_ADDR and _allowed is true, any address can make delegated claims.
+    ///      This is useful for enabling vaults or other contracts to claim on behalf of users.
+    function setAllowedDelegate(address _delegate, bool _allowed) external ownerOrDao {
+        allowedDelegates[_delegate] = _allowed;
+        emit AllowedDelegateSet(_delegate, _allowed, msg.sender);
+    }
+
+    /// @notice Checks if an address is allowed to make delegated claims.
+    /// @param _delegate The address to check.
+    /// @return True if the delegate can claim on behalf of others.
+    function canDelegate(address _delegate) public view returns (bool) {
+        // If ANY_ADDR is allowed, all addresses can delegate
+        if (allowedDelegates[ANY_ADDR]) {
+            return true;
+        }
+        // Otherwise, check the specific address
+        return allowedDelegates[_delegate];
     }
 
     /**
@@ -83,7 +107,8 @@ contract VotingEscrowLockPayoutActionEncoder is PayoutActionEncoderBase {
             revert AmountCannotBeZero();
         }
 
-        if (!allowDelegatedClaims && _caller != _recipient) {
+        // Allow if caller is the recipient, or if caller is an allowed delegate
+        if (!canDelegate(_caller) && _caller != _recipient) {
             revert DelegatedClaimsNotAllowed(_caller, _recipient);
         }
 
