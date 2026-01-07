@@ -76,8 +76,8 @@ contract VotingEscrowLockPayoutActionEncoderTest is Test {
         );
     }
 
-    function test_SetupCampaign_SetsVotingEscrowAddress() public {
-        address newVotingEscrow = address(0xABC);
+    function test_SetupCampaign_SetsVotingEscrowAddress(address newVotingEscrow) public {
+        vm.assume(newVotingEscrow != address(0));
         bytes memory auxData = encoder.encodeSetupCampaignParams(newVotingEscrow);
 
         vm.expectEmit(true, true, true, true);
@@ -99,8 +99,7 @@ contract VotingEscrowLockPayoutActionEncoderTest is Test {
     }
 
     // test to set allowed delegate for specific address
-    function test_SetAllowedDelegate_Success() public {
-        address delegate = address(0x456);
+    function test_SetAllowedDelegate_Success(address delegate) public {
         vm.expectEmit(true, true, true, true);
         emit VotingEscrowLockPayoutActionEncoder.AllowedDelegateSet(delegate, true, encoder.owner());
         vm.prank(encoder.owner());
@@ -109,10 +108,9 @@ contract VotingEscrowLockPayoutActionEncoderTest is Test {
     }
 
     // test to set ANY_ADDR as allowed delegate (enables all addresses)
-    function test_SetAllowedDelegate_AnyAddr() public {
-        address delegate = address(0x456);
+    function test_SetAllowedDelegate_AnyAddr(address testAddress) public {
         // Initially delegate cannot delegate
-        assertFalse(encoder.canDelegate(delegate));
+        assertFalse(encoder.canDelegate(testAddress));
 
         // Enable ANY_ADDR - cache values before vm.prank since it only affects next call
         address anyAddr = encoder.ANY_ADDR();
@@ -121,20 +119,17 @@ contract VotingEscrowLockPayoutActionEncoderTest is Test {
         encoder.setAllowedDelegate(anyAddr, true);
 
         // Now any address can delegate
-        assertTrue(encoder.canDelegate(delegate));
-        assertTrue(encoder.canDelegate(address(0x789)));
+        assertTrue(encoder.canDelegate(testAddress));
     }
 
     // test that non-owner cannot set allowed delegate
-    function test_SetAllowedDelegate_RevertsIfNotOwner() public {
+    function test_SetAllowedDelegate_RevertsIfNotOwner(address testAddress) public {
         vm.expectRevert(abi.encodeWithSelector(IPayoutActionEncoder.NotAuthorized.selector, address(this)));
         vm.prank(address(this));
-        encoder.setAllowedDelegate(address(0x456), true);
+        encoder.setAllowedDelegate(testAddress, true);
     }
 
-    function test_BuildActions_DelegatedClaims_SpecificAddress() public {
-        address caller = address(this);
-
+    function test_BuildActions_DelegatedClaims_SpecificAddress(address caller) public {
         // Initially, caller cannot delegate (not in allowlist)
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -163,9 +158,7 @@ contract VotingEscrowLockPayoutActionEncoderTest is Test {
         assertEq(lockRecipient, recipient);
     }
 
-    function test_BuildActions_DelegatedClaims_AnyAddr() public {
-        address caller = address(0x999);
-
+    function test_BuildActions_DelegatedClaims_AnyAddr(address caller) public {
         // Initially, caller cannot delegate
         vm.expectRevert(
             abi.encodeWithSelector(

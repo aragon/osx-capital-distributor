@@ -269,7 +269,6 @@ contract VotingEscrowLockPayoutTest is Test {
         assertGe(finalTotalLocked, totalAmount, "All tokens should be locked");
 
         // Note: After locks expire, users can claim their rewards (this would be a separate test)
-        // Users would need to provide merkle proofs at that time to verify their eligibility
     }
 
     /// @notice Test the complete flow: DAO creates campaign with merkle tree, automatically distributes locks to users
@@ -376,7 +375,6 @@ contract VotingEscrowLockPayoutTest is Test {
         assertGe(finalTotalLocked, totalAmount, "All tokens should be locked");
 
         // Note: After locks expire, users can claim their rewards (this would be a separate test)
-        // Users would need to provide merkle proofs at that time to verify their eligibility
     }
 
     /// @notice Test delegated claims with ANY_ADDR allowing all addresses to claim on behalf of others
