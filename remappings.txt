@@ -17,3 +17,18 @@ forge-std/=node_modules/forge-std/src/
 @ensdomains/buffer/=node_modules/@ensdomains/buffer/
 
 @prb/math/=node_modules/@prb/math/
+
+@aragon/multisig/=node_modules/@aragon/multisig-plugin/packages/contracts/
+@solmate/=lib/ve-governance/lib/solmate/src/
+
+@ve/=lib/ve-governance/src/
+@escrow/=lib/ve-governance/src/escrow/
+@clock/=lib/ve-governance/src/clock/
+@lock/=lib/ve-governance/src/lock/
+@queue/=lib/ve-governance/src/queue/
+@curve/=lib/ve-governance/src/curve/
+@delegation/=lib/ve-governance/src/delegation/
+@voting/=lib/ve-governance/src/voting/
+@setup/=lib/ve-governance/src/setup/
+@libs/=lib/ve-governance/src/libs/
+@factory/=lib/ve-governance/src/factory/
