@@ -130,6 +130,7 @@ contract VotingEscrowLockPayoutActionEncoderTest is Test {
     }
 
     function test_BuildActions_DelegatedClaims_SpecificAddress(address caller) public {
+        vm.assume(caller != recipient);
         // Initially, caller cannot delegate (not in allowlist)
         vm.expectRevert(
             abi.encodeWithSelector(

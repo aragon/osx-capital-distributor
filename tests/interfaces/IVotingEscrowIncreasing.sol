@@ -43,19 +43,11 @@ interface IVotingEscrowCoreEvents {
         uint256 newTotalLocked
     );
     event Withdraw(
-        address indexed depositor,
-        uint256 indexed tokenId,
-        uint256 value,
-        uint256 ts,
-        uint256 newTotalLocked
+        address indexed depositor, uint256 indexed tokenId, uint256 value, uint256 ts, uint256 newTotalLocked
     );
 }
 
-interface IVotingEscrowCore is
-    ILockedBalanceIncreasing,
-    IVotingEscrowCoreErrors,
-    IVotingEscrowCoreEvents
-{
+interface IVotingEscrowCore is ILockedBalanceIncreasing, IVotingEscrowCoreErrors, IVotingEscrowCoreEvents {
     /// @notice Address of the underying ERC20 token.
     function token() external view returns (address);
 
@@ -96,7 +88,7 @@ interface IWithdrawalQueueErrors {
     error CannotWithdrawInSameBlock();
 }
 
-interface IWithdrawalQueueEvents {}
+interface IWithdrawalQueueEvents { }
 
 interface IWithdrawalQueue is IWithdrawalQueueErrors, IWithdrawalQueueEvents {
     /// @notice Enters a tokenId into the withdrawal queue by transferring to this contract and creating a ticket.
@@ -184,7 +176,7 @@ interface IDynamicVoter is IDynamicVoterErrors {
                         INCREASED ESCROW
 //////////////////////////////////////////////////////////////*/
 
-interface IVotingEscrowIncreasing is IVotingEscrowCore, IDynamicVoter, IWithdrawalQueue, ISweeper {}
+interface IVotingEscrowIncreasing is IVotingEscrowCore, IDynamicVoter, IWithdrawalQueue, ISweeper { }
 
 /// @dev useful for testing
 interface IVotingEscrowEventsStorageErrorsEvents is
@@ -195,4 +187,4 @@ interface IVotingEscrowEventsStorageErrorsEvents is
     ILockedBalanceIncreasing,
     ISweeperEvents,
     ISweeperErrors
-{}
+{ }
