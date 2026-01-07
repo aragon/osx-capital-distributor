@@ -213,128 +213,121 @@ contract VotingEscrowLockPayoutLocalTest is Test {
     }
 
     // =============================================================================
+    // Campaign Setup Helpers
+    // =============================================================================
+
+    /// @dev Creates a campaign with default settings using the standard merkle root
+    function _createCampaign() internal returns (uint256 campaignId) {
+        return _createCampaignWithRoot(merkleRoot);
+    }
+
+    /// @dev Creates a campaign with a custom merkle root
+    function _createCampaignWithRoot(bytes32 root) internal returns (uint256 campaignId) {
+        vm.startPrank(address(dao));
+        campaignId = capitalDistributorPlugin.createCampaign(
+            "ipfs://test-campaign",
+            ICapitalDistributorPlugin.StrategyConfig({
+                strategyId: toBytes32("merkle-distributor-strategy"), strategyParams: "", initData: abi.encode(root)
+            }),
+            ICapitalDistributorPlugin.PayoutConfig({
+                actionEncoderId: toBytes32("voting-escrow-lock-encoder"),
+                actionEncoderInitData: votingEscrowEncoder.encodeSetupCampaignParams(address(votingEscrow)),
+                token: IERC20(address(token))
+            }),
+            ICapitalDistributorPlugin.CampaignSettings({ startTime: 0, endTime: 0 })
+        );
+        vm.stopPrank();
+    }
+
+    /// @dev Calculates total amount from all recipients
+    function _totalAmount() internal view returns (uint256 total) {
+        for (uint256 i = 0; i < recipients.length; i++) {
+            total += recipients[i].amount;
+        }
+    }
+
+    /// @dev Funds DAO with total amount needed for all recipients
+    function _fundDao() internal {
+        token.mint(address(dao), _totalAmount());
+    }
+
+    /// @dev Gets the VotingEscrowLockPayoutActionEncoder for a campaign
+    function _getVeEncoder(uint256 campaignId) internal view returns (VotingEscrowLockPayoutActionEncoder) {
+        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
+        return VotingEscrowLockPayoutActionEncoder(payable(address(campaign.actionEncoder)));
+    }
+
+    /// @dev Claims payout for a user with their merkle proof
+    function _claimFor(uint256 campaignId, address user) internal returns (uint256 amountSent) {
+        bytes memory strategyAuxData = merkleStrategy.encodeClaimParams(merkleProofs[user], claimAmounts[user]);
+        vm.prank(user);
+        return capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
+    }
+
+    /// @dev Claims for a user initiated by a different caller (delegated claim)
+    function _claimForBy(uint256 campaignId, address user, address caller) internal returns (uint256 amountSent) {
+        bytes memory strategyAuxData = merkleStrategy.encodeClaimParams(merkleProofs[user], claimAmounts[user]);
+        vm.prank(caller);
+        return capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
+    }
+
+    /// @dev Claims for all recipients and returns the token IDs of created locks
+    function _claimForAllAndGetTokenIds(uint256 campaignId) internal returns (uint256[] memory tokenIds) {
+        tokenIds = new uint256[](recipients.length);
+        bytes32 depositTopic = keccak256("Deposit(address,uint256,uint256,uint256,uint256)");
+
+        for (uint256 i = 0; i < recipients.length; i++) {
+            address user = recipients[i].account;
+
+            vm.recordLogs();
+            _claimFor(campaignId, user);
+
+            Vm.Log[] memory logs = vm.getRecordedLogs();
+            for (uint256 j = 0; j < logs.length; j++) {
+                if (logs[j].topics[0] == depositTopic && logs[j].emitter == address(votingEscrow)) {
+                    tokenIds[i] = uint256(logs[j].topics[2]);
+                    break;
+                }
+            }
+        }
+    }
+
+    // =============================================================================
     // Core Integration Tests
     // =============================================================================
 
     /// @notice Test the complete flow: DAO creates campaign, users claim locks, receive veNFTs
     function test_Local_DAOCreatesLocksForUsers() public {
-        // Calculate total amount needed
-        uint256 totalAmount = 0;
-        for (uint256 i = 0; i < recipients.length; i++) {
-            totalAmount += recipients[i].amount;
-        }
-
-        // Fund DAO with tokens
-        token.mint(address(dao), totalAmount);
-
-        // DAO creates campaign with MerkleDistributorStrategy and VotingEscrowLockPayoutActionEncoder
-        vm.startPrank(address(dao));
-
-        // Setup encoder campaign (this sets the voting escrow address for the campaign)
-        bytes memory encoderInitData = votingEscrowEncoder.encodeSetupCampaignParams(address(votingEscrow));
-
-        uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "ipfs://test-ve-lock-airdrop",
-            ICapitalDistributorPlugin.StrategyConfig({
-                strategyId: toBytes32("merkle-distributor-strategy"),
-                strategyParams: "",
-                initData: abi.encode(merkleRoot) // DAO creates merkle root internally
-            }),
-            ICapitalDistributorPlugin.PayoutConfig({
-                actionEncoderId: toBytes32("voting-escrow-lock-encoder"),
-                actionEncoderInitData: encoderInitData,
-                token: IERC20(address(token))
-            }),
-            ICapitalDistributorPlugin.CampaignSettings({ startTime: 0, endTime: 0 })
-        );
-
-        vm.stopPrank();
-
-        // Verify campaign was created
-        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        assertTrue(address(campaign.allocationStrategy) != address(0), "Strategy should be deployed");
-        assertTrue(address(campaign.actionEncoder) != address(0), "Encoder should be deployed");
-        assertEq(address(campaign.token), address(token), "Token should match");
-
-        // Get initial total locked amount
+        _fundDao();
+        uint256 campaignId = _createCampaign();
         uint256 totalLockedBefore = votingEscrow.totalLocked();
 
         // Users claim their locks
         for (uint256 i = 0; i < recipients.length; i++) {
             address user = recipients[i].account;
             uint256 amount = claimAmounts[user];
-            bytes32[] memory proof = merkleProofs[user];
 
-            // Encode claim params for merkle strategy
-            bytes memory strategyAuxData = merkleStrategy.encodeClaimParams(proof, amount);
-
-            // User claims to create the lock
-            vm.prank(user);
-            uint256 amountSent = capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
+            uint256 amountSent = _claimFor(campaignId, user);
 
             assertEq(amountSent, amount, "Lock should be created for correct amount");
-
-            // Verify lock was created by checking total locked increased
-            uint256 totalLockedAfter = votingEscrow.totalLocked();
-            assertGe(totalLockedAfter, totalLockedBefore + amount, "Total locked should increase");
-            totalLockedBefore = totalLockedAfter;
+            assertGe(votingEscrow.totalLocked(), totalLockedBefore + amount, "Total locked should increase");
+            totalLockedBefore = votingEscrow.totalLocked();
         }
 
-        // Verify final state - all tokens are locked
-        uint256 finalTotalLocked = votingEscrow.totalLocked();
-        assertGe(finalTotalLocked, totalAmount, "All tokens should be locked");
+        assertGe(votingEscrow.totalLocked(), _totalAmount(), "All tokens should be locked");
     }
 
     /// @notice Test delegated claims - caller claims on behalf of recipient
     function test_Local_DAOCreatesLocksForUsers_WithDelegatedClaims() public {
-        // Calculate total amount needed
-        uint256 totalAmount = 0;
-        for (uint256 i = 0; i < recipients.length; i++) {
-            totalAmount += recipients[i].amount;
-        }
-
-        // Fund DAO with tokens
-        token.mint(address(dao), totalAmount);
-
-        // DAO creates campaign
-        vm.startPrank(address(dao));
-
-        bytes memory encoderInitData = votingEscrowEncoder.encodeSetupCampaignParams(address(votingEscrow));
-
-        uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "ipfs://test-delegated-claims",
-            ICapitalDistributorPlugin.StrategyConfig({
-                strategyId: toBytes32("merkle-distributor-strategy"),
-                strategyParams: "",
-                initData: abi.encode(merkleRoot)
-            }),
-            ICapitalDistributorPlugin.PayoutConfig({
-                actionEncoderId: toBytes32("voting-escrow-lock-encoder"),
-                actionEncoderInitData: encoderInitData,
-                token: IERC20(address(token))
-            }),
-            ICapitalDistributorPlugin.CampaignSettings({ startTime: 0, endTime: 0 })
-        );
-
-        vm.stopPrank();
-
-        // Verify campaign was created
-        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        assertTrue(address(campaign.allocationStrategy) != address(0), "Strategy should be deployed");
-
-        uint256 totalLockedBefore = votingEscrow.totalLocked();
-
+        _fundDao();
+        uint256 campaignId = _createCampaign();
         address caller = address(0x123);
 
         // Delegated claims not allowed by default
         for (uint256 i = 0; i < recipients.length; i++) {
             address user = recipients[i].account;
-            uint256 amount = claimAmounts[user];
-            bytes32[] memory proof = merkleProofs[user];
+            bytes memory strategyAuxData = merkleStrategy.encodeClaimParams(merkleProofs[user], claimAmounts[user]);
 
-            bytes memory strategyAuxData = merkleStrategy.encodeClaimParams(proof, amount);
-
-            // Should revert because delegated claims not allowed
             vm.expectRevert(
                 abi.encodeWithSelector(
                     VotingEscrowLockPayoutActionEncoder.DelegatedClaimsNotAllowed.selector, caller, user
@@ -344,76 +337,37 @@ contract VotingEscrowLockPayoutLocalTest is Test {
             capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
         }
 
-        // Set caller as allowed delegate for delegated claims
-        IPayoutActionEncoder actionEncoder = campaign.actionEncoder;
-        VotingEscrowLockPayoutActionEncoder veEncoder =
-            VotingEscrowLockPayoutActionEncoder(payable(address(actionEncoder)));
+        // Enable caller as allowed delegate
+        VotingEscrowLockPayoutActionEncoder veEncoder = _getVeEncoder(campaignId);
         vm.prank(veEncoder.owner());
         veEncoder.setAllowedDelegate(caller, true);
 
-        // Now delegated claims should work
+        // Now delegated claims succeed - locks created for intended recipients
+        uint256 totalLockedBefore = votingEscrow.totalLocked();
         for (uint256 i = 0; i < recipients.length; i++) {
             address user = recipients[i].account;
             uint256 amount = claimAmounts[user];
-            bytes32[] memory proof = merkleProofs[user];
 
-            bytes memory strategyAuxData = merkleStrategy.encodeClaimParams(proof, amount);
-
-            // Caller claims on behalf of user
-            vm.prank(caller);
-            uint256 amountSent = capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
+            uint256 amountSent = _claimForBy(campaignId, user, caller);
 
             assertEq(amountSent, amount, "Lock should be created for correct amount");
-
-            // Verify lock was created
-            uint256 totalLockedAfter = votingEscrow.totalLocked();
-            assertGe(totalLockedAfter, totalLockedBefore + amount, "Total locked should increase");
-            totalLockedBefore = totalLockedAfter;
+            assertGe(votingEscrow.totalLocked(), totalLockedBefore + amount, "Total locked should increase");
+            totalLockedBefore = votingEscrow.totalLocked();
         }
 
-        // Verify final state
-        uint256 finalTotalLocked = votingEscrow.totalLocked();
-        assertGe(finalTotalLocked, totalAmount, "All tokens should be locked");
+        assertGe(votingEscrow.totalLocked(), _totalAmount(), "All tokens should be locked");
     }
 
     /// @notice Test delegated claims with ANY_ADDR allowing all addresses
     function test_Local_DelegatedClaims_AllowAllDelegates() public {
-        // Use only first recipient for this test
         address user = recipients[0].account;
         uint256 amount = recipients[0].amount;
-
-        // Build merkle tree with single recipient (single leaf is its own root)
         bytes32 singleRecipientRoot = keccak256(abi.encodePacked(user, amount));
 
-        // Fund DAO with tokens
         token.mint(address(dao), amount);
+        uint256 campaignId = _createCampaignWithRoot(singleRecipientRoot);
 
-        // DAO creates campaign
-        vm.startPrank(address(dao));
-
-        uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "ipfs://test-any-delegate",
-            ICapitalDistributorPlugin.StrategyConfig({
-                strategyId: toBytes32("merkle-distributor-strategy"),
-                strategyParams: "",
-                initData: abi.encode(singleRecipientRoot)
-            }),
-            ICapitalDistributorPlugin.PayoutConfig({
-                actionEncoderId: toBytes32("voting-escrow-lock-encoder"),
-                actionEncoderInitData: votingEscrowEncoder.encodeSetupCampaignParams(address(votingEscrow)),
-                token: IERC20(address(token))
-            }),
-            ICapitalDistributorPlugin.CampaignSettings({ startTime: 0, endTime: 0 })
-        );
-
-        vm.stopPrank();
-
-        // Get campaign encoder
-        CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        VotingEscrowLockPayoutActionEncoder veEncoder =
-            VotingEscrowLockPayoutActionEncoder(payable(address(campaign.actionEncoder)));
-
-        // Encode claim params (empty proof for single-leaf tree)
+        VotingEscrowLockPayoutActionEncoder veEncoder = _getVeEncoder(campaignId);
         bytes memory strategyAuxData = merkleStrategy.encodeClaimParams(new bytes32[](0), amount);
 
         // Initially, delegated claims should fail for random caller
@@ -425,12 +379,12 @@ contract VotingEscrowLockPayoutLocalTest is Test {
         vm.prank(address(0xCAFE));
         capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
 
-        // Enable ANY_ADDR - this allows ALL addresses to make delegated claims
+        // Enable ANY_ADDR - allows ALL addresses to make delegated claims
+        address owner = veEncoder.owner();
         address anyAddr = veEncoder.ANY_ADDR();
-        vm.prank(veEncoder.owner());
+        vm.prank(owner);
         veEncoder.setAllowedDelegate(anyAddr, true);
 
-        // Verify ANY_ADDR enables all delegates
         assertTrue(veEncoder.canDelegate(address(0xCAFE)), "Random caller should now be able to delegate");
         assertTrue(veEncoder.canDelegate(address(0xBEEF)), "Another random caller should also be able to delegate");
 
@@ -445,103 +399,39 @@ contract VotingEscrowLockPayoutLocalTest is Test {
 
     /// @notice Test that DAO can distribute locks to users at different times
     function test_Local_DAODistributesLocksAtDifferentTimes() public {
-        uint256 totalAmount = 0;
-        for (uint256 i = 0; i < recipients.length; i++) {
-            totalAmount += recipients[i].amount;
-        }
-
-        token.mint(address(dao), totalAmount);
-
-        vm.startPrank(address(dao));
-        bytes memory encoderInitData = votingEscrowEncoder.encodeSetupCampaignParams(address(votingEscrow));
-
-        uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "ipfs://staggered-claims",
-            ICapitalDistributorPlugin.StrategyConfig({
-                strategyId: toBytes32("merkle-distributor-strategy"),
-                strategyParams: "",
-                initData: abi.encode(merkleRoot)
-            }),
-            ICapitalDistributorPlugin.PayoutConfig({
-                actionEncoderId: toBytes32("voting-escrow-lock-encoder"),
-                actionEncoderInitData: encoderInitData,
-                token: IERC20(address(token))
-            }),
-            ICapitalDistributorPlugin.CampaignSettings({ startTime: 0, endTime: 0 })
-        );
-        vm.stopPrank();
-
+        _fundDao();
+        uint256 campaignId = _createCampaign();
         uint256 totalLockedBefore = votingEscrow.totalLocked();
 
         // User 0 claims first
-        address user0 = recipients[0].account;
-        bytes32[] memory proof0 = merkleProofs[user0];
-        bytes memory strategyAuxData0 = merkleStrategy.encodeClaimParams(proof0, claimAmounts[user0]);
-
-        vm.prank(user0);
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, user0, strategyAuxData0, "");
-
-        uint256 totalLockedAfter0 = votingEscrow.totalLocked();
-        assertGe(totalLockedAfter0, totalLockedBefore + claimAmounts[user0], "Lock created for user 0");
+        _claimFor(campaignId, recipients[0].account);
+        uint256 expected0 = totalLockedBefore + claimAmounts[recipients[0].account];
+        assertGe(votingEscrow.totalLocked(), expected0, "Lock created for user 0");
 
         vm.warp(block.timestamp + 1 days);
         vm.roll(block.number + 10);
 
         // User 2 claims second (skipping user 1)
-        address user2 = recipients[2].account;
-        bytes32[] memory proof2 = merkleProofs[user2];
-        bytes memory strategyAuxData2 = merkleStrategy.encodeClaimParams(proof2, claimAmounts[user2]);
-
-        vm.prank(user2);
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, user2, strategyAuxData2, "");
-
-        uint256 totalLockedAfter2 = votingEscrow.totalLocked();
-        assertGe(totalLockedAfter2, totalLockedAfter0 + claimAmounts[user2], "Lock created for user 2");
+        uint256 lockedAfterUser0 = votingEscrow.totalLocked();
+        _claimFor(campaignId, recipients[2].account);
+        uint256 expected2 = lockedAfterUser0 + claimAmounts[recipients[2].account];
+        assertGe(votingEscrow.totalLocked(), expected2, "Lock created for user 2");
 
         vm.warp(block.timestamp + 1 days);
         vm.roll(block.number + 10);
 
         // User 1 claims third
-        address user1 = recipients[1].account;
-        bytes32[] memory proof1 = merkleProofs[user1];
-        bytes memory strategyAuxData1 = merkleStrategy.encodeClaimParams(proof1, claimAmounts[user1]);
-
-        vm.prank(user1);
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, user1, strategyAuxData1, "");
-
-        uint256 totalLockedAfter1 = votingEscrow.totalLocked();
-        assertGe(totalLockedAfter1, totalLockedAfter2 + claimAmounts[user1], "Lock created for user 1");
+        uint256 lockedAfterUser2 = votingEscrow.totalLocked();
+        _claimFor(campaignId, recipients[1].account);
+        uint256 expected1 = lockedAfterUser2 + claimAmounts[recipients[1].account];
+        assertGe(votingEscrow.totalLocked(), expected1, "Lock created for user 1");
     }
 
     /// @notice Test that invalid merkle proofs are rejected
     function test_Local_InvalidMerkleProofReverts() public {
-        uint256 totalAmount = 0;
-        for (uint256 i = 0; i < recipients.length; i++) {
-            totalAmount += recipients[i].amount;
-        }
+        _fundDao();
+        uint256 campaignId = _createCampaign();
 
-        token.mint(address(dao), totalAmount);
-
-        vm.startPrank(address(dao));
-        bytes memory encoderInitData = votingEscrowEncoder.encodeSetupCampaignParams(address(votingEscrow));
-
-        uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "ipfs://invalid-proof-test",
-            ICapitalDistributorPlugin.StrategyConfig({
-                strategyId: toBytes32("merkle-distributor-strategy"),
-                strategyParams: "",
-                initData: abi.encode(merkleRoot)
-            }),
-            ICapitalDistributorPlugin.PayoutConfig({
-                actionEncoderId: toBytes32("voting-escrow-lock-encoder"),
-                actionEncoderInitData: encoderInitData,
-                token: IERC20(address(token))
-            }),
-            ICapitalDistributorPlugin.CampaignSettings({ startTime: 0, endTime: 0 })
-        );
-        vm.stopPrank();
-
-        // Try to claim with invalid proof
         address user = recipients[0].account;
         bytes32[] memory invalidProof = new bytes32[](2);
         invalidProof[0] = bytes32(uint256(12_345));
@@ -550,142 +440,69 @@ contract VotingEscrowLockPayoutLocalTest is Test {
         bytes memory strategyAuxData = merkleStrategy.encodeClaimParams(invalidProof, claimAmounts[user]);
 
         vm.prank(user);
-        vm.expectRevert(); // Should revert due to invalid merkle proof
+        vm.expectRevert();
         capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
     }
 
-    /// @notice Test that users can withdraw their tokens after locks expire
+    /// @notice Test that users can claim their KAT rewards after their ve locks expire
+    /// @dev Tests the flow: create locks → time passes → users withdraw via exit queue
     function test_Local_UsersClaimRewardsAfterLocksExpire() public {
-        uint256 totalAmount = 0;
-        for (uint256 i = 0; i < recipients.length; i++) {
-            totalAmount += recipients[i].amount;
-        }
-
-        // Capture initial total locked
         uint256 initialTotalLocked = votingEscrow.totalLocked();
+        _fundDao();
+        uint256 campaignId = _createCampaign();
 
-        token.mint(address(dao), totalAmount);
-
-        // Create campaign and distribute locks
-        vm.startPrank(address(dao));
-        bytes memory encoderInitData = votingEscrowEncoder.encodeSetupCampaignParams(address(votingEscrow));
-
-        uint256 campaignId = capitalDistributorPlugin.createCampaign(
-            "ipfs://rewards-after-expiry",
-            ICapitalDistributorPlugin.StrategyConfig({
-                strategyId: toBytes32("merkle-distributor-strategy"),
-                strategyParams: "",
-                initData: abi.encode(merkleRoot)
-            }),
-            ICapitalDistributorPlugin.PayoutConfig({
-                actionEncoderId: toBytes32("voting-escrow-lock-encoder"),
-                actionEncoderInitData: encoderInitData,
-                token: IERC20(address(token))
-            }),
-            ICapitalDistributorPlugin.CampaignSettings({ startTime: 0, endTime: 0 })
-        );
-        vm.stopPrank();
-
-        // Track tokenIds for each user as locks are created
-        uint256[] memory tokenIds = new uint256[](recipients.length);
-
-        // Create locks for users and capture tokenIds from Deposit events
-        for (uint256 i = 0; i < recipients.length; i++) {
-            address user = recipients[i].account;
-            bytes32[] memory proof = merkleProofs[user];
-            bytes memory strategyAuxData = merkleStrategy.encodeClaimParams(proof, claimAmounts[user]);
-
-            // Record logs to capture tokenId from Deposit event
-            vm.recordLogs();
-            vm.prank(user);
-            capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
-
-            // Extract tokenId from Deposit event
-            Vm.Log[] memory logs = vm.getRecordedLogs();
-
-            bytes32 depositTopic = keccak256("Deposit(address,uint256,uint256,uint256,uint256)");
-            for (uint256 j = 0; j < logs.length; j++) {
-                if (logs[j].topics[0] == depositTopic && logs[j].emitter == address(votingEscrow)) {
-                    tokenIds[i] = uint256(logs[j].topics[2]);
-                    break;
-                }
-            }
-
-            // Verify tokenId was captured
-            assertGt(tokenIds[i], 0, "TokenId should be captured from event");
-        }
+        // Create locks for all users and capture token IDs
+        uint256[] memory tokenIds = _claimForAllAndGetTokenIds(campaignId);
 
         // Verify locks were created
         for (uint256 i = 0; i < recipients.length; i++) {
+            assertGt(tokenIds[i], 0, "TokenId should be captured from event");
             IVotingEscrowIncreasing.LockedBalance memory lock =
                 IVotingEscrowIncreasing(address(votingEscrow)).locked(tokenIds[i]);
             assertEq(lock.amount, claimAmounts[recipients[i].account], "Lock amount should match");
         }
 
-        // Fast forward time to when locks expire (minLock = 0, so minimal wait)
+        // Fast forward past min lock period
         vm.warp(block.timestamp + 1 days);
 
-        // Store user balances before withdrawals
-        uint256[] memory userBalancesBefore = new uint256[](recipients.length);
+        // All users begin withdrawal
         address lockNFT = votingEscrow.lockNFT();
-
-        // First loop: All users approve and begin withdrawal
+        uint256[] memory userBalancesBefore = new uint256[](recipients.length);
         for (uint256 i = 0; i < recipients.length; i++) {
             address user = recipients[i].account;
-            uint256 tokenId = tokenIds[i];
-
             userBalancesBefore[i] = token.balanceOf(user);
 
-            // User must approve the voting escrow contract to transfer their NFT
             vm.prank(user);
-            IERC721(lockNFT).approve(address(votingEscrow), tokenId);
-
-            // Begin withdrawal to enter the withdrawal queue
+            IERC721(lockNFT).approve(address(votingEscrow), tokenIds[i]);
             vm.prank(user);
-            votingEscrow.beginWithdrawal(tokenId);
+            votingEscrow.beginWithdrawal(tokenIds[i]);
         }
 
-        // Wait for the withdrawal queue cooldown period (1 day based on our setup)
+        // Wait for cooldown period
         vm.warp(block.timestamp + 2 days);
 
-        // Second loop: All users withdraw
+        // All users withdraw
         for (uint256 i = 0; i < recipients.length; i++) {
             address user = recipients[i].account;
             uint256 tokenId = tokenIds[i];
             uint256 lockedAmount = claimAmounts[user];
-
-            // Calculate the exit fee dynamically
             uint256 exitFee = IDynamicExitQueue(address(exitQueue)).calculateFee(tokenId);
 
-            // Calculate expected amount after withdrawal fee deduction
-            uint256 expectedAmountAfterFee = lockedAmount - exitFee;
-
-            // Withdraw tokens
             vm.prank(user);
             votingEscrow.withdraw(tokenId);
 
-            // Verify user received their tokens after exit fee deduction
-            uint256 userBalanceAfter = token.balanceOf(user);
             assertEq(
-                userBalanceAfter,
-                userBalancesBefore[i] + expectedAmountAfterFee,
-                "User should receive their tokens after withdrawal minus exit fee"
+                token.balanceOf(user),
+                userBalancesBefore[i] + lockedAmount - exitFee,
+                "User should receive tokens minus exit fee"
             );
 
-            // Verify lock is cleared
             IVotingEscrowIncreasing.LockedBalance memory lockAfter =
                 IVotingEscrowIncreasing(address(votingEscrow)).locked(tokenId);
             assertEq(lockAfter.amount, 0, "Lock should be cleared after withdrawal");
         }
 
-        // Verify total locked decreased after withdrawals
-        uint256 finalTotalLocked = votingEscrow.totalLocked();
-
-        assertEq(
-            finalTotalLocked,
-            initialTotalLocked,
-            "Total locked should be back to initial value after withdrawing all locks"
-        );
+        assertEq(votingEscrow.totalLocked(), initialTotalLocked, "Total locked should be back to initial value");
     }
 
     // =============================================================================
