@@ -3,42 +3,48 @@ pragma solidity ^0.8.29;
 
 import { Test } from "forge-std/Test.sol";
 import { Vm } from "forge-std/Vm.sol";
-import { console } from "forge-std/console.sol";
 
 // Capital Distributor imports
 import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
-import { ICapitalDistributorPlugin } from "../../src/interfaces/ICapitalDistributorPlugin.sol";
 import { CapitalDistributorPluginSetup } from "../../src/CapitalDistributorPluginSetup.sol";
+import { ICapitalDistributorPlugin } from "../../src/interfaces/ICapitalDistributorPlugin.sol";
 import { AllocatorStrategyFactory } from "../../src/factories/AllocatorStrategyFactory.sol";
 import { ActionEncoderFactory } from "../../src/factories/ActionEncoderFactory.sol";
 import { MerkleDistributorStrategy } from "../../src/allocatorStrategies/MerkleDistributorStrategy.sol";
 import {
     VotingEscrowLockPayoutActionEncoder
 } from "../../src/payoutActionEncoders/VotingEscrowLockPayoutActionEncoder.sol";
-import { IPayoutActionEncoder } from "../../src/interfaces/IPayoutActionEncoder.sol";
+
+// Deploy utilities
+import { SetupVe, VeDeployment, VeDeploymentParams } from "../deploy/SetupVe.sol";
 
 // VE Governance imports
-import { SetupVe, VeDeployment, VeDeploymentParams } from "./SetupVe.sol";
 import { VotingEscrowV1_2_0 as VotingEscrow } from "@ve/escrow/VotingEscrowIncreasing_v1_2_0.sol";
 import { DynamicExitQueue as ExitQueue } from "@ve/queue/DynamicExitQueue.sol";
+import { IClockV1_2_0 } from "@ve/clock/IClock_v1_2_0.sol";
+import { IEscrowCurveIncreasingV1_2_0 as IEscrowCurve } from "@ve/curve/IEscrowCurveIncreasing_v1_2_0.sol";
 
 // Aragon/OSx imports
 import { ProtocolFactoryBuilder } from "@aragon/protocol-factory/test/helpers/ProtocolFactoryBuilder.sol";
 import { ProtocolFactory } from "@aragon/protocol-factory/src/ProtocolFactory.sol";
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
 import { IPluginSetup } from "@aragon/commons/plugin/setup/IPluginSetup.sol";
-import { IPermissionCondition } from "@aragon/commons/permission/condition/IPermissionCondition.sol";
-import { PermissionLib } from "@aragon/commons/permission/PermissionLib.sol";
+import { PluginSetupProcessor } from "@aragon/osx/framework/plugin/setup/PluginSetupProcessor.sol";
+import { PluginRepoFactory } from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
+import { PluginRepo } from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
+import { PluginSetupRef, hashHelpers } from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
 import { ExecuteSelectorCondition } from "@aragon/conditions/ExecuteSelectorCondition.sol";
+import { PermissionLib } from "@aragon/commons/permission/PermissionLib.sol";
+import { IPermissionCondition } from "@aragon/commons/permission/condition/IPermissionCondition.sol";
 
 // OpenZeppelin imports
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 // Test utilities
 import { MintableERC20 } from "../../tests/mocks/MintableERC20.sol";
-import { IVotingEscrowIncreasing, IVotingEscrowCore } from "../interfaces/IVotingEscrowIncreasing.sol";
+import { IVotingEscrowIncreasing } from "@escrow/IVotingEscrowIncreasing.sol";
+import { MerkleTreeBuilder } from "../utils/MerkleTreeBuilder.sol";
 
 /// @notice Interface for the Dynamic Exit Queue contract
 interface IDynamicExitQueue {
@@ -114,12 +120,12 @@ contract VotingEscrowLockPayoutLocalTest is Test {
         factory.deployOnce();
         osxDeployment = factory.getDeployment();
 
-        // Deploy ve-governance system locally
+        // Deploy ve-governance system locally using SetupVe
         SetupVe setupVe = new SetupVe();
         veDeployment =
             setupVe.deploy(VeDeploymentParams({ admin: admin, token: address(token), osxDeployment: osxDeployment }));
 
-        // Extract the DAO and VE contracts from deployment
+        // Extract DAO and VE contracts
         dao = veDeployment.dao;
         votingEscrow = VotingEscrow(address(veDeployment.pluginSet.votingEscrow));
         exitQueue = ExitQueue(address(veDeployment.pluginSet.exitQueue));
@@ -138,30 +144,60 @@ contract VotingEscrowLockPayoutLocalTest is Test {
         votingEscrowEncoder = new VotingEscrowLockPayoutActionEncoder();
         encoderFactory.registerActionEncoder(toBytes32("voting-escrow-lock-encoder"), address(votingEscrowEncoder), "");
 
-        // Deploy Capital Distributor Plugin using setup
-        CapitalDistributorPluginSetup setup = new CapitalDistributorPluginSetup();
+        // Create a PluginRepo for the Capital Distributor Plugin
+        PluginRepoFactory repoFactory = PluginRepoFactory(osxDeployment.pluginRepoFactory);
+        PluginRepo capitalDistributorRepo = repoFactory.createPluginRepoWithFirstVersion(
+            "capital-distributor",
+            address(new CapitalDistributorPluginSetup()),
+            admin,
+            bytes("ipfs://release-metadata"),
+            bytes("ipfs://build-metadata")
+        );
+
+        // Get the PluginSetupProcessor
+        PluginSetupProcessor psp = PluginSetupProcessor(osxDeployment.pluginSetupProcessor);
+
+        // Prepare installation via PSP
+        PluginSetupRef memory pluginSetupRef = PluginSetupRef({
+            versionTag: PluginRepo.Tag({ release: 1, build: 1 }), pluginSetupRepo: capitalDistributorRepo
+        });
+
         bytes memory installParams = abi.encode(address(strategyFactory), address(encoderFactory));
 
-        IPluginSetup.PreparedSetupData memory preparedSetupData;
-        address pluginAddr;
-        (pluginAddr, preparedSetupData) = setup.prepareInstallation(address(dao), installParams);
+        (address pluginAddr, IPluginSetup.PreparedSetupData memory preparedSetupData) = psp.prepareInstallation(
+            address(dao),
+            PluginSetupProcessor.PrepareInstallationParams({ pluginSetupRef: pluginSetupRef, data: installParams })
+        );
 
         capitalDistributorPlugin = CapitalDistributorPlugin(pluginAddr);
-        condition = ExecuteSelectorCondition(preparedSetupData.helpers[0]);
+        condition = ExecuteSelectorCondition(address(preparedSetupData.helpers[0]));
 
-        // Apply permissions (simulate PluginSetupProcessor)
+        // Grant permissions for PSP to apply the installation
         vm.startPrank(address(dao));
-        for (uint256 i = 0; i < preparedSetupData.permissions.length; i++) {
-            PermissionLib.MultiTargetPermission memory perm = preparedSetupData.permissions[i];
+        // Grant ROOT_PERMISSION to PSP so it can apply permissions on the DAO
+        dao.grant(address(dao), address(psp), dao.ROOT_PERMISSION_ID());
+        // Grant APPLY_INSTALLATION_PERMISSION to this test contract so it can call applyInstallation
+        dao.grant(address(psp), address(this), psp.APPLY_INSTALLATION_PERMISSION_ID());
+        vm.stopPrank();
 
-            if (perm.operation == PermissionLib.Operation.Grant) {
-                dao.grant(perm.where, perm.who, perm.permissionId);
-            } else if (perm.operation == PermissionLib.Operation.GrantWithCondition) {
-                dao.grantWithCondition(perm.where, perm.who, perm.permissionId, IPermissionCondition(perm.condition));
-            }
-        }
+        // Apply installation via PSP (this applies all permissions)
+        psp.applyInstallation(
+            address(dao),
+            PluginSetupProcessor.ApplyInstallationParams({
+                pluginSetupRef: pluginSetupRef,
+                plugin: address(capitalDistributorPlugin),
+                permissions: preparedSetupData.permissions,
+                helpersHash: hashHelpers(preparedSetupData.helpers)
+            })
+        );
 
-        // Setup execute condition to allow token approve and voting escrow createLockFor
+        // Revoke temporary permissions from PSP and this contract
+        vm.startPrank(address(dao));
+        dao.revoke(address(dao), address(psp), dao.ROOT_PERMISSION_ID());
+        dao.revoke(address(psp), address(this), psp.APPLY_INSTALLATION_PERMISSION_ID());
+
+        // Configure condition to allow VE selectors
+        // Allow token approve selector
         ExecuteSelectorCondition.SelectorTarget memory tokenApprove =
             ExecuteSelectorCondition.SelectorTarget({ where: address(token), selectors: new bytes4[](1) });
         tokenApprove.selectors[0] = IERC20.approve.selector;
@@ -170,16 +206,15 @@ contract VotingEscrowLockPayoutLocalTest is Test {
         // Allow voting escrow createLockFor selector
         ExecuteSelectorCondition.SelectorTarget memory createLockFor =
             ExecuteSelectorCondition.SelectorTarget({ where: address(votingEscrow), selectors: new bytes4[](1) });
-        createLockFor.selectors[0] = IVotingEscrowCore.createLockFor.selector;
+        createLockFor.selectors[0] = bytes4(keccak256("createLockFor(uint256,address)"));
         condition.allowSelectors(createLockFor);
 
         vm.stopPrank();
 
         // Verify condition allows the selectors we need
         require(condition.allowedSelectors(address(token), IERC20.approve.selector), "Approve selector not allowed");
-        bytes4 createLockForSelector = bytes4(keccak256("createLockFor(uint256,address)"));
         require(
-            condition.allowedSelectors(address(votingEscrow), createLockForSelector),
+            condition.allowedSelectors(address(votingEscrow), createLockFor.selectors[0]),
             "createLockFor selector not allowed"
         );
 
@@ -203,11 +238,11 @@ contract VotingEscrowLockPayoutLocalTest is Test {
         }
 
         // Build merkle root
-        merkleRoot = buildMerkleRoot(leaves);
+        merkleRoot = MerkleTreeBuilder.buildMerkleRoot(leaves);
 
         // Generate proofs for each recipient
         for (uint256 i = 0; i < recipients.length; i++) {
-            merkleProofs[recipients[i].account] = generateMerkleProof(leaves, i);
+            merkleProofs[recipients[i].account] = MerkleTreeBuilder.generateMerkleProof(leaves, i);
             claimAmounts[recipients[i].account] = recipients[i].amount;
         }
     }
@@ -359,7 +394,7 @@ contract VotingEscrowLockPayoutLocalTest is Test {
     }
 
     /// @notice Test delegated claims with ANY_ADDR allowing all addresses
-    function test_Local_DelegatedClaims_AllowAllDelegates() public {
+    function test_Local_DelegatedClaims_AllowAllDelegates(address caller) public {
         address user = recipients[0].account;
         uint256 amount = recipients[0].amount;
         bytes32 singleRecipientRoot = keccak256(abi.encodePacked(user, amount));
@@ -370,23 +405,13 @@ contract VotingEscrowLockPayoutLocalTest is Test {
         VotingEscrowLockPayoutActionEncoder veEncoder = _getVeEncoder(campaignId);
         bytes memory strategyAuxData = merkleStrategy.encodeClaimParams(new bytes32[](0), amount);
 
-        // Initially, delegated claims should fail for random caller
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                VotingEscrowLockPayoutActionEncoder.DelegatedClaimsNotAllowed.selector, address(0xCAFE), user
-            )
-        );
-        vm.prank(address(0xCAFE));
-        capitalDistributorPlugin.claimCampaignPayout(campaignId, user, strategyAuxData, "");
-
         // Enable ANY_ADDR - allows ALL addresses to make delegated claims
         address owner = veEncoder.owner();
         address anyAddr = veEncoder.ANY_ADDR();
         vm.prank(owner);
         veEncoder.setAllowedDelegate(anyAddr, true);
 
-        assertTrue(veEncoder.canDelegate(address(0xCAFE)), "Random caller should now be able to delegate");
-        assertTrue(veEncoder.canDelegate(address(0xBEEF)), "Another random caller should also be able to delegate");
+        assertTrue(veEncoder.canDelegate(caller), "Caller should now be able to delegate");
 
         // Now any address can claim on behalf of the user
         uint256 totalLockedBefore = votingEscrow.totalLocked();
@@ -397,45 +422,125 @@ contract VotingEscrowLockPayoutLocalTest is Test {
         assertGe(votingEscrow.totalLocked(), totalLockedBefore + amount, "Total locked should increase");
     }
 
-    /// @notice Test that DAO can distribute locks to users at different times
-    function test_Local_DAODistributesLocksAtDifferentTimes() public {
+    /// @notice Test Scenario 1: Base case - first lock in an interval
+    function test_Local_BaseCase_FirstLockInInterval() public {
         _fundDao();
         uint256 campaignId = _createCampaign();
-        uint256 totalLockedBefore = votingEscrow.totalLocked();
+
+        // Record the checkpoint interval start
+        uint256 checkpointStart = IClockV1_2_0(votingEscrow.clock()).epochPrevCheckpointTs();
+
+        // User claims - this is the base case
+        _claimFor(campaignId, recipients[0].account);
+
+        // Verify the lock's start matches the checkpoint boundary
+        uint256 tokenId = votingEscrow.lastLockId();
+        IVotingEscrowIncreasing.LockedBalance memory lock = votingEscrow.locked(tokenId);
+        assertEq(lock.start, checkpointStart, "Lock start should match checkpoint boundary");
+
+        // Get token point from curve to verify writtenTs equals checkpointStart (base case)
+        IEscrowCurve curve = IEscrowCurve(votingEscrow.curve());
+        IEscrowCurve.TokenPoint memory point = curve.tokenPointHistory(tokenId, 1);
+
+        // In base case with no time manipulation, writtenTs should be greater than or equal to checkpointStart
+        assertGe(
+            point.writtenTs,
+            checkpointStart,
+            "writtenTs should be greater than or equal to checkpointStart in base case"
+        );
+    }
+
+    /// @notice Test Scenario 2: Same Deposit Interval - different writtenTs but same lock.start
+    function test_Local_SameDepositInterval_DifferentWrittenTs() public {
+        _fundDao();
+        uint256 campaignId = _createCampaign();
+
+        // Record the checkpoint interval start
+        uint256 checkpointStart = IClockV1_2_0(votingEscrow.clock()).epochPrevCheckpointTs();
 
         // User 0 claims first
         _claimFor(campaignId, recipients[0].account);
-        uint256 expected0 = totalLockedBefore + claimAmounts[recipients[0].account];
-        assertGe(votingEscrow.totalLocked(), expected0, "Lock created for user 0");
+        uint256 tokenId0 = votingEscrow.lastLockId();
 
+        // Advance time by 1 day (still within same 1-week checkpoint interval)
         vm.warp(block.timestamp + 1 days);
         vm.roll(block.number + 10);
 
-        // User 2 claims second (skipping user 1)
-        uint256 lockedAfterUser0 = votingEscrow.totalLocked();
-        _claimFor(campaignId, recipients[2].account);
-        uint256 expected2 = lockedAfterUser0 + claimAmounts[recipients[2].account];
-        assertGe(votingEscrow.totalLocked(), expected2, "Lock created for user 2");
-
-        vm.warp(block.timestamp + 1 days);
-        vm.roll(block.number + 10);
-
-        // User 1 claims third
-        uint256 lockedAfterUser2 = votingEscrow.totalLocked();
+        // User 1 claims second - same checkpoint interval, different writtenTs
         _claimFor(campaignId, recipients[1].account);
-        uint256 expected1 = lockedAfterUser2 + claimAmounts[recipients[1].account];
-        assertGe(votingEscrow.totalLocked(), expected1, "Lock created for user 1");
+        uint256 tokenId1 = votingEscrow.lastLockId();
+
+        // Both locks should have the SAME start (same checkpoint boundary)
+        IVotingEscrowIncreasing.LockedBalance memory lock0 = votingEscrow.locked(tokenId0);
+        IVotingEscrowIncreasing.LockedBalance memory lock1 = votingEscrow.locked(tokenId1);
+
+        assertEq(lock0.start, checkpointStart, "Lock 0 start should match checkpoint boundary");
+        assertEq(lock1.start, checkpointStart, "Lock 1 start should match checkpoint boundary");
+        assertEq(lock0.start, lock1.start, "Both locks should have same start (same interval)");
+
+        // Get token points from curve to verify writtenTs is different
+        IEscrowCurve curve = IEscrowCurve(votingEscrow.curve());
+        IEscrowCurve.TokenPoint memory point0 = curve.tokenPointHistory(tokenId0, 1);
+        IEscrowCurve.TokenPoint memory point1 = curve.tokenPointHistory(tokenId1, 1);
+
+        // writtenTs should be different (actual block.timestamp when checkpoint was written)
+        assertGt(point1.writtenTs, point0.writtenTs, "writtenTs should be different (point1 > point0)");
+        // checkpointTs should be the same (both normalized to same interval boundary)
+        assertEq(point0.checkpointTs, point1.checkpointTs, "checkpointTs should be same for both locks");
+    }
+
+    /// @notice Test Scenario 3: New Deposit Interval - different checkpoint interval
+    function test_Local_NewDepositInterval_DifferentLockStart() public {
+        _fundDao();
+        uint256 campaignId = _createCampaign();
+
+        // Record the FIRST checkpoint interval start
+        uint256 firstCheckpointStart = IClockV1_2_0(votingEscrow.clock()).epochPrevCheckpointTs();
+
+        // User 0 claims in first interval
+        _claimFor(campaignId, recipients[0].account);
+        uint256 tokenId0 = votingEscrow.lastLockId();
+
+        // Advance time by MORE THAN 1 week to enter a NEW checkpoint interval
+        vm.warp(block.timestamp + 1 weeks + 1);
+        vm.roll(block.number + 100);
+
+        // Record the SECOND checkpoint interval start (should be different!)
+        uint256 secondCheckpointStart = IClockV1_2_0(votingEscrow.clock()).epochPrevCheckpointTs();
+        assertGt(secondCheckpointStart, firstCheckpointStart, "Should be in new checkpoint interval");
+
+        // User 1 claims in second interval - DIFFERENT lock.start
+        _claimFor(campaignId, recipients[1].account);
+        uint256 tokenId1 = votingEscrow.lastLockId();
+
+        // Locks should have DIFFERENT start times
+        IVotingEscrowIncreasing.LockedBalance memory lock0 = votingEscrow.locked(tokenId0);
+        IVotingEscrowIncreasing.LockedBalance memory lock1 = votingEscrow.locked(tokenId1);
+
+        assertEq(lock0.start, firstCheckpointStart, "Lock 0 start should match first checkpoint");
+        assertEq(lock1.start, secondCheckpointStart, "Lock 1 start should match second checkpoint");
+        assertGt(lock1.start, lock0.start, "Lock 1 should have later start (different interval)");
+
+        // Get token points from curve to verify both writtenTs and checkpointTs are different
+        IEscrowCurve curve = IEscrowCurve(votingEscrow.curve());
+        IEscrowCurve.TokenPoint memory point0 = curve.tokenPointHistory(tokenId0, 1);
+        IEscrowCurve.TokenPoint memory point1 = curve.tokenPointHistory(tokenId1, 1);
+
+        // writtenTs should be different (actual block.timestamp when checkpoint was written)
+        assertGt(point1.writtenTs, point0.writtenTs, "writtenTs should be different (point1 > point0)");
+        // checkpointTs should ALSO be different (different interval boundaries)
+        assertGt(point1.checkpointTs, point0.checkpointTs, "checkpointTs should be different (new interval)");
     }
 
     /// @notice Test that invalid merkle proofs are rejected
-    function test_Local_InvalidMerkleProofReverts() public {
+    function test_Local_InvalidMerkleProofReverts(uint256 proof1, uint256 proof2) public {
         _fundDao();
         uint256 campaignId = _createCampaign();
 
         address user = recipients[0].account;
         bytes32[] memory invalidProof = new bytes32[](2);
-        invalidProof[0] = bytes32(uint256(12_345));
-        invalidProof[1] = bytes32(uint256(67_890));
+        invalidProof[0] = bytes32(proof1);
+        invalidProof[1] = bytes32(proof2);
 
         bytes memory strategyAuxData = merkleStrategy.encodeClaimParams(invalidProof, claimAmounts[user]);
 
@@ -518,88 +623,4 @@ contract VotingEscrowLockPayoutLocalTest is Test {
             result := mload(add(temp, 32))
         }
     }
-
-    /// @notice Build merkle root from leaves
-    function buildMerkleRoot(bytes32[] memory leaves) internal pure returns (bytes32) {
-        require(leaves.length > 0, "No leaves provided");
-
-        if (leaves.length == 1) {
-            return leaves[0];
-        }
-
-        bytes32[] memory currentLevel = leaves;
-
-        while (currentLevel.length > 1) {
-            bytes32[] memory nextLevel = new bytes32[]((currentLevel.length + 1) / 2);
-
-            for (uint256 i = 0; i < nextLevel.length; i++) {
-                bytes32 left = currentLevel[i * 2];
-
-                if (i * 2 + 1 < currentLevel.length) {
-                    bytes32 right = currentLevel[i * 2 + 1];
-                    nextLevel[i] = left < right
-                        ? keccak256(abi.encodePacked(left, right))
-                        : keccak256(abi.encodePacked(right, left));
-                } else {
-                    nextLevel[i] = left;
-                }
-            }
-
-            currentLevel = nextLevel;
-        }
-
-        return currentLevel[0];
-    }
-
-    /// @notice Generate merkle proof for a leaf at given index
-    function generateMerkleProof(bytes32[] memory leaves, uint256 index) internal pure returns (bytes32[] memory) {
-        require(index < leaves.length, "Index out of bounds");
-
-        uint256 proofLength = 0;
-        uint256 temp = leaves.length;
-        while (temp > 1) {
-            proofLength++;
-            temp = (temp + 1) / 2;
-        }
-
-        bytes32[] memory proof = new bytes32[](proofLength);
-        bytes32[] memory currentLevel = leaves;
-        uint256 currentIndex = index;
-        uint256 proofIndex = 0;
-
-        while (currentLevel.length > 1) {
-            uint256 pairIndex = currentIndex % 2 == 0 ? currentIndex + 1 : currentIndex - 1;
-
-            if (pairIndex < currentLevel.length) {
-                proof[proofIndex] = currentLevel[pairIndex];
-                proofIndex++;
-            }
-
-            // Build next level
-            bytes32[] memory nextLevel = new bytes32[]((currentLevel.length + 1) / 2);
-            for (uint256 i = 0; i < nextLevel.length; i++) {
-                bytes32 left = currentLevel[i * 2];
-                if (i * 2 + 1 < currentLevel.length) {
-                    bytes32 right = currentLevel[i * 2 + 1];
-                    nextLevel[i] = left < right
-                        ? keccak256(abi.encodePacked(left, right))
-                        : keccak256(abi.encodePacked(right, left));
-                } else {
-                    nextLevel[i] = left;
-                }
-            }
-
-            currentLevel = nextLevel;
-            currentIndex = currentIndex / 2;
-        }
-
-        // Resize proof array
-        bytes32[] memory resizedProof = new bytes32[](proofIndex);
-        for (uint256 i = 0; i < proofIndex; i++) {
-            resizedProof[i] = proof[i];
-        }
-
-        return resizedProof;
-    }
 }
-

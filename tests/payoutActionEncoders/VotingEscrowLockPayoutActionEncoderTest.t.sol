@@ -7,7 +7,7 @@ import {
 } from "../../src/payoutActionEncoders/VotingEscrowLockPayoutActionEncoder.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import { Action } from "@aragon/commons/executors/IExecutor.sol";
-import { IVotingEscrowIncreasing } from "../interfaces/IVotingEscrowIncreasing.sol";
+import { IVotingEscrowIncreasing } from "@escrow/IVotingEscrowIncreasing.sol";
 import { IPayoutActionEncoder } from "../../src/interfaces/IPayoutActionEncoder.sol";
 
 contract VotingEscrowLockPayoutActionEncoderTest is Test {
@@ -160,6 +160,7 @@ contract VotingEscrowLockPayoutActionEncoderTest is Test {
     }
 
     function test_BuildActions_DelegatedClaims_AnyAddr(address caller) public {
+        vm.assume(caller != recipient);
         // Initially, caller cannot delegate
         vm.expectRevert(
             abi.encodeWithSelector(
