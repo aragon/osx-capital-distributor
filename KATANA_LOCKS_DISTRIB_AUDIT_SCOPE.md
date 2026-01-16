@@ -12,12 +12,12 @@ The audit scope is limited to the following contract:
 
 
 ## Relevant Test Files
-- Unit: [tests/payoutActionEncoders/VotingEscrowLockPayoutActionEncoderTest.t.sol](https://github.com/aragon/osx-capital-distributor/blob/6a40cfb3bc7aa467eacad17a4a7fb0daf998c0d2/tests/payoutActionEncoders/VotingEscrowLockPayoutActionEncoderTest.t.sol)
-- Integration: [tests/integration/VotingEscrowLockPayoutLocalTest.t.sol](https://github.com/aragon/osx-capital-distributor/blob/6a40cfb3bc7aa467eacad17a4a7fb0daf998c0d2/tests/integration/VotingEscrowLockPayoutLocalTest.t.sol)
+- Unit: [tests/payoutActionEncoders/VotingEscrowLockPayoutActionEncoderTest.t.sol](https://github.com/aragon/osx-capital-distributor/blob/feat/katana-locks-distrib/tests/payoutActionEncoders/VotingEscrowLockPayoutActionEncoderTest.t.sol)
+- Integration: [tests/integration/VotingEscrowLockPayoutLocalTest.t.sol](https://github.com/aragon/osx-capital-distributor/blob/feat/katana-locks-distrib/tests/integration/VotingEscrowLockPayoutLocalTest.t.sol)
 
 ## Out of Scope
 - Everything else in the repo
-- Including new files in the tests dir: [tests/deploy/SetupVe.sol](https://github.com/aragon/osx-capital-distributor/tree/6a40cfb3bc7aa467eacad17a4a7fb0daf998c0d2/tests/deploy/SetupVe.sol) and [tests/utils/MerkleTreeBuilder.sol](https://github.com/aragon/osx-capital-distributor/tree/6a40cfb3bc7aa467eacad17a4a7fb0daf998c0d2/tests/utils/MerkleTreeBuilder.sol)
+- Including new files in the tests dir: [tests/deploy/SetupVe.sol](https://github.com/aragon/osx-capital-distributor/blob/feat/katana-locks-distrib/tests/deploy/SetupVe.sol) and [tests/utils/MerkleTreeBuilder.sol](https://github.com/aragon/osx-capital-distributor/blob/feat/katana-locks-distrib/tests/utils/MerkleTreeBuilder.sol)
 
 ## Change Description
 
