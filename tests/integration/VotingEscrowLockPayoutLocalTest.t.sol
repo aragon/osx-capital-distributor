@@ -6,17 +6,18 @@ import { Vm } from "forge-std/Vm.sol";
 
 // Capital Distributor imports
 import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
-import { CapitalDistributorPluginSetup } from "../../src/CapitalDistributorPluginSetup.sol";
 import { ICapitalDistributorPlugin } from "../../src/interfaces/ICapitalDistributorPlugin.sol";
-import { AllocatorStrategyFactory } from "../../src/factories/AllocatorStrategyFactory.sol";
-import { ActionEncoderFactory } from "../../src/factories/ActionEncoderFactory.sol";
 import { MerkleDistributorStrategy } from "../../src/allocatorStrategies/MerkleDistributorStrategy.sol";
 import {
     VotingEscrowLockPayoutActionEncoder
 } from "../../src/payoutActionEncoders/VotingEscrowLockPayoutActionEncoder.sol";
 
 // Deploy utilities
-import { SetupVe, VeDeployment, VeDeploymentParams } from "../deploy/SetupVe.sol";
+import {
+    SetupCDPwithOSX,
+    CapitalDistributorDeployment,
+    CapitalDistributorDeploymentParams
+} from "../deploy/SetupCDPwithOSX.sol";
 
 // VE Governance imports
 import { VotingEscrowV1_2_0 as VotingEscrow } from "@ve/escrow/VotingEscrowIncreasing_v1_2_0.sol";
@@ -25,17 +26,8 @@ import { IClockV1_2_0 } from "@ve/clock/IClock_v1_2_0.sol";
 import { IEscrowCurveIncreasingV1_2_0 as IEscrowCurve } from "@ve/curve/IEscrowCurveIncreasing_v1_2_0.sol";
 
 // Aragon/OSx imports
-import { ProtocolFactoryBuilder } from "@aragon/protocol-factory/test/helpers/ProtocolFactoryBuilder.sol";
-import { ProtocolFactory } from "@aragon/protocol-factory/src/ProtocolFactory.sol";
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
-import { IPluginSetup } from "@aragon/commons/plugin/setup/IPluginSetup.sol";
-import { PluginSetupProcessor } from "@aragon/osx/framework/plugin/setup/PluginSetupProcessor.sol";
-import { PluginRepoFactory } from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
-import { PluginRepo } from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
-import { PluginSetupRef, hashHelpers } from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
 import { ExecuteSelectorCondition } from "@aragon/conditions/ExecuteSelectorCondition.sol";
-import { PermissionLib } from "@aragon/commons/permission/PermissionLib.sol";
-import { IPermissionCondition } from "@aragon/commons/permission/condition/IPermissionCondition.sol";
 
 // OpenZeppelin imports
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
@@ -74,28 +66,18 @@ contract VotingEscrowLockPayoutLocalTest is Test {
     address immutable admin = makeAddr("admin");
 
     // =============================================================================
-    // Protocol Contracts
+    // Deployment
     // =============================================================================
+    CapitalDistributorDeployment internal deployment;
+
+    // Convenience aliases (set in setUp)
     DAO internal dao;
     CapitalDistributorPlugin internal capitalDistributorPlugin;
-    ExecuteSelectorCondition internal condition;
-    AllocatorStrategyFactory internal strategyFactory;
-    ActionEncoderFactory internal encoderFactory;
     MerkleDistributorStrategy internal merkleStrategy;
     VotingEscrowLockPayoutActionEncoder internal votingEscrowEncoder;
-
-    // =============================================================================
-    // VE Governance Contracts
-    // =============================================================================
     VotingEscrow internal votingEscrow;
     ExitQueue internal exitQueue;
     MintableERC20 internal token;
-
-    // =============================================================================
-    // Deployment Infrastructure
-    // =============================================================================
-    ProtocolFactory.Deployment internal osxDeployment;
-    VeDeployment internal veDeployment;
 
     // =============================================================================
     // Merkle Tree Data
@@ -112,109 +94,35 @@ contract VotingEscrowLockPayoutLocalTest is Test {
 
     /// @dev Set up local deployment of OSx, ve-governance, and Capital Distributor Plugin
     function setUp() public {
-        // Deploy underlying token
-        token = new MintableERC20();
+        // Deploy the full stack using SetupCDPwithOSX
+        SetupCDPwithOSX setup = new SetupCDPwithOSX();
 
-        // Deploy OSx infrastructure locally
-        ProtocolFactory factory = new ProtocolFactoryBuilder().build();
-        factory.deployOnce();
-        osxDeployment = factory.getDeployment();
+        // Empty deployments signal that new ones should be created
+        CapitalDistributorDeploymentParams memory params;
+        params.admin = admin;
+        // - token = address(0) means create new MintableERC20.
+        // - osxDeployment and veDeployment with zero addresses means deploy fresh.
+        // - encoderActionTargetAddressOne and encoderActionTargetSelectorOne are not provided, so the default is the
+        // token and IERC20.approve.selector.
+        // - encoderActionTargetAddressTwo and encoderActionTargetSelectorTwo are not
+        // provided, so the default is the voting escrow and bytes4(keccak256("createLockFor(uint256,address)")).
 
-        // Deploy ve-governance system locally using SetupVe
-        SetupVe setupVe = new SetupVe();
-        veDeployment =
-            setupVe.deploy(VeDeploymentParams({ admin: admin, token: address(token), osxDeployment: osxDeployment }));
+        deployment = setup.deploy(params);
 
-        // Extract DAO and VE contracts
-        dao = veDeployment.dao;
-        votingEscrow = VotingEscrow(address(veDeployment.pluginSet.votingEscrow));
-        exitQueue = ExitQueue(address(veDeployment.pluginSet.exitQueue));
-
-        // Deploy Capital Distributor Plugin factories
-        strategyFactory = new AllocatorStrategyFactory();
-        encoderFactory = new ActionEncoderFactory();
-
-        // Deploy and register merkle strategy
-        merkleStrategy = new MerkleDistributorStrategy();
-        strategyFactory.registerStrategyType(
-            toBytes32("merkle-distributor-strategy"), address(merkleStrategy), "", address(0), 0
-        );
-
-        // Deploy and register voting escrow encoder
-        votingEscrowEncoder = new VotingEscrowLockPayoutActionEncoder();
-        encoderFactory.registerActionEncoder(toBytes32("voting-escrow-lock-encoder"), address(votingEscrowEncoder), "");
-
-        // Create a PluginRepo for the Capital Distributor Plugin
-        PluginRepoFactory repoFactory = PluginRepoFactory(osxDeployment.pluginRepoFactory);
-        PluginRepo capitalDistributorRepo = repoFactory.createPluginRepoWithFirstVersion(
-            "capital-distributor",
-            address(new CapitalDistributorPluginSetup()),
-            admin,
-            bytes("ipfs://release-metadata"),
-            bytes("ipfs://build-metadata")
-        );
-
-        // Get the PluginSetupProcessor
-        PluginSetupProcessor psp = PluginSetupProcessor(osxDeployment.pluginSetupProcessor);
-
-        // Prepare installation via PSP
-        PluginSetupRef memory pluginSetupRef = PluginSetupRef({
-            versionTag: PluginRepo.Tag({ release: 1, build: 1 }), pluginSetupRepo: capitalDistributorRepo
-        });
-
-        bytes memory installParams = abi.encode(address(strategyFactory), address(encoderFactory));
-
-        (address pluginAddr, IPluginSetup.PreparedSetupData memory preparedSetupData) = psp.prepareInstallation(
-            address(dao),
-            PluginSetupProcessor.PrepareInstallationParams({ pluginSetupRef: pluginSetupRef, data: installParams })
-        );
-
-        capitalDistributorPlugin = CapitalDistributorPlugin(pluginAddr);
-        condition = ExecuteSelectorCondition(address(preparedSetupData.helpers[0]));
-
-        // Grant permissions for PSP to apply the installation
-        vm.startPrank(address(dao));
-        // Grant ROOT_PERMISSION to PSP so it can apply permissions on the DAO
-        dao.grant(address(dao), address(psp), dao.ROOT_PERMISSION_ID());
-        // Grant APPLY_INSTALLATION_PERMISSION to this test contract so it can call applyInstallation
-        dao.grant(address(psp), address(this), psp.APPLY_INSTALLATION_PERMISSION_ID());
-        vm.stopPrank();
-
-        // Apply installation via PSP (this applies all permissions)
-        psp.applyInstallation(
-            address(dao),
-            PluginSetupProcessor.ApplyInstallationParams({
-                pluginSetupRef: pluginSetupRef,
-                plugin: address(capitalDistributorPlugin),
-                permissions: preparedSetupData.permissions,
-                helpersHash: hashHelpers(preparedSetupData.helpers)
-            })
-        );
-
-        // Revoke temporary permissions from PSP and this contract
-        vm.startPrank(address(dao));
-        dao.revoke(address(dao), address(psp), dao.ROOT_PERMISSION_ID());
-        dao.revoke(address(psp), address(this), psp.APPLY_INSTALLATION_PERMISSION_ID());
-
-        // Configure condition to allow VE selectors
-        // Allow token approve selector
-        ExecuteSelectorCondition.SelectorTarget memory tokenApprove =
-            ExecuteSelectorCondition.SelectorTarget({ where: address(token), selectors: new bytes4[](1) });
-        tokenApprove.selectors[0] = IERC20.approve.selector;
-        condition.allowSelectors(tokenApprove);
-
-        // Allow voting escrow createLockFor selector
-        ExecuteSelectorCondition.SelectorTarget memory createLockFor =
-            ExecuteSelectorCondition.SelectorTarget({ where: address(votingEscrow), selectors: new bytes4[](1) });
-        createLockFor.selectors[0] = bytes4(keccak256("createLockFor(uint256,address)"));
-        condition.allowSelectors(createLockFor);
-
-        vm.stopPrank();
+        // Set convenience aliases
+        dao = deployment.dao;
+        capitalDistributorPlugin = deployment.capitalDistributorPlugin;
+        merkleStrategy = deployment.merkleStrategy;
+        votingEscrowEncoder = deployment.votingEscrowEncoder;
+        votingEscrow = deployment.votingEscrow;
+        exitQueue = deployment.exitQueue;
+        token = deployment.token;
 
         // Verify condition allows the selectors we need
+        ExecuteSelectorCondition condition = deployment.condition;
         require(condition.allowedSelectors(address(token), IERC20.approve.selector), "Approve selector not allowed");
         require(
-            condition.allowedSelectors(address(votingEscrow), createLockFor.selectors[0]),
+            condition.allowedSelectors(address(votingEscrow), bytes4(keccak256("createLockFor(uint256,address)"))),
             "createLockFor selector not allowed"
         );
 
