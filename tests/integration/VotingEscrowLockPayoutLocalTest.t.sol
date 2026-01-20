@@ -4,6 +4,9 @@ pragma solidity ^0.8.29;
 import { Test } from "forge-std/Test.sol";
 import { Vm } from "forge-std/Vm.sol";
 
+// CDP Deployer utility (handles OSx, VE, and CDP deployment)
+import { CDPDeployer, FullStackParams, FullStackDeployment } from "../../src/deploy/CDPDeployer.sol";
+
 // Capital Distributor imports
 import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
 import { ICapitalDistributorPlugin } from "../../src/interfaces/ICapitalDistributorPlugin.sol";
@@ -11,13 +14,6 @@ import { MerkleDistributorStrategy } from "../../src/allocatorStrategies/MerkleD
 import {
     VotingEscrowLockPayoutActionEncoder
 } from "../../src/payoutActionEncoders/VotingEscrowLockPayoutActionEncoder.sol";
-
-// Deploy utilities
-import {
-    SetupCDPwithOSX,
-    CapitalDistributorDeployment,
-    CapitalDistributorDeploymentParams
-} from "../deploy/SetupCDPwithOSX.sol";
 
 // VE Governance imports
 import { VotingEscrowV1_2_0 as VotingEscrow } from "@ve/escrow/VotingEscrowIncreasing_v1_2_0.sol";
@@ -34,7 +30,7 @@ import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 // Test utilities
-import { MintableERC20 } from "../../tests/mocks/MintableERC20.sol";
+import { MintableERC20 } from "../mocks/MintableERC20.sol";
 import { IVotingEscrowIncreasing } from "@escrow/IVotingEscrowIncreasing.sol";
 import { MerkleTreeBuilder } from "../utils/MerkleTreeBuilder.sol";
 
@@ -48,12 +44,10 @@ interface IDynamicExitQueue {
 /// @notice Integration test for the complete flow of DAO creating voting escrow locks
 ///         for users using a locally deployed ve-governance system (no fork required)
 /// @dev Tests the real flow:
-///      1. Deploy OSx infrastructure locally
-///      2. Deploy ve-governance system locally
-///      3. Deploy Capital Distributor Plugin and configure for VE locks
-///      4. DAO creates merkle tree internally and creates campaign with merkle root
-///      5. Users claim locks, receiving veNFTs representing their locked positions
-///      6. After locks expire, users can withdraw their tokens
+///      1. CDPDeployer deploys everything: OSx, VE governance, and CDP plugin
+///      2. DAO creates merkle tree internally and creates campaign with merkle root
+///      3. Users claim locks, receiving veNFTs representing their locked positions
+///      4. After locks expire, users can withdraw their tokens
 contract VotingEscrowLockPayoutLocalTest is Test {
     // =============================================================================
     // Test Actors
@@ -68,16 +62,17 @@ contract VotingEscrowLockPayoutLocalTest is Test {
     // =============================================================================
     // Deployment
     // =============================================================================
-    CapitalDistributorDeployment internal deployment;
+    FullStackDeployment internal deployment;
+    MintableERC20 internal token;
 
     // Convenience aliases (set in setUp)
     DAO internal dao;
     CapitalDistributorPlugin internal capitalDistributorPlugin;
+    ExecuteSelectorCondition internal condition;
     MerkleDistributorStrategy internal merkleStrategy;
     VotingEscrowLockPayoutActionEncoder internal votingEscrowEncoder;
     VotingEscrow internal votingEscrow;
     ExitQueue internal exitQueue;
-    MintableERC20 internal token;
 
     // =============================================================================
     // Merkle Tree Data
@@ -92,34 +87,33 @@ contract VotingEscrowLockPayoutLocalTest is Test {
     mapping(address => bytes32[]) internal merkleProofs;
     mapping(address => uint256) internal claimAmounts;
 
-    /// @dev Set up local deployment of OSx, ve-governance, and Capital Distributor Plugin
+    /// @dev Set up local deployment using CDPDeployer.deployFullStack()
     function setUp() public {
-        // Deploy the full stack using SetupCDPwithOSX
-        SetupCDPwithOSX setup = new SetupCDPwithOSX();
+        // Deploy token first (CDPDeployer requires an existing token)
+        token = new MintableERC20();
 
-        // Empty deployments signal that new ones should be created
-        CapitalDistributorDeploymentParams memory params;
-        params.admin = admin;
-        // - token = address(0) means create new MintableERC20.
-        // - osxDeployment and veDeployment with zero addresses means deploy fresh.
-        // - encoderActionTargetAddressOne and encoderActionTargetSelectorOne are not provided, so the default is the
-        // token and IERC20.approve.selector.
-        // - encoderActionTargetAddressTwo and encoderActionTargetSelectorTwo are not
-        // provided, so the default is the voting escrow and bytes4(keccak256("createLockFor(uint256,address)")).
-
-        deployment = setup.deploy(params);
+        // Deploy everything using CDPDeployer
+        CDPDeployer deployer = new CDPDeployer();
+        deployment = deployer.deployFullStack(
+            FullStackParams({
+                admin: admin,
+                token: address(token),
+                feeRecipient: address(0),
+                feeBasisPoints: 0,
+                pluginRepoSubdomain: "capital-distributor"
+            })
+        );
 
         // Set convenience aliases
         dao = deployment.dao;
         capitalDistributorPlugin = deployment.capitalDistributorPlugin;
-        merkleStrategy = deployment.merkleStrategy;
-        votingEscrowEncoder = deployment.votingEscrowEncoder;
+        condition = deployment.condition;
+        merkleStrategy = deployment.cdpInfra.merkleStrategy;
+        votingEscrowEncoder = deployment.cdpInfra.votingEscrowEncoder;
         votingEscrow = deployment.votingEscrow;
         exitQueue = deployment.exitQueue;
-        token = deployment.token;
 
-        // Verify condition allows the selectors we need
-        ExecuteSelectorCondition condition = deployment.condition;
+        // Verify condition is configured correctly
         require(condition.allowedSelectors(address(token), IERC20.approve.selector), "Approve selector not allowed");
         require(
             condition.allowedSelectors(address(votingEscrow), bytes4(keccak256("createLockFor(uint256,address)"))),
@@ -350,12 +344,8 @@ contract VotingEscrowLockPayoutLocalTest is Test {
         IEscrowCurve curve = IEscrowCurve(votingEscrow.curve());
         IEscrowCurve.TokenPoint memory point = curve.tokenPointHistory(tokenId, 1);
 
-        // In base case with no time manipulation, writtenTs should be greater than or equal to checkpointStart
-        assertGe(
-            point.writtenTs,
-            checkpointStart,
-            "writtenTs should be greater than or equal to checkpointStart in base case"
-        );
+        // In base case with no time manipulation, writtenTs should be >= checkpointStart
+        assertGe(point.writtenTs, checkpointStart, "writtenTs should be >= checkpointStart in base case");
     }
 
     /// @notice Test Scenario 2: Same Deposit Interval - different writtenTs but same lock.start

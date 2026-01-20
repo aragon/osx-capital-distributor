@@ -48,3 +48,5 @@ mainnet = "https://eth-mainnet.g.alchemy.com/v2/${API_KEY_ALCHEMY}"
 optimism = "https://optimism-rpc.publicnode.com"
 polygon = "https://polygon-bor-rpc.publicnode.com"
 sepolia = "https://eth-sepolia.g.alchemy.com/v2/${API_KEY_ALCHEMY}"
+# Katana mainnet (Chain ID: 747474)
+katana = "${KATANA_RPC_URL}"
