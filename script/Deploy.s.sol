@@ -40,16 +40,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /// - DAO_ADMIN: Address that will control the Admin plugin
 /// - PLUGIN_MAINTAINER: Address that can maintain the plugin repo
 /// - CHAIN_NAME: Chain name for RPC selection (e.g., "katana")
-///
-/// Optional Environment Variables:
-/// - DAO_NAME: DAO subdomain (default: "cdp-{timestamp}")
-/// - DAO_URI: DAO metadata URI (default: "ipfs://cdp")
-/// - PLUGIN_NAME: Plugin repo subdomain (default: "cdp-plugin-{timestamp}")
-/// - FEE_RECIPIENT: Protocol fee recipient (default: address(0))
-/// - FEE_BASIS_POINTS: Protocol fee in basis points (default: 0)
 /// - ENCODER_TYPE: Which encoder to deploy: "vault" or "ve" (default: "vault")
-/// - VOTING_ESCROW: VotingEscrow address for condition config (optional)
-/// - TOKEN: Token address for condition config (required if VOTING_ESCROW is provided)
 ///
 /// Usage:
 /// ```bash

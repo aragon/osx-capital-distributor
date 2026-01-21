@@ -27,24 +27,19 @@ import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /// @title DeployCDPForkTest
 /// @notice Fork tests for the CDP deployment using real OSx contracts
-/// @dev This test forks Katana (or other networks with OSx deployed) to test
-///      the production deployment flow with real OSx infrastructure.
-///
-/// Required Environment Variables:
-/// - KATANA_DAO_FACTORY: OSx DAOFactory address
-/// - KATANA_PLUGIN_REPO_FACTORY: OSx PluginRepoFactory address
-/// - KATANA_PSP: OSx PluginSetupProcessor address
-/// - KATANA_ADMIN_PLUGIN_REPO: Admin plugin repo address
-///
-/// To run with Katana:
-/// ```bash
-/// export KATANA_DAO_FACTORY=0xd59D2bEF6465cC71efEc40afd2D72901470Dd835
-/// export KATANA_PLUGIN_REPO_FACTORY=0x98DE0Dc6e86f4CDD69646e7fFFF8d6f4bb997b10
-/// export KATANA_PSP=0xfD4dBD760e253b7ee0CE81d47946DAdd2531F1fC
-/// export KATANA_ADMIN_PLUGIN_REPO=0x95d1ACA58E631774bDE4d1bC67DD784f01cCDAeC
-/// forge test --match-contract DeployCDPForkTest --fork-url $KATANA_RPC_URL -vvv
-/// ```
+/// @dev This test forks Katana to test the production deployment flow with real OSx infrastructure.
 contract DeployCDPForkTest is Test {
+    // =============================================================================
+    // Katana Mainnet Configuration (Chain ID: 747474)
+    // =============================================================================
+
+    string constant KATANA_RPC_URL = "https://rpc.katana.network";
+
+    address constant KATANA_DAO_FACTORY = 0xd59D2bEF6465cC71efEc40afd2D72901470Dd835;
+    address constant KATANA_PLUGIN_REPO_FACTORY = 0x98DE0Dc6e86f4CDD69646e7fFFF8d6f4bb997b10;
+    address constant KATANA_PSP = 0xfD4dBD760e253b7ee0CE81d47946DAdd2531F1fC;
+    address constant KATANA_ADMIN_PLUGIN_REPO = 0x95d1ACA58E631774bDE4d1bC67DD784f01cCDAeC;
+
     // =============================================================================
     // Test Setup
     // =============================================================================
@@ -57,22 +52,24 @@ contract DeployCDPForkTest is Test {
     uint256 forkId;
 
     function setUp() public {
+        // Create fork of Katana network
+        forkId = vm.createSelectFork(KATANA_RPC_URL);
+
         admin = makeAddr("admin");
         pluginMaintainer = makeAddr("pluginMaintainer");
 
-        // Load OSx addresses from environment variables
-        // Required env vars: KATANA_DAO_FACTORY, KATANA_PLUGIN_REPO_FACTORY,
-        //                    KATANA_PSP, KATANA_ADMIN_PLUGIN_REPO
+        // Use hardcoded Katana OSx addresses
         osx = OSxAddresses({
-            daoFactory: vm.envAddress("KATANA_DAO_FACTORY"),
-            pluginRepoFactory: vm.envAddress("KATANA_PLUGIN_REPO_FACTORY"),
-            pluginSetupProcessor: vm.envAddress("KATANA_PSP"),
-            adminPluginRepo: vm.envAddress("KATANA_ADMIN_PLUGIN_REPO"),
+            daoFactory: KATANA_DAO_FACTORY,
+            pluginRepoFactory: KATANA_PLUGIN_REPO_FACTORY,
+            pluginSetupProcessor: KATANA_PSP,
+            adminPluginRepo: KATANA_ADMIN_PLUGIN_REPO,
             multisigPluginRepo: address(0) // Not used for deployDAOWithCDP
         });
 
         // Log configuration
         console.log("=== Fork Test Configuration ===");
+        console.log("Fork ID:", forkId);
         console.log("DAO Factory:", osx.daoFactory);
         console.log("Plugin Repo Factory:", osx.pluginRepoFactory);
         console.log("PSP:", osx.pluginSetupProcessor);
@@ -111,14 +108,7 @@ contract DeployCDPForkTest is Test {
     }
 
     /// @notice Test creating a plugin repo
-    /// @dev This test requires a fork to be active. Run with: forge test --fork-url $RPC_URL
     function test_Fork_CreatePluginRepo() public {
-        // Skip if not forked (code at OSx addresses will be empty)
-        if (osx.pluginRepoFactory.code.length == 0) {
-            console.log("Skipping: No fork detected. Run with --fork-url $RPC_URL");
-            return;
-        }
-
         deployer = new CDPDeployer();
 
         string memory subdomain = string.concat("cdp-test-", vm.toString(block.timestamp));
@@ -136,14 +126,7 @@ contract DeployCDPForkTest is Test {
     }
 
     /// @notice Test full DAO + CDP deployment
-    /// @dev This test requires a fork to be active. Run with: forge test --fork-url $RPC_URL
     function test_Fork_DeployDAOWithCDP() public {
-        // Skip if not forked
-        if (osx.daoFactory.code.length == 0) {
-            console.log("Skipping: No fork detected. Run with --fork-url $RPC_URL");
-            return;
-        }
-
         deployer = new CDPDeployer();
 
         // Deploy infrastructure first
@@ -190,78 +173,12 @@ contract DeployCDPForkTest is Test {
         console.log("  Admin Plugin:", deployment.adminPlugin);
     }
 
-    /// @notice Test configuring the execute condition for VE locks
-    /// @dev This test requires a fork to be active. Run with: forge test --fork-url $RPC_URL
-    function test_Fork_ConfigureCondition() public {
-        // Skip if not forked
-        if (osx.daoFactory.code.length == 0) {
-            console.log("Skipping: No fork detected. Run with --fork-url $RPC_URL");
-            return;
-        }
-
-        deployer = new CDPDeployer();
-
-        // Deploy infrastructure
-        CDPInfraDeployment memory infra = deployer.deployInfrastructure(
-            CDPInfraParams({ feeRecipient: address(0), feeBasisPoints: 0, encoderType: EncoderType.VotingEscrow })
-        );
-
-        // Deploy DAO with CDP
-        string memory timestamp = vm.toString(block.timestamp);
-        CDPWithDAOParams memory params = CDPWithDAOParams({
-            osx: osx,
-            infra: infra,
-            daoAdmin: admin,
-            daoUri: "ipfs://fork-test-dao",
-            daoName: string.concat("fork-test-ve-", timestamp),
-            pluginRepoSubdomain: string.concat("fork-cdp-ve-", timestamp),
-            pluginMaintainer: pluginMaintainer
-        });
-
-        CDPWithDAODeployment memory deployment = deployer.deployDAOWithCDP(params);
-
-        // Mock token and voting escrow addresses for testing
-        address mockToken = makeAddr("mockToken");
-        address mockVotingEscrow = makeAddr("mockVotingEscrow");
-
-        // Build condition config for VE lock operations
-        ConditionConfig memory config = ConditionConfig({
-            targetOne: mockToken,
-            selectorOne: IERC20.approve.selector,
-            targetTwo: mockVotingEscrow,
-            selectorTwo: bytes4(keccak256("createLockFor(uint256,address)"))
-        });
-
-        // Configure condition (must be called by DAO which has MANAGE_SELECTORS_PERMISSION)
-        vm.prank(address(deployment.dao));
-        deployer.configureCondition(deployment.executeCondition, config);
-
-        // Verify selectors are allowed
-        assertTrue(
-            deployment.executeCondition.allowedSelectors(mockToken, IERC20.approve.selector), "Approve not allowed"
-        );
-        assertTrue(
-            deployment.executeCondition
-                .allowedSelectors(mockVotingEscrow, bytes4(keccak256("createLockFor(uint256,address)"))),
-            "createLockFor not allowed"
-        );
-
-        console.log("Condition configured for VE locks");
-    }
-
     // =============================================================================
     // Integration Tests
     // =============================================================================
 
     /// @notice Test creating a campaign after deployment
-    /// @dev This test requires a fork to be active. Run with: forge test --fork-url $RPC_URL
     function test_Fork_CreateCampaignAfterDeployment() public {
-        // Skip if not forked
-        if (osx.daoFactory.code.length == 0) {
-            console.log("Skipping: No fork detected. Run with --fork-url $RPC_URL");
-            return;
-        }
-
         deployer = new CDPDeployer();
 
         // Deploy infrastructure
@@ -293,7 +210,7 @@ contract DeployCDPForkTest is Test {
         bytes32 merkleRoot = keccak256(abi.encodePacked(testRecipient, testAmount));
 
         // Create campaign (must be called by DAO)
-        vm.prank(address(deployment.dao));
+        vm.startPrank(address(deployment.dao));
         uint256 campaignId = deployment.capitalDistributorPlugin
             .createCampaign(
                 bytes("ipfs://test-campaign"),
@@ -307,6 +224,7 @@ contract DeployCDPForkTest is Test {
                 }),
                 ICapitalDistributorPlugin.CampaignSettings({ startTime: 0, endTime: 0 })
             );
+        vm.stopPrank();
 
         // Verify campaign created
         assertEq(campaignId, 0, "Campaign ID should be 0 (first campaign)");
