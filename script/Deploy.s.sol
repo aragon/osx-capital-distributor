@@ -37,9 +37,8 @@ import { Action } from "@aragon/commons/executors/IExecutor.sol";
 /// Required Environment Variables (in .env):
 /// - DAO: The existing DAO address to install CDP into (e.g., Katana DAO)
 /// - PLUGIN_REPO_FACTORY: OSx PluginRepoFactory address
-/// - PLUGIN_SETUP_PROCESSOR: OSx PluginSetupProcessor address
+/// - PSP: OSx PluginSetupProcessor address
 /// - PLUGIN_MAINTAINER: Address that can maintain the plugin repo
-/// - ENCODER_TYPE: Which encoder to deploy: "vault" or "ve" (default: "vault")
 ///
 /// Optional Environment Variables:
 /// - FEE_RECIPIENT: Protocol fee recipient (default: address(0))
