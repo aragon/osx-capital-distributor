@@ -102,6 +102,15 @@ struct ConditionConfig {
     bytes4 selector;
 }
 
+/// @notice Parameters for VE (Voting Escrow) condition configuration in installation actions
+/// @dev Used by buildInstallationActions() to configure condition for VE payout flows
+struct VEConditionParams {
+    /// @notice The token address (for approve selector)
+    address token;
+    /// @notice The VotingEscrow address (for createLockFor selector)
+    address votingEscrow;
+}
+
 // #############################################################################################
 //
 //                              STRUCTS - LOCAL TEST DEPLOYMENT
@@ -371,24 +380,50 @@ contract CDPDeployer {
     }
 
     /**
-     * @notice Build Action array for the complete installation process
-     * @dev Returns actions for: grant ROOT → applyInstallation → revoke ROOT
+     * @notice Build calldata for condition.allowSelectors()
+     * @param target The target address (e.g., token or votingEscrow)
+     * @param selector The function selector to allow
+     * @return calldata_ The encoded calldata for condition.allowSelectors()
+     */
+    function buildAllowSelectorsCalldata(
+        address target,
+        bytes4 selector
+    )
+        public
+        pure
+        returns (bytes memory calldata_)
+    {
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = selector;
+        ExecuteSelectorCondition.SelectorTarget memory selectorTarget =
+            ExecuteSelectorCondition.SelectorTarget({ where: target, selectors: selectors });
+        return abi.encodeCall(ExecuteSelectorCondition.allowSelectors, (selectorTarget));
+    }
+
+    /**
+     * @notice Build Action array for the complete installation process including condition configuration
+     * @dev Returns actions for: grant ROOT → applyInstallation → revoke ROOT → configure condition
      *      These actions can be executed via a DAO proposal.
+     *      The condition configuration allows the plugin to call:
+     *        - token.approve() for ERC20 approvals
+     *        - votingEscrow.createLockFor() for creating VE locks
      * @param dao The DAO address
      * @param psp The PluginSetupProcessor address
      * @param prepared The prepared installation data
+     * @param veParams The VE condition configuration params (token and votingEscrow addresses)
      * @return actions The array of Actions to execute
      */
     function buildInstallationActions(
         address dao,
         address psp,
-        PreparedCDPInstallation memory prepared
+        PreparedCDPInstallation memory prepared,
+        VEConditionParams memory veParams
     )
         public
         pure
         returns (Action[] memory actions)
     {
-        actions = new Action[](3);
+        actions = new Action[](5);
 
         // 1. Grant ROOT_PERMISSION to PSP
         actions[0] = Action({ to: dao, value: 0, data: buildGrantRootToPSPCalldata(dao, psp) });
@@ -398,6 +433,20 @@ contract CDPDeployer {
 
         // 3. Revoke ROOT_PERMISSION from PSP
         actions[2] = Action({ to: dao, value: 0, data: buildRevokeRootFromPSPCalldata(dao, psp) });
+
+        // 4. Allow token.approve() on condition (for ERC20 approvals before VE lock)
+        actions[3] = Action({
+            to: address(prepared.condition),
+            value: 0,
+            data: buildAllowSelectorsCalldata(veParams.token, IERC20.approve.selector)
+        });
+
+        // 5. Allow votingEscrow.createLockFor() on condition (for creating VE locks)
+        actions[4] = Action({
+            to: address(prepared.condition),
+            value: 0,
+            data: buildAllowSelectorsCalldata(veParams.votingEscrow, bytes4(keccak256("createLockFor(uint256,address)")))
+        });
 
         return actions;
     }

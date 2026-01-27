@@ -12,7 +12,8 @@ import {
     OSxAddresses,
     InstallCDPParams,
     PreparedCDPInstallation,
-    ConditionConfig
+    ConditionConfig,
+    VEConditionParams
 } from "../../src/deploy/CDPDeployer.sol";
 
 // Capital Distributor imports
@@ -51,6 +52,8 @@ contract CDPDeployerForkTest is Test {
     address constant KATANA_PSP = 0x6240e3aFa085B8393EB072911f3d65EF080b6bEf;
     address constant KATANA_ADMIN_PLUGIN_REPO = 0x95d1ACA58E631774bDE4d1bC67DD784f01cCDAeC;
     address constant KATANA_DAO = 0x0cD4B1347D06e386970b89A010f54e3a9Cc31834;
+    address constant KATANA_TOKEN = 0xD073c389D9c3B9Da328907Cbe42b49AB517B214F;
+    address constant KATANA_VOTING_ESCROW = 0x9bA5d5b6215BE24e40795838dcbE716130A4b635;
 
     // =============================================================================
     // Test State
@@ -116,9 +119,8 @@ contract CDPDeployerForkTest is Test {
         // -------------------------------------------------------------------------
         console.log("\n--- Step 1: Deploy Infrastructure ---");
 
-        CDPInfraDeployment memory infra = deployer.deployInfrastructure(
-            CDPInfraParams({ feeRecipient: address(0), feeBasisPoints: 0 })
-        );
+        CDPInfraDeployment memory infra =
+            deployer.deployInfrastructure(CDPInfraParams({ feeRecipient: address(0), feeBasisPoints: 0 }));
 
         _verifyInfrastructureDeployment(infra);
 
@@ -129,11 +131,7 @@ contract CDPDeployerForkTest is Test {
 
         string memory subdomain = string.concat("cdp-deploy-", vm.toString(block.timestamp));
         InstallCDPParams memory installParams = InstallCDPParams({
-            dao: testDao,
-            osx: osx,
-            infra: infra,
-            pluginMaintainer: pluginMaintainer,
-            pluginRepoSubdomain: subdomain
+            dao: testDao, osx: osx, infra: infra, pluginMaintainer: pluginMaintainer, pluginRepoSubdomain: subdomain
         });
 
         PreparedCDPInstallation memory prepared = deployer.prepareInstallation(installParams);
@@ -145,14 +143,17 @@ contract CDPDeployerForkTest is Test {
         // -------------------------------------------------------------------------
         console.log("\n--- Step 3: Apply Installation via DAO.execute() ---");
 
-        // Generate installation actions (grant ROOT -> apply -> revoke ROOT)
-        Action[] memory actions = deployer.buildInstallationActions(address(testDao), KATANA_PSP, prepared);
-        _logGeneratedActions(actions);
+        VEConditionParams memory veParams =
+            VEConditionParams({ token: KATANA_TOKEN, votingEscrow: KATANA_VOTING_ESCROW });
+
+        // Generate installation actions (grant ROOT -> apply -> revoke ROOT -> configure condition)
+        Action[] memory actions = deployer.buildInstallationActions(address(testDao), KATANA_PSP, prepared, veParams);
+        _logGeneratedActions(actions, KATANA_TOKEN, KATANA_VOTING_ESCROW);
 
         // Execute installation through the DAO (simulates proposal execution)
         _executeInstallationActions(actions);
 
-        _verifyAppliedInstallation(prepared);
+        _verifyAppliedInstallation(prepared, KATANA_TOKEN, KATANA_VOTING_ESCROW);
 
         // -------------------------------------------------------------------------
         // Summary
@@ -212,9 +213,7 @@ contract CDPDeployerForkTest is Test {
 
         // Verify plugin setup reference
         assertEq(
-            address(prepared.pluginSetupRef.pluginSetupRepo),
-            address(prepared.pluginRepo),
-            "Plugin setup ref mismatch"
+            address(prepared.pluginSetupRef.pluginSetupRepo), address(prepared.pluginRepo), "Plugin setup ref mismatch"
         );
 
         console.log("  [OK] Plugin Repo:", address(prepared.pluginRepo));
@@ -223,13 +222,18 @@ contract CDPDeployerForkTest is Test {
     }
 
     /// @dev Logs the generated installation actions for visibility
-    function _logGeneratedActions(Action[] memory actions) internal view {
-        assertEq(actions.length, 3, "Should generate exactly 3 actions");
+    function _logGeneratedActions(Action[] memory actions, address token, address votingEscrow) internal view {
+        assertEq(actions.length, 5, "Should generate exactly 5 actions");
 
         console.log("  Generated actions:");
         console.log("    [0] Grant ROOT to PSP  -> target:", actions[0].to);
         console.log("    [1] Apply Installation -> target:", actions[1].to);
         console.log("    [2] Revoke ROOT from PSP -> target:", actions[2].to);
+        console.log("    [3] Allow approve() on token -> target:", actions[3].to);
+        console.log("    [4] Allow createLockFor() on VE -> target:", actions[4].to);
+        console.log("  VE Condition Config:");
+        console.log("    Token:", token);
+        console.log("    VotingEscrow:", votingEscrow);
     }
 
     /// @dev Executes the installation actions through the DAO
@@ -264,7 +268,14 @@ contract CDPDeployerForkTest is Test {
     }
 
     /// @dev Verifies that installation was applied correctly
-    function _verifyAppliedInstallation(PreparedCDPInstallation memory prepared) internal view {
+    function _verifyAppliedInstallation(
+        PreparedCDPInstallation memory prepared,
+        address token,
+        address votingEscrow
+    )
+        internal
+        view
+    {
         PluginSetupProcessor psp = PluginSetupProcessor(KATANA_PSP);
 
         // 1. Plugin linked to DAO
@@ -274,9 +285,7 @@ contract CDPDeployerForkTest is Test {
         // 2. DAO has CAMPAIGN_MANAGER_PERMISSION on plugin
         bytes32 campaignManagerPermissionId = keccak256("CAMPAIGN_MANAGER_PERMISSION");
         assertTrue(
-            testDao.hasPermission(
-                address(prepared.plugin), address(testDao), campaignManagerPermissionId, bytes("")
-            ),
+            testDao.hasPermission(address(prepared.plugin), address(testDao), campaignManagerPermissionId, bytes("")),
             "DAO missing CAMPAIGN_MANAGER_PERMISSION"
         );
         console.log("  [OK] DAO has CAMPAIGN_MANAGER_PERMISSION on plugin");
@@ -290,9 +299,7 @@ contract CDPDeployerForkTest is Test {
         Action[] memory emptyActions = new Action[](0);
         bytes memory executeCalldata = abi.encodeCall(DAO.execute, (bytes32(0), emptyActions, 0));
         assertTrue(
-            testDao.hasPermission(
-                address(testDao), address(prepared.plugin), executePermissionId, executeCalldata
-            ),
+            testDao.hasPermission(address(testDao), address(prepared.plugin), executePermissionId, executeCalldata),
             "Plugin missing EXECUTE_PERMISSION on DAO"
         );
         console.log("  [OK] Plugin has EXECUTE_PERMISSION on DAO (with condition)");
@@ -303,90 +310,20 @@ contract CDPDeployerForkTest is Test {
             "ROOT_PERMISSION not revoked from PSP"
         );
         console.log("  [OK] ROOT_PERMISSION revoked from PSP");
-    }
 
-    // =============================================================================
-    // Full Flow Integration Test (Legacy - with condition configuration)
-    // =============================================================================
-
-    /// @notice Test the complete deployment flow end-to-end including condition configuration
-    function test_Fork_FullDeploymentFlow() public {
-        console.log("\n=== Full Deployment Flow ===");
-
-        // Step 1: Deploy infrastructure
-        CDPInfraDeployment memory infra = deployer.deployInfrastructure(
-            CDPInfraParams({ feeRecipient: address(0), feeBasisPoints: 0 })
-        );
-        console.log("Step 1: Infrastructure deployed");
-
-        // Step 2: Prepare installation
-        string memory subdomain = string.concat("cdp-full-", vm.toString(block.timestamp));
-        InstallCDPParams memory installParams = InstallCDPParams({
-            dao: testDao,
-            osx: osx,
-            infra: infra,
-            pluginMaintainer: pluginMaintainer,
-            pluginRepoSubdomain: subdomain
-        });
-        PreparedCDPInstallation memory prepared = deployer.prepareInstallation(installParams);
-        console.log("Step 2: Installation prepared");
-
-        // Step 3: Apply installation (with DAO permissions)
-        PluginSetupProcessor psp = PluginSetupProcessor(KATANA_PSP);
-
-        vm.startPrank(address(testDao));
-        testDao.grant(address(testDao), address(psp), testDao.ROOT_PERMISSION_ID());
-        testDao.grant(address(psp), address(deployer), psp.APPLY_INSTALLATION_PERMISSION_ID());
-        vm.stopPrank();
-
-        deployer.applyInstallation(psp, prepared);
-        console.log("Step 3: Installation applied");
-
-        // Step 4: Configure condition (with DAO permissions)
-        // NOTE: Grant MANAGE_SELECTORS_PERMISSION to deployer since it's the one calling condition.allowSelectors()
-        bytes32 MANAGE_SELECTORS_PERMISSION_ID = keccak256("MANAGE_SELECTORS_PERMISSION");
-        vm.prank(address(testDao));
-        testDao.grant(address(prepared.condition), address(deployer), MANAGE_SELECTORS_PERMISSION_ID);
-
-        address mockToken = makeAddr("token");
-        address mockVotingEscrow = makeAddr("votingEscrow");
-
-        ConditionConfig[] memory conditionConfigs = new ConditionConfig[](2);
-        conditionConfigs[0] = ConditionConfig({ target: mockToken, selector: IERC20.approve.selector });
-        conditionConfigs[1] = ConditionConfig({
-            target: mockVotingEscrow,
-            selector: bytes4(keccak256("createLockFor(uint256,address)"))
-        });
-
-        deployer.configureCondition(prepared.condition, conditionConfigs);
-        console.log("Step 4: Condition configured");
-
-        // Revoke the permission after configuration
-        vm.prank(address(testDao));
-        testDao.revoke(address(prepared.condition), address(deployer), MANAGE_SELECTORS_PERMISSION_ID);
-
-        // Cleanup permissions
-        vm.startPrank(address(testDao));
-        testDao.revoke(address(testDao), address(psp), testDao.ROOT_PERMISSION_ID());
-        testDao.revoke(address(psp), address(deployer), psp.APPLY_INSTALLATION_PERMISSION_ID());
-        vm.stopPrank();
-
-        // Verify final state
-        assertEq(address(prepared.plugin.dao()), address(testDao), "Plugin DAO mismatch");
+        // 6. Condition configured with approve selector for token
         assertTrue(
-            prepared.condition.allowedSelectors(mockToken, IERC20.approve.selector),
-            "Token approve selector not allowed"
+            prepared.condition.allowedSelectors(token, IERC20.approve.selector),
+            "Condition not configured for token.approve()"
         );
-        assertTrue(
-            prepared.condition.allowedSelectors(mockVotingEscrow, bytes4(keccak256("createLockFor(uint256,address)"))),
-            "VE createLockFor selector not allowed"
-        );
+        console.log("  [OK] Condition allows token.approve()");
 
-        console.log("\n=== Deployment Complete ===");
-        console.log("DAO:", address(testDao));
-        console.log("CDP Plugin:", address(prepared.plugin));
-        console.log("Condition:", address(prepared.condition));
-        console.log("Plugin Repo:", address(prepared.pluginRepo));
+        // 7. Condition configured with createLockFor selector for votingEscrow
+        assertTrue(
+            prepared.condition.allowedSelectors(votingEscrow, bytes4(keccak256("createLockFor(uint256,address)"))),
+            "Condition not configured for votingEscrow.createLockFor()"
+        );
+        console.log("  [OK] Condition allows votingEscrow.createLockFor()");
     }
 
     // =============================================================================
@@ -399,10 +336,7 @@ contract CDPDeployerForkTest is Test {
         uint32 feeBasisPoints = 100; // 1%
 
         CDPInfraDeployment memory infraWithFees = deployer.deployInfrastructure(
-            CDPInfraParams({
-                feeRecipient: feeRecipient,
-                feeBasisPoints: feeBasisPoints
-            })
+            CDPInfraParams({ feeRecipient: feeRecipient, feeBasisPoints: feeBasisPoints })
         );
 
         // Verify fee configuration
@@ -414,9 +348,8 @@ contract CDPDeployerForkTest is Test {
 
     /// @notice Test that prepareInstallation reverts with zero DAO address
     function test_Fork_RevertOnZeroDAO() public {
-        CDPInfraDeployment memory infra = deployer.deployInfrastructure(
-            CDPInfraParams({ feeRecipient: address(0), feeBasisPoints: 0 })
-        );
+        CDPInfraDeployment memory infra =
+            deployer.deployInfrastructure(CDPInfraParams({ feeRecipient: address(0), feeBasisPoints: 0 }));
 
         InstallCDPParams memory badParams = InstallCDPParams({
             dao: DAO(payable(address(0))),

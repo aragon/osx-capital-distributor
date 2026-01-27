@@ -12,7 +12,8 @@ import {
     OSxAddresses,
     ConditionConfig,
     InstallCDPParams,
-    PreparedCDPInstallation
+    PreparedCDPInstallation,
+    VEConditionParams
 } from "../src/deploy/CDPDeployer.sol";
 import { AllocatorStrategyFactory } from "../src/factories/AllocatorStrategyFactory.sol";
 import { ActionEncoderFactory } from "../src/factories/ActionEncoderFactory.sol";
@@ -39,6 +40,8 @@ import { Action } from "@aragon/commons/executors/IExecutor.sol";
 /// - PLUGIN_REPO_FACTORY: OSx PluginRepoFactory address
 /// - PSP: OSx PluginSetupProcessor address
 /// - PLUGIN_MAINTAINER: Address that can maintain the plugin repo
+/// - TOKEN: The token address (for approve selector in condition)
+/// - VOTING_ESCROW: The VotingEscrow address (for createLockFor selector in condition)
 ///
 /// Optional Environment Variables:
 /// - FEE_RECIPIENT: Protocol fee recipient (default: address(0))
@@ -169,8 +172,18 @@ contract Deploy is BaseScript {
         // Generate and store the applyInstallation calldata immediately
         applyInstallationCalldata = deployer.buildApplyInstallationCalldata(prepared);
 
+        // Read VE params for condition configuration
+        VEConditionParams memory veParams = VEConditionParams({
+            token: vm.envAddress("TOKEN"),
+            votingEscrow: vm.envAddress("VOTING_ESCROW")
+        });
+
+        console.log("  Token (for condition):", veParams.token);
+        console.log("  VotingEscrow (for condition):", veParams.votingEscrow);
+
         // Generate and store actions JSON for UI upload
-        Action[] memory actions = deployer.buildInstallationActions(address(dao), address(psp), prepared);
+        // Now includes condition configuration for token.approve() and votingEscrow.createLockFor()
+        Action[] memory actions = deployer.buildInstallationActions(address(dao), address(psp), prepared, veParams);
         actionsJson = _serializeActions(actions);
 
         console.log("  Plugin Repo:", address(pluginRepo));
@@ -207,14 +220,16 @@ contract Deploy is BaseScript {
         console.log("\n===========================================");
         console.log("INSTALLATION INSTRUCTIONS FOR KATANA TEAM");
         console.log("===========================================");
-        console.log("\nThe DAO needs to execute 3 actions to complete the installation:");
+        console.log("\nThe DAO needs to execute 5 actions to complete the installation:");
         console.log("  1. dao.grant(dao, psp, ROOT_PERMISSION_ID)");
         console.log("  2. psp.applyInstallation(dao, params)");
         console.log("  3. dao.revoke(dao, psp, ROOT_PERMISSION_ID)");
+        console.log("  4. condition.allowSelectors(token, approve)");
+        console.log("  5. condition.allowSelectors(votingEscrow, createLockFor)");
 
         console.log("\n--- RECOMMENDED: Use the actions JSON file ---");
         console.log("Upload the actions-*.json file to the DAO UI.");
-        console.log("It contains all 3 actions ready for DAO.execute().");
+        console.log("It contains all 5 actions ready for DAO.execute().");
 
         console.log("\n--- Individual Calldata (for reference) ---");
 
@@ -226,6 +241,9 @@ contract Deploy is BaseScript {
 
         console.log("\n3. Revoke ROOT from PSP (target: DAO):");
         console.logBytes(deployer.buildRevokeRootFromPSPCalldata(address(dao), address(psp)));
+
+        console.log("\n4-5. Condition configuration (target: Condition):");
+        console.log("  See actions JSON file for full calldata");
     }
 
     // =========================================================================
