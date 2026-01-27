@@ -7,7 +7,7 @@ SHELL := /bin/bash
 -include .env
 
 # Default RPC URL if not set
-RPC_URL ?= http://localhost:8545
+RPC_URL ?= https://rpc.katana.network
 
 # Colors - using printf format
 COLOR_YELLOW := \033[0;33m
@@ -156,3 +156,9 @@ generate-merkle-proof: ## Generate merkle proof from merkle tree file
 
 # Default target
 .DEFAULT_GOAL := help
+
+deployCDP:; forge script Deploy \
+  --rpc-url $(RPC_URL) \
+  --private-key $(PRIVATE_KEY) \
+  --broadcast \
+  --slow

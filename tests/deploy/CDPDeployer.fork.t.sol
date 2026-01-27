@@ -18,7 +18,15 @@ import {
 
 // Capital Distributor imports
 import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
+import { CapitalDistributorPluginSetup } from "../../src/CapitalDistributorPluginSetup.sol";
 import { ICapitalDistributorPlugin } from "../../src/interfaces/ICapitalDistributorPlugin.sol";
+import { AllocatorStrategyFactory } from "../../src/factories/AllocatorStrategyFactory.sol";
+import { ActionEncoderFactory } from "../../src/factories/ActionEncoderFactory.sol";
+import { MerkleDistributorStrategy } from "../../src/allocatorStrategies/MerkleDistributorStrategy.sol";
+import {
+    VotingEscrowLockPayoutActionEncoder
+} from "../../src/payoutActionEncoders/VotingEscrowLockPayoutActionEncoder.sol";
+import { VaultDepositPayoutActionEncoder } from "../../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
 
 // Aragon/OSx imports
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
@@ -119,8 +127,26 @@ contract CDPDeployerForkTest is Test {
         // -------------------------------------------------------------------------
         console.log("\n--- Step 1: Deploy Infrastructure ---");
 
-        CDPInfraDeployment memory infra =
-            deployer.deployInfrastructure(CDPInfraParams({ feeRecipient: address(0), feeBasisPoints: 0 }));
+        // Deploy all infrastructure contracts
+        address strategyFactory = address(new AllocatorStrategyFactory());
+        address encoderFactory = address(new ActionEncoderFactory());
+        address merkleStrategy = address(new MerkleDistributorStrategy());
+        address votingEscrowEncoder = address(new VotingEscrowLockPayoutActionEncoder());
+        address vaultDepositEncoder = address(new VaultDepositPayoutActionEncoder());
+        address pluginSetup = address(new CapitalDistributorPluginSetup());
+
+        // Setup infrastructure (register strategies and encoders)
+        CDPInfraDeployment memory infra = deployer.setupInfrastructure(
+            CDPInfraParams({
+                strategyFactory: strategyFactory,
+                encoderFactory: encoderFactory,
+                merkleStrategy: merkleStrategy,
+                votingEscrowEncoder: votingEscrowEncoder,
+                vaultDepositEncoder: vaultDepositEncoder,
+                feeRecipient: address(0),
+                feeBasisPoints: 0
+            })
+        );
 
         _verifyInfrastructureDeployment(infra);
 
@@ -131,7 +157,12 @@ contract CDPDeployerForkTest is Test {
 
         string memory subdomain = string.concat("cdp-deploy-", vm.toString(block.timestamp));
         InstallCDPParams memory installParams = InstallCDPParams({
-            dao: testDao, osx: osx, infra: infra, pluginMaintainer: pluginMaintainer, pluginRepoSubdomain: subdomain
+            dao: testDao,
+            osx: osx,
+            infra: infra,
+            pluginSetup: pluginSetup,
+            pluginMaintainer: pluginMaintainer,
+            pluginRepoSubdomain: subdomain
         });
 
         PreparedCDPInstallation memory prepared = deployer.prepareInstallation(installParams);
@@ -331,12 +362,27 @@ contract CDPDeployerForkTest is Test {
     // =============================================================================
 
     /// @notice Test deploying infrastructure with fees
-    function test_Fork_DeployInfrastructureWithFees() public {
+    function test_Fork_SetupInfrastructureWithFees() public {
         address feeRecipient = makeAddr("feeRecipient");
         uint32 feeBasisPoints = 100; // 1%
 
-        CDPInfraDeployment memory infraWithFees = deployer.deployInfrastructure(
-            CDPInfraParams({ feeRecipient: feeRecipient, feeBasisPoints: feeBasisPoints })
+        // Deploy all infrastructure contracts
+        address strategyFactory = address(new AllocatorStrategyFactory());
+        address encoderFactory = address(new ActionEncoderFactory());
+        address merkleStrategy = address(new MerkleDistributorStrategy());
+        address votingEscrowEncoder = address(new VotingEscrowLockPayoutActionEncoder());
+        address vaultDepositEncoder = address(new VaultDepositPayoutActionEncoder());
+
+        CDPInfraDeployment memory infraWithFees = deployer.setupInfrastructure(
+            CDPInfraParams({
+                strategyFactory: strategyFactory,
+                encoderFactory: encoderFactory,
+                merkleStrategy: merkleStrategy,
+                votingEscrowEncoder: votingEscrowEncoder,
+                vaultDepositEncoder: vaultDepositEncoder,
+                feeRecipient: feeRecipient,
+                feeBasisPoints: feeBasisPoints
+            })
         );
 
         // Verify fee configuration
@@ -348,13 +394,31 @@ contract CDPDeployerForkTest is Test {
 
     /// @notice Test that prepareInstallation reverts with zero DAO address
     function test_Fork_RevertOnZeroDAO() public {
-        CDPInfraDeployment memory infra =
-            deployer.deployInfrastructure(CDPInfraParams({ feeRecipient: address(0), feeBasisPoints: 0 }));
+        // Deploy all infrastructure contracts
+        address strategyFactory = address(new AllocatorStrategyFactory());
+        address encoderFactory = address(new ActionEncoderFactory());
+        address merkleStrategy = address(new MerkleDistributorStrategy());
+        address votingEscrowEncoder = address(new VotingEscrowLockPayoutActionEncoder());
+        address vaultDepositEncoder = address(new VaultDepositPayoutActionEncoder());
+        address pluginSetup = address(new CapitalDistributorPluginSetup());
+
+        CDPInfraDeployment memory infra = deployer.setupInfrastructure(
+            CDPInfraParams({
+                strategyFactory: strategyFactory,
+                encoderFactory: encoderFactory,
+                merkleStrategy: merkleStrategy,
+                votingEscrowEncoder: votingEscrowEncoder,
+                vaultDepositEncoder: vaultDepositEncoder,
+                feeRecipient: address(0),
+                feeBasisPoints: 0
+            })
+        );
 
         InstallCDPParams memory badParams = InstallCDPParams({
             dao: DAO(payable(address(0))),
             osx: osx,
             infra: infra,
+            pluginSetup: pluginSetup,
             pluginMaintainer: pluginMaintainer,
             pluginRepoSubdomain: "test"
         });
@@ -365,7 +429,8 @@ contract CDPDeployerForkTest is Test {
 
     /// @notice Test creating plugin repo with zero maintainer reverts
     function test_Fork_RevertOnZeroMaintainer() public {
+        address pluginSetup = address(new CapitalDistributorPluginSetup());
         vm.expectRevert(abi.encodeWithSelector(CDPDeployer.ZeroAddress.selector, "maintainer"));
-        deployer.createPluginRepo(osx.pluginRepoFactory, "test-subdomain", address(0));
+        deployer.createPluginRepo(osx.pluginRepoFactory, pluginSetup, "test-subdomain", address(0));
     }
 }

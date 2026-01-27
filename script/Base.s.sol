@@ -16,6 +16,8 @@ abstract contract BaseScript is Script {
     /// @dev Used to derive the broadcaster's address if $ETH_FROM is not defined.
     string internal mnemonic;
 
+    uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+
     /// @dev Initializes the transaction broadcaster like this:
     ///
     /// - If $ETH_FROM is defined, use it.
@@ -26,8 +28,8 @@ abstract contract BaseScript is Script {
     constructor() { }
 
     modifier broadcast() {
-        vm.createSelectFork(vm.envString("CHAIN_NAME"));
-        vm.startBroadcast();
+        // vm.createSelectFork(vm.envString("CHAIN_NAME"));
+        vm.startBroadcast(deployerPrivateKey);
         _;
         vm.stopBroadcast();
     }

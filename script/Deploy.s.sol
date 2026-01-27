@@ -23,6 +23,7 @@ import {
 } from "../src/payoutActionEncoders/VotingEscrowLockPayoutActionEncoder.sol";
 import { VaultDepositPayoutActionEncoder } from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
 import { CapitalDistributorPlugin } from "../src/CapitalDistributorPlugin.sol";
+import { CapitalDistributorPluginSetup } from "../src/CapitalDistributorPluginSetup.sol";
 
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
 import { PluginRepo } from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
@@ -30,6 +31,20 @@ import { PluginSetupProcessor } from "@aragon/osx/framework/plugin/setup/PluginS
 import { ExecuteSelectorCondition } from "@aragon/conditions/ExecuteSelectorCondition.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Action } from "@aragon/commons/executors/IExecutor.sol";
+
+interface IMultisig {
+    function createProposal(
+        bytes calldata _metadata,
+        Action[] calldata _actions,
+        uint256 _allowFailureMap,
+        bool _approveProposal,
+        bool _tryExecution,
+        uint64 _startDate,
+        uint64 _endDate
+    )
+        external
+        returns (uint256 proposalId);
+}
 
 /// @title Deploy
 /// @notice Production deploy script for deploying Capital Distributor Plugin into existing DAO (e.g., Katana DAO)
@@ -42,6 +57,7 @@ import { Action } from "@aragon/commons/executors/IExecutor.sol";
 /// - PLUGIN_MAINTAINER: Address that can maintain the plugin repo
 /// - TOKEN: The token address (for approve selector in condition)
 /// - VOTING_ESCROW: The VotingEscrow address (for createLockFor selector in condition)
+/// - MULTISIG_ADDRESS: The Multisig address to create the proposal on
 ///
 /// Optional Environment Variables:
 /// - FEE_RECIPIENT: Protocol fee recipient (default: address(0))
@@ -71,6 +87,7 @@ contract Deploy is BaseScript {
     MerkleDistributorStrategy public merkleStrategy;
     VotingEscrowLockPayoutActionEncoder public veEncoder;
     VaultDepositPayoutActionEncoder public vaultEncoder;
+    CapitalDistributorPluginSetup public pluginSetup;
 
     // Installation addresses (stored separately to avoid storage issues with nested arrays)
     PluginRepo public pluginRepo;
@@ -107,25 +124,34 @@ contract Deploy is BaseScript {
     function _deployInfrastructure() internal {
         console.log("\n[Step 1] Deploying CDP Infrastructure...");
 
-        CDPInfraDeployment memory infra = deployer.deployInfrastructure(
-            CDPInfraParams({
-                feeRecipient: vm.envOr("FEE_RECIPIENT", address(0)),
-                feeBasisPoints: uint32(vm.envOr("FEE_BASIS_POINTS", uint256(0)))
-            })
-        );
-
-        // Store deployed contracts
-        strategyFactory = infra.strategyFactory;
-        encoderFactory = infra.encoderFactory;
-        merkleStrategy = infra.merkleStrategy;
-        veEncoder = infra.votingEscrowEncoder;
-        vaultEncoder = infra.vaultDepositEncoder;
+        // Deploy all infrastructure contracts
+        strategyFactory = new AllocatorStrategyFactory();
+        encoderFactory = new ActionEncoderFactory();
+        merkleStrategy = new MerkleDistributorStrategy();
+        veEncoder = new VotingEscrowLockPayoutActionEncoder();
+        vaultEncoder = new VaultDepositPayoutActionEncoder();
+        pluginSetup = new CapitalDistributorPluginSetup();
 
         console.log("  StrategyFactory:", address(strategyFactory));
         console.log("  EncoderFactory:", address(encoderFactory));
         console.log("  MerkleStrategy:", address(merkleStrategy));
         console.log("  VotingEscrowEncoder:", address(veEncoder));
         console.log("  VaultDepositEncoder:", address(vaultEncoder));
+        console.log("  PluginSetup:", address(pluginSetup));
+
+        // Setup infrastructure (register strategies and encoders)
+        deployer.setupInfrastructure(
+            CDPInfraParams({
+                strategyFactory: address(strategyFactory),
+                encoderFactory: address(encoderFactory),
+                merkleStrategy: address(merkleStrategy),
+                votingEscrowEncoder: address(veEncoder),
+                vaultDepositEncoder: address(vaultEncoder),
+                feeRecipient: vm.envOr("FEE_RECIPIENT", address(0)),
+                feeBasisPoints: uint32(vm.envOr("FEE_BASIS_POINTS", uint256(0)))
+            })
+        );
+
         console.log("  Note: Both encoders registered. Use VOTING_ESCROW_ENCODER_ID for VE campaigns.");
     }
 
@@ -134,7 +160,7 @@ contract Deploy is BaseScript {
 
         // Read existing DAO address from environment
         dao = DAO(payable(vm.envAddress("DAO")));
-        psp = PluginSetupProcessor(vm.envAddress("PLUGIN_SETUP_PROCESSOR"));
+        psp = PluginSetupProcessor(vm.envAddress("PSP"));
 
         console.log("  Target DAO:", address(dao));
         console.log("  PSP:", address(psp));
@@ -156,8 +182,11 @@ contract Deploy is BaseScript {
                 votingEscrowEncoder: veEncoder,
                 vaultDepositEncoder: vaultEncoder
             }),
+            pluginSetup: address(pluginSetup),
             pluginMaintainer: vm.envAddress("PLUGIN_MAINTAINER"),
-            pluginRepoSubdomain: vm.envOr("PLUGIN_NAME", string.concat("cdp-plugin-", vm.toString(block.timestamp)))
+            pluginRepoSubdomain: vm.envOr(
+                "PLUGIN_NAME", string.concat("test-cdp-plugin-", vm.toString(block.timestamp))
+            )
         });
 
         // Call prepareInstallation (this is permissionless)
@@ -173,10 +202,8 @@ contract Deploy is BaseScript {
         applyInstallationCalldata = deployer.buildApplyInstallationCalldata(prepared);
 
         // Read VE params for condition configuration
-        VEConditionParams memory veParams = VEConditionParams({
-            token: vm.envAddress("TOKEN"),
-            votingEscrow: vm.envAddress("VOTING_ESCROW")
-        });
+        VEConditionParams memory veParams =
+            VEConditionParams({ token: vm.envAddress("TOKEN"), votingEscrow: vm.envAddress("VOTING_ESCROW") });
 
         console.log("  Token (for condition):", veParams.token);
         console.log("  VotingEscrow (for condition):", veParams.votingEscrow);
@@ -184,7 +211,24 @@ contract Deploy is BaseScript {
         // Generate and store actions JSON for UI upload
         // Now includes condition configuration for token.approve() and votingEscrow.createLockFor()
         Action[] memory actions = deployer.buildInstallationActions(address(dao), address(psp), prepared, veParams);
-        actionsJson = _serializeActions(actions);
+
+        // Encode createProposal call with all the actions
+        bytes memory createProposalData = abi.encodeWithSelector(
+            IMultisig.createProposal.selector,
+            bytes("Bootstrap Katana Vault Ecosystem - Complete Initialization"),
+            actions,
+            0, // allowFailureMap - all actions must succeed
+            true, // approveProposal - approve with caller's signature
+            false, // tryExecution - don't try to execute immediately
+            uint64(0), // startDate - 0 means now
+            block.timestamp + 20_000 // endDate - 0 means use default from settings
+        );
+
+        // Create single wrapper action that calls createProposal on multisig
+        Action[] memory wrapperAction = new Action[](1);
+        wrapperAction[0] = Action({ to: vm.envAddress("MULTISIG_ADDRESS"), value: 0, data: createProposalData });
+
+        actionsJson = _serializeActions(wrapperAction);
 
         console.log("  Plugin Repo:", address(pluginRepo));
         console.log("  CDP Plugin (prepared):", address(cdpPlugin));
@@ -203,6 +247,7 @@ contract Deploy is BaseScript {
         console.log("MerkleStrategy:", address(merkleStrategy));
         console.log("VotingEscrowEncoder:", address(veEncoder));
         console.log("VaultDepositEncoder:", address(vaultEncoder));
+        console.log("PluginSetup:", address(pluginSetup));
 
         console.log("\n--- Encoder IDs (for createCampaign PayoutConfig.actionEncoderId) ---");
         console.log("VOTING_ESCROW_ENCODER_ID:", vm.toString(deployer.VOTING_ESCROW_ENCODER_ID()));
@@ -337,6 +382,9 @@ contract Deploy is BaseScript {
             '",\n',
             '    "vaultDepositEncoder": "',
             vm.toString(address(vaultEncoder)),
+            '",\n',
+            '    "pluginSetup": "',
+            vm.toString(address(pluginSetup)),
             '"\n',
             "  },\n",
             '  "encoderIds": {\n',
