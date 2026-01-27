@@ -5,7 +5,13 @@ import { Test } from "forge-std/Test.sol";
 import { Vm } from "forge-std/Vm.sol";
 
 // CDP Deployer utility (handles OSx, VE, and CDP deployment)
-import { CDPDeployer, FullStackParams, FullStackDeployment } from "../../src/deploy/CDPDeployer.sol";
+import {
+    CDPDeployer,
+    FullStackParams,
+    FullStackDeployment,
+    ConditionConfig,
+    PreparedCDPInstallation
+} from "../../src/deploy/CDPDeployer.sol";
 
 // Capital Distributor imports
 import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
@@ -23,6 +29,7 @@ import { IEscrowCurveIncreasingV1_2_0 as IEscrowCurve } from "@ve/curve/IEscrowC
 
 // Aragon/OSx imports
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
+import { PluginSetupProcessor } from "@aragon/osx/framework/plugin/setup/PluginSetupProcessor.sol";
 import { ExecuteSelectorCondition } from "@aragon/conditions/ExecuteSelectorCondition.sol";
 
 // OpenZeppelin imports
@@ -62,10 +69,9 @@ contract VotingEscrowLockPayoutLocalTest is Test {
     // =============================================================================
     // Deployment
     // =============================================================================
-    FullStackDeployment internal deployment;
     MintableERC20 internal token;
 
-    // Convenience aliases (set in setUp)
+    // Deployed contracts (set in setUp)
     DAO internal dao;
     CapitalDistributorPlugin internal capitalDistributorPlugin;
     ExecuteSelectorCondition internal condition;
@@ -94,7 +100,7 @@ contract VotingEscrowLockPayoutLocalTest is Test {
 
         // Deploy everything using CDPDeployer
         CDPDeployer deployer = new CDPDeployer();
-        deployment = deployer.deployFullStack(
+        FullStackDeployment memory deployment = deployer.deployFullStack(
             FullStackParams({
                 admin: admin,
                 token: address(token),
@@ -104,7 +110,7 @@ contract VotingEscrowLockPayoutLocalTest is Test {
             })
         );
 
-        // Set convenience aliases
+        // Extract and store deployed contracts
         dao = deployment.dao;
         capitalDistributorPlugin = deployment.capitalDistributorPlugin;
         condition = deployment.condition;
@@ -112,6 +118,46 @@ contract VotingEscrowLockPayoutLocalTest is Test {
         votingEscrowEncoder = deployment.cdpInfra.votingEscrowEncoder;
         votingEscrow = deployment.votingEscrow;
         exitQueue = deployment.exitQueue;
+
+        // Get PSP and prepared installation from deployment (use memory vars)
+        PluginSetupProcessor psp = deployment.pluginSetupProcessor;
+        PreparedCDPInstallation memory prepared = deployment.preparedInstallation;
+
+        // Grant permissions for applying installation (simulating DAO governance)
+        // NOTE: Permission is granted to `deployer` since that's the contract calling psp.applyInstallation()
+        vm.startPrank(address(dao));
+        dao.grant(address(dao), address(psp), dao.ROOT_PERMISSION_ID());
+        dao.grant(address(psp), address(deployer), psp.APPLY_INSTALLATION_PERMISSION_ID());
+        vm.stopPrank();
+
+        // Apply the CDP installation
+        deployer.applyInstallation(psp, prepared);
+
+        // Revoke temporary permissions
+        vm.startPrank(address(dao));
+        dao.revoke(address(dao), address(psp), dao.ROOT_PERMISSION_ID());
+        dao.revoke(address(psp), address(deployer), psp.APPLY_INSTALLATION_PERMISSION_ID());
+        vm.stopPrank();
+
+        // Configure condition for VE operations
+        // NOTE: Grant MANAGE_SELECTORS_PERMISSION to deployer since it's the one calling condition.allowSelectors()
+        bytes32 MANAGE_SELECTORS_PERMISSION_ID = keccak256("MANAGE_SELECTORS_PERMISSION");
+        vm.startPrank(address(dao));
+        dao.grant(address(condition), address(deployer), MANAGE_SELECTORS_PERMISSION_ID);
+        vm.stopPrank();
+
+        ConditionConfig[] memory conditionConfigs = new ConditionConfig[](2);
+        conditionConfigs[0] = ConditionConfig({ target: address(token), selector: IERC20.approve.selector });
+        conditionConfigs[1] = ConditionConfig({
+            target: address(votingEscrow), selector: bytes4(keccak256("createLockFor(uint256,address)"))
+        });
+
+        deployer.configureCondition(condition, conditionConfigs);
+
+        // Revoke the permission after configuration
+        vm.startPrank(address(dao));
+        dao.revoke(address(condition), address(deployer), MANAGE_SELECTORS_PERMISSION_ID);
+        vm.stopPrank();
 
         // Verify condition is configured correctly
         require(condition.allowedSelectors(address(token), IERC20.approve.selector), "Approve selector not allowed");
