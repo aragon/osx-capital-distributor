@@ -157,8 +157,19 @@ generate-merkle-proof: ## Generate merkle proof from merkle tree file
 # Default target
 .DEFAULT_GOAL := help
 
-deployCDP:; forge script Deploy \
-  --rpc-url $(RPC_URL) \
-  --private-key $(PRIVATE_KEY) \
-  --broadcast \
-  --slow
+deploy-cdp: ## Deploy CDP contracts without verification
+	forge script Deploy \
+		--rpc-url $(RPC_URL) \
+		--private-key $(PRIVATE_KEY) \
+		--broadcast \
+		--slow
+
+deploy-verify-cdp: ## Deploy CDP contracts with verification on chain explorer
+	forge script Deploy \
+		--rpc-url $(RPC_URL) \
+		--private-key $(PRIVATE_KEY) \
+		--broadcast \
+		--slow \
+		--verify \
+		--etherscan-api-key $(ETHERSCAN_API_KEY) \
+		--verifier-url $(ETHERSCAN_API_URL_FOR_CHAINID)

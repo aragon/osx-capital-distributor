@@ -28,7 +28,7 @@ import {
 import { VaultDepositPayoutActionEncoder } from "../../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
 
 // VE Governance deployment
-import { SetupVe, VeDeployment, VeDeploymentParams } from "../../src/deploy/SetupVe.sol";
+import { SetupVe, VeDeployment, VeDeploymentParams } from "../deploy/SetupVe.sol";
 
 // OSx deployment (for local tests - fresh deployments)
 import { ProtocolFactoryBuilder } from "@aragon/protocol-factory/test/helpers/ProtocolFactoryBuilder.sol";
@@ -212,7 +212,9 @@ contract VotingEscrowLockPayoutLocalTest is Test {
             infra: deployment.cdpInfra,
             pluginSetup: pluginSetup,
             pluginMaintainer: params.admin,
-            pluginRepoSubdomain: params.pluginRepoSubdomain
+            pluginRepoSubdomain: params.pluginRepoSubdomain,
+            releaseMetadata: "ipfs://test-release-metadata",
+            buildMetadata: "ipfs://test-build-metadata"
         });
 
         deployment.preparedInstallation = deployment.deployer.prepareInstallation(installParams);

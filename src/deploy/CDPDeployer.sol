@@ -81,6 +81,10 @@ struct InstallCDPParams {
     address pluginMaintainer;
     /// @notice Plugin repo ENS subdomain
     string pluginRepoSubdomain;
+    /// @notice Release metadata URI (e.g., "ipfs://Qm...")
+    string releaseMetadata;
+    /// @notice Build metadata URI (e.g., "ipfs://Qm...")
+    string buildMetadata;
 }
 
 /// @notice Result of preparing CDP installation
@@ -196,13 +200,17 @@ contract CDPDeployer {
      * @param pluginSetup The pre-deployed CapitalDistributorPluginSetup address
      * @param subdomain ENS subdomain for the plugin repo
      * @param maintainer Address that can maintain the repo
+     * @param releaseMetadata IPFS URI for release metadata
+     * @param buildMetadata IPFS URI for build metadata
      * @return pluginRepo The created plugin repo
      */
     function createPluginRepo(
         address pluginRepoFactory,
         address pluginSetup,
         string memory subdomain,
-        address maintainer
+        address maintainer,
+        string memory releaseMetadata,
+        string memory buildMetadata
     )
         public
         returns (PluginRepo pluginRepo)
@@ -211,10 +219,9 @@ contract CDPDeployer {
         if (pluginSetup == address(0)) revert ZeroAddress("pluginSetup");
         if (maintainer == address(0)) revert ZeroAddress("maintainer");
 
-        pluginRepo = PluginRepoFactory(pluginRepoFactory)
-            .createPluginRepoWithFirstVersion(
-                subdomain, pluginSetup, maintainer, bytes("ipfs://release-metadata"), bytes("ipfs://build-metadata")
-            );
+        pluginRepo = PluginRepoFactory(pluginRepoFactory).createPluginRepoWithFirstVersion(
+            subdomain, pluginSetup, maintainer, bytes(releaseMetadata), bytes(buildMetadata)
+        );
 
         return pluginRepo;
     }
@@ -242,7 +249,12 @@ contract CDPDeployer {
 
         // Create plugin repo with pre-deployed pluginSetup
         prepared.pluginRepo = createPluginRepo(
-            params.osx.pluginRepoFactory, params.pluginSetup, params.pluginRepoSubdomain, params.pluginMaintainer
+            params.osx.pluginRepoFactory,
+            params.pluginSetup,
+            params.pluginRepoSubdomain,
+            params.pluginMaintainer,
+            params.releaseMetadata,
+            params.buildMetadata
         );
 
         // Prepare installation via PSP

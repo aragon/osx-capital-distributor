@@ -26,6 +26,7 @@ verbosity = 4
 [etherscan]
 mainnet = { key = "${API_KEY_ETHERSCAN}" }
 sepolia = { key = "${API_KEY_ETHERSCAN}" }
+katana = { key = "${ETHERSCAN_API_KEY}", url = "${ETHERSCAN_API_URL_FOR_CHAINID}" }
 
 [fmt]
 bracket_spacing = true

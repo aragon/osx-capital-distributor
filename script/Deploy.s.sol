@@ -186,7 +186,9 @@ contract Deploy is BaseScript {
             pluginMaintainer: vm.envAddress("PLUGIN_MAINTAINER"),
             pluginRepoSubdomain: vm.envOr(
                 "PLUGIN_NAME", string.concat("test-cdp-plugin-", vm.toString(block.timestamp))
-            )
+            ),
+            releaseMetadata: vm.envOr("RELEASE_METADATA", string("ipfs://")),
+            buildMetadata: vm.envOr("BUILD_METADATA", string("ipfs://"))
         });
 
         // Call prepareInstallation (this is permissionless)
@@ -221,7 +223,7 @@ contract Deploy is BaseScript {
             true, // approveProposal - approve with caller's signature
             false, // tryExecution - don't try to execute immediately
             uint64(0), // startDate - 0 means now
-            block.timestamp + 20_000 // endDate - 0 means use default from settings
+            uint64(block.timestamp + 7 days) // endDate - 7 days from now
         );
 
         // Create single wrapper action that calls createProposal on multisig
@@ -302,7 +304,7 @@ contract Deploy is BaseScript {
         // Save deployment info JSON
         string memory deploymentFilename = string.concat("deployments/deployment-", chainId, "-", timestamp, ".json");
         string memory deploymentJson =
-            string.concat(_jsonHeader(), _jsonInfrastructure(), _jsonPreparedInstallation(), _jsonClose());
+            string.concat(_jsonHeader(), _jsonInfrastructure(), _jsonPreparedInstallation(), "}");
         vm.writeFile(deploymentFilename, deploymentJson);
 
         // Save actions JSON (for UI upload)
@@ -420,7 +422,4 @@ contract Deploy is BaseScript {
         );
     }
 
-    function _jsonClose() internal pure returns (string memory) {
-        return "}";
-    }
 }

@@ -162,7 +162,9 @@ contract CDPDeployerForkTest is Test {
             infra: infra,
             pluginSetup: pluginSetup,
             pluginMaintainer: pluginMaintainer,
-            pluginRepoSubdomain: subdomain
+            pluginRepoSubdomain: subdomain,
+            releaseMetadata: "ipfs://test-release-metadata",
+            buildMetadata: "ipfs://test-build-metadata"
         });
 
         PreparedCDPInstallation memory prepared = deployer.prepareInstallation(installParams);
@@ -420,7 +422,9 @@ contract CDPDeployerForkTest is Test {
             infra: infra,
             pluginSetup: pluginSetup,
             pluginMaintainer: pluginMaintainer,
-            pluginRepoSubdomain: "test"
+            pluginRepoSubdomain: "test",
+            releaseMetadata: "ipfs://test-release-metadata",
+            buildMetadata: "ipfs://test-build-metadata"
         });
 
         vm.expectRevert(abi.encodeWithSelector(CDPDeployer.ZeroAddress.selector, "dao"));
@@ -431,6 +435,13 @@ contract CDPDeployerForkTest is Test {
     function test_Fork_RevertOnZeroMaintainer() public {
         address pluginSetup = address(new CapitalDistributorPluginSetup());
         vm.expectRevert(abi.encodeWithSelector(CDPDeployer.ZeroAddress.selector, "maintainer"));
-        deployer.createPluginRepo(osx.pluginRepoFactory, pluginSetup, "test-subdomain", address(0));
+        deployer.createPluginRepo(
+            osx.pluginRepoFactory,
+            pluginSetup,
+            "test-subdomain",
+            address(0),
+            "ipfs://test-release-metadata",
+            "ipfs://test-build-metadata"
+        );
     }
 }
