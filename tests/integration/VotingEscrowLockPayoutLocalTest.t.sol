@@ -4,6 +4,17 @@ pragma solidity ^0.8.29;
 import { Test } from "forge-std/Test.sol";
 import { Vm } from "forge-std/Vm.sol";
 
+// CDP Deployer utility
+import {
+    CDPDeployer,
+    CDPInfraParams,
+    CDPInfraDeployment,
+    OSxAddresses,
+    InstallCDPParams,
+    PreparedCDPInstallation,
+    ConditionConfig
+} from "../../src/deploy/CDPDeployer.sol";
+
 // Capital Distributor imports
 import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
 import { CapitalDistributorPluginSetup } from "../../src/CapitalDistributorPluginSetup.sol";
@@ -14,9 +25,14 @@ import { MerkleDistributorStrategy } from "../../src/allocatorStrategies/MerkleD
 import {
     VotingEscrowLockPayoutActionEncoder
 } from "../../src/payoutActionEncoders/VotingEscrowLockPayoutActionEncoder.sol";
+import { VaultDepositPayoutActionEncoder } from "../../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
 
-// Deploy utilities
+// VE Governance deployment
 import { SetupVe, VeDeployment, VeDeploymentParams } from "../deploy/SetupVe.sol";
+
+// OSx deployment (for local tests - fresh deployments)
+import { ProtocolFactoryBuilder } from "@aragon/protocol-factory/test/helpers/ProtocolFactoryBuilder.sol";
+import { ProtocolFactory } from "@aragon/protocol-factory/src/ProtocolFactory.sol";
 
 // VE Governance imports
 import { VotingEscrowV1_2_0 as VotingEscrow } from "@ve/escrow/VotingEscrowIncreasing_v1_2_0.sol";
@@ -25,26 +41,60 @@ import { IClockV1_2_0 } from "@ve/clock/IClock_v1_2_0.sol";
 import { IEscrowCurveIncreasingV1_2_0 as IEscrowCurve } from "@ve/curve/IEscrowCurveIncreasing_v1_2_0.sol";
 
 // Aragon/OSx imports
-import { ProtocolFactoryBuilder } from "@aragon/protocol-factory/test/helpers/ProtocolFactoryBuilder.sol";
-import { ProtocolFactory } from "@aragon/protocol-factory/src/ProtocolFactory.sol";
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
-import { IPluginSetup } from "@aragon/commons/plugin/setup/IPluginSetup.sol";
 import { PluginSetupProcessor } from "@aragon/osx/framework/plugin/setup/PluginSetupProcessor.sol";
-import { PluginRepoFactory } from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
-import { PluginRepo } from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
-import { PluginSetupRef, hashHelpers } from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
+import { hashHelpers } from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
 import { ExecuteSelectorCondition } from "@aragon/conditions/ExecuteSelectorCondition.sol";
-import { PermissionLib } from "@aragon/commons/permission/PermissionLib.sol";
-import { IPermissionCondition } from "@aragon/commons/permission/condition/IPermissionCondition.sol";
 
 // OpenZeppelin imports
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 // Test utilities
-import { MintableERC20 } from "../../tests/mocks/MintableERC20.sol";
+import { MintableERC20 } from "../mocks/MintableERC20.sol";
 import { IVotingEscrowIncreasing } from "@escrow/IVotingEscrowIncreasing.sol";
 import { MerkleTreeBuilder } from "../utils/MerkleTreeBuilder.sol";
+
+// #############################################################################################
+//
+//                              STRUCTS - LOCAL TEST DEPLOYMENT
+//
+// #############################################################################################
+
+/// @notice Parameters for full stack deployment (OSx + VE + CDP) - LOCAL TESTS ONLY
+struct FullStackParams {
+    /// @notice Admin address for all deployments
+    address admin;
+    /// @notice Token to use (address(0) means deploy new MintableERC20 externally)
+    address token;
+    /// @notice Protocol fee recipient (can be address(0) for no fees)
+    address feeRecipient;
+    /// @notice Protocol fee in basis points
+    uint32 feeBasisPoints;
+    /// @notice Plugin repo subdomain for CDP
+    string pluginRepoSubdomain;
+}
+
+/// @notice Result of full stack deployment - LOCAL TESTS ONLY
+struct FullStackDeployment {
+    // Core contracts
+    DAO dao;
+    CapitalDistributorPlugin capitalDistributorPlugin;
+    ExecuteSelectorCondition condition;
+    // CDP infrastructure
+    CDPInfraDeployment cdpInfra;
+    // VE Governance contracts
+    VotingEscrow votingEscrow;
+    ExitQueue exitQueue;
+    // Underlying deployments
+    ProtocolFactory.Deployment osxDeployment;
+    VeDeployment veDeployment;
+    // Prepared installation (for applyInstallation)
+    PreparedCDPInstallation preparedInstallation;
+    PluginSetupProcessor pluginSetupProcessor;
+    // Deployer reference
+    CDPDeployer deployer;
+}
 
 /// @notice Interface for the Dynamic Exit Queue contract
 interface IDynamicExitQueue {
@@ -56,12 +106,10 @@ interface IDynamicExitQueue {
 /// @notice Integration test for the complete flow of DAO creating voting escrow locks
 ///         for users using a locally deployed ve-governance system (no fork required)
 /// @dev Tests the real flow:
-///      1. Deploy OSx infrastructure locally
-///      2. Deploy ve-governance system locally
-///      3. Deploy Capital Distributor Plugin and configure for VE locks
-///      4. DAO creates merkle tree internally and creates campaign with merkle root
-///      5. Users claim locks, receiving veNFTs representing their locked positions
-///      6. After locks expire, users can withdraw their tokens
+///      1. Local helper deploys everything: OSx, VE governance, and CDP plugin
+///      2. DAO creates merkle tree internally and creates campaign with merkle root
+///      3. Users claim locks, receiving veNFTs representing their locked positions
+///      4. After locks expire, users can withdraw their tokens
 contract VotingEscrowLockPayoutLocalTest is Test {
     // =============================================================================
     // Test Actors
@@ -74,28 +122,18 @@ contract VotingEscrowLockPayoutLocalTest is Test {
     address immutable admin = makeAddr("admin");
 
     // =============================================================================
-    // Protocol Contracts
+    // Deployment
     // =============================================================================
+    MintableERC20 internal token;
+
+    // Deployed contracts (set in setUp)
     DAO internal dao;
     CapitalDistributorPlugin internal capitalDistributorPlugin;
     ExecuteSelectorCondition internal condition;
-    AllocatorStrategyFactory internal strategyFactory;
-    ActionEncoderFactory internal encoderFactory;
     MerkleDistributorStrategy internal merkleStrategy;
     VotingEscrowLockPayoutActionEncoder internal votingEscrowEncoder;
-
-    // =============================================================================
-    // VE Governance Contracts
-    // =============================================================================
     VotingEscrow internal votingEscrow;
     ExitQueue internal exitQueue;
-    MintableERC20 internal token;
-
-    // =============================================================================
-    // Deployment Infrastructure
-    // =============================================================================
-    ProtocolFactory.Deployment internal osxDeployment;
-    VeDeployment internal veDeployment;
 
     // =============================================================================
     // Merkle Tree Data
@@ -110,111 +148,170 @@ contract VotingEscrowLockPayoutLocalTest is Test {
     mapping(address => bytes32[]) internal merkleProofs;
     mapping(address => uint256) internal claimAmounts;
 
-    /// @dev Set up local deployment of OSx, ve-governance, and Capital Distributor Plugin
-    function setUp() public {
-        // Deploy underlying token
-        token = new MintableERC20();
+    // =============================================================================
+    // Local Test Deployment Helpers
+    // =============================================================================
 
-        // Deploy OSx infrastructure locally
+    /// @notice Deploys the complete stack: fresh OSx, VE governance, and CDP plugin
+    /// @dev LOCAL TESTS ONLY. This is the main entry point for local test deployments.
+    function _deployFullStack(FullStackParams memory params) internal returns (FullStackDeployment memory deployment) {
+        require(params.token != address(0), "token required");
+        require(params.admin != address(0), "admin required");
+
+        // 1. Deploy fresh OSx infrastructure
         ProtocolFactory factory = new ProtocolFactoryBuilder().build();
         factory.deployOnce();
-        osxDeployment = factory.getDeployment();
+        deployment.osxDeployment = factory.getDeployment();
 
-        // Deploy ve-governance system locally using SetupVe
+        // 2. Deploy VE governance system (this creates a DAO with VE plugins)
         SetupVe setupVe = new SetupVe();
-        veDeployment =
-            setupVe.deploy(VeDeploymentParams({ admin: admin, token: address(token), osxDeployment: osxDeployment }));
+        deployment.veDeployment =
+            setupVe.deploy(VeDeploymentParams({ admin: params.admin, token: params.token, osxDeployment: deployment.osxDeployment }));
 
-        // Extract DAO and VE contracts
-        dao = veDeployment.dao;
-        votingEscrow = VotingEscrow(address(veDeployment.pluginSet.votingEscrow));
-        exitQueue = ExitQueue(address(veDeployment.pluginSet.exitQueue));
+        deployment.dao = deployment.veDeployment.dao;
+        deployment.votingEscrow = VotingEscrow(address(deployment.veDeployment.pluginSet.votingEscrow));
+        deployment.exitQueue = ExitQueue(address(deployment.veDeployment.pluginSet.exitQueue));
 
-        // Deploy Capital Distributor Plugin factories
-        strategyFactory = new AllocatorStrategyFactory();
-        encoderFactory = new ActionEncoderFactory();
+        // 3. Deploy CDP infrastructure contracts
+        address strategyFactory = address(new AllocatorStrategyFactory());
+        address encoderFactory = address(new ActionEncoderFactory());
+        address merkleStrategy_ = address(new MerkleDistributorStrategy());
+        address votingEscrowEncoder_ = address(new VotingEscrowLockPayoutActionEncoder());
+        address vaultDepositEncoder = address(new VaultDepositPayoutActionEncoder());
 
-        // Deploy and register merkle strategy
-        merkleStrategy = new MerkleDistributorStrategy();
-        strategyFactory.registerStrategyType(
-            toBytes32("merkle-distributor-strategy"), address(merkleStrategy), "", address(0), 0
-        );
-
-        // Deploy and register voting escrow encoder
-        votingEscrowEncoder = new VotingEscrowLockPayoutActionEncoder();
-        encoderFactory.registerActionEncoder(toBytes32("voting-escrow-lock-encoder"), address(votingEscrowEncoder), "");
-
-        // Create a PluginRepo for the Capital Distributor Plugin
-        PluginRepoFactory repoFactory = PluginRepoFactory(osxDeployment.pluginRepoFactory);
-        PluginRepo capitalDistributorRepo = repoFactory.createPluginRepoWithFirstVersion(
-            "capital-distributor",
-            address(new CapitalDistributorPluginSetup()),
-            admin,
-            bytes("ipfs://release-metadata"),
-            bytes("ipfs://build-metadata")
-        );
-
-        // Get the PluginSetupProcessor
-        PluginSetupProcessor psp = PluginSetupProcessor(osxDeployment.pluginSetupProcessor);
-
-        // Prepare installation via PSP
-        PluginSetupRef memory pluginSetupRef = PluginSetupRef({
-            versionTag: PluginRepo.Tag({ release: 1, build: 1 }), pluginSetupRepo: capitalDistributorRepo
-        });
-
-        bytes memory installParams = abi.encode(address(strategyFactory), address(encoderFactory));
-
-        (address pluginAddr, IPluginSetup.PreparedSetupData memory preparedSetupData) = psp.prepareInstallation(
-            address(dao),
-            PluginSetupProcessor.PrepareInstallationParams({ pluginSetupRef: pluginSetupRef, data: installParams })
-        );
-
-        capitalDistributorPlugin = CapitalDistributorPlugin(pluginAddr);
-        condition = ExecuteSelectorCondition(address(preparedSetupData.helpers[0]));
-
-        // Grant permissions for PSP to apply the installation
-        vm.startPrank(address(dao));
-        // Grant ROOT_PERMISSION to PSP so it can apply permissions on the DAO
-        dao.grant(address(dao), address(psp), dao.ROOT_PERMISSION_ID());
-        // Grant APPLY_INSTALLATION_PERMISSION to this test contract so it can call applyInstallation
-        dao.grant(address(psp), address(this), psp.APPLY_INSTALLATION_PERMISSION_ID());
-        vm.stopPrank();
-
-        // Apply installation via PSP (this applies all permissions)
-        psp.applyInstallation(
-            address(dao),
-            PluginSetupProcessor.ApplyInstallationParams({
-                pluginSetupRef: pluginSetupRef,
-                plugin: address(capitalDistributorPlugin),
-                permissions: preparedSetupData.permissions,
-                helpersHash: hashHelpers(preparedSetupData.helpers)
+        // 4. Create CDPDeployer and setup infrastructure
+        deployment.deployer = new CDPDeployer();
+        deployment.cdpInfra = deployment.deployer.setupInfrastructure(
+            CDPInfraParams({
+                strategyFactory: strategyFactory,
+                encoderFactory: encoderFactory,
+                merkleStrategy: merkleStrategy_,
+                votingEscrowEncoder: votingEscrowEncoder_,
+                vaultDepositEncoder: vaultDepositEncoder,
+                feeRecipient: params.feeRecipient,
+                feeBasisPoints: params.feeBasisPoints
             })
         );
 
-        // Revoke temporary permissions from PSP and this contract
+        // 5. Store PSP for later use
+        deployment.pluginSetupProcessor = PluginSetupProcessor(deployment.osxDeployment.pluginSetupProcessor);
+
+        // 6. Deploy plugin setup for CDP
+        address pluginSetup = address(new CapitalDistributorPluginSetup());
+
+        // 7. Prepare CDP installation into the VE DAO
+        InstallCDPParams memory installParams = InstallCDPParams({
+            dao: deployment.dao,
+            osx: OSxAddresses({
+                daoFactory: deployment.osxDeployment.daoFactory,
+                pluginRepoFactory: deployment.osxDeployment.pluginRepoFactory,
+                pluginSetupProcessor: deployment.osxDeployment.pluginSetupProcessor,
+                adminPluginRepo: deployment.osxDeployment.adminPluginRepo,
+                multisigPluginRepo: deployment.osxDeployment.multisigPluginRepo
+            }),
+            infra: deployment.cdpInfra,
+            pluginSetup: pluginSetup,
+            pluginMaintainer: params.admin,
+            pluginRepoSubdomain: params.pluginRepoSubdomain,
+            releaseMetadata: "ipfs://test-release-metadata",
+            buildMetadata: "ipfs://test-build-metadata"
+        });
+
+        deployment.preparedInstallation = deployment.deployer.prepareInstallation(installParams);
+        deployment.capitalDistributorPlugin = deployment.preparedInstallation.plugin;
+        deployment.condition = deployment.preparedInstallation.condition;
+
+        return deployment;
+    }
+
+    /// @notice Apply a prepared CDP installation
+    /// @dev LOCAL TESTS ONLY. Requires permissions setup before calling.
+    function _applyInstallation(
+        PluginSetupProcessor psp,
+        PreparedCDPInstallation memory prepared,
+        CDPDeployer deployer
+    )
+        internal
+    {
+        PluginSetupProcessor.ApplyInstallationParams memory applyParams = PluginSetupProcessor.ApplyInstallationParams({
+            pluginSetupRef: prepared.pluginSetupRef,
+            plugin: address(prepared.plugin),
+            permissions: prepared.preparedSetupData.permissions,
+            helpersHash: hashHelpers(prepared.preparedSetupData.helpers)
+        });
+        psp.applyInstallation(address(prepared.dao), applyParams);
+    }
+
+    /// @dev Set up local deployment
+    function setUp() public {
+        // Deploy token first
+        token = new MintableERC20();
+
+        // Deploy everything using local helper
+        FullStackDeployment memory deployment = _deployFullStack(
+            FullStackParams({
+                admin: admin,
+                token: address(token),
+                feeRecipient: address(0),
+                feeBasisPoints: 0,
+                pluginRepoSubdomain: "capital-distributor"
+            })
+        );
+
+        // Extract and store deployed contracts
+        dao = deployment.dao;
+        capitalDistributorPlugin = deployment.capitalDistributorPlugin;
+        condition = deployment.condition;
+        merkleStrategy = deployment.cdpInfra.merkleStrategy;
+        votingEscrowEncoder = deployment.cdpInfra.votingEscrowEncoder;
+        votingEscrow = deployment.votingEscrow;
+        exitQueue = deployment.exitQueue;
+
+        // Get PSP and prepared installation from deployment (use memory vars)
+        PluginSetupProcessor psp = deployment.pluginSetupProcessor;
+        PreparedCDPInstallation memory prepared = deployment.preparedInstallation;
+        CDPDeployer deployer = deployment.deployer;
+
+        // Grant permissions for applying installation (simulating DAO governance)
+        // NOTE: Permission is granted to `this` since that's the contract calling psp.applyInstallation()
+        vm.startPrank(address(dao));
+        dao.grant(address(dao), address(psp), dao.ROOT_PERMISSION_ID());
+        dao.grant(address(psp), address(this), psp.APPLY_INSTALLATION_PERMISSION_ID());
+        vm.stopPrank();
+
+        // Apply the CDP installation
+        _applyInstallation(psp, prepared, deployer);
+
+        // Revoke temporary permissions
         vm.startPrank(address(dao));
         dao.revoke(address(dao), address(psp), dao.ROOT_PERMISSION_ID());
         dao.revoke(address(psp), address(this), psp.APPLY_INSTALLATION_PERMISSION_ID());
-
-        // Configure condition to allow VE selectors
-        // Allow token approve selector
-        ExecuteSelectorCondition.SelectorTarget memory tokenApprove =
-            ExecuteSelectorCondition.SelectorTarget({ where: address(token), selectors: new bytes4[](1) });
-        tokenApprove.selectors[0] = IERC20.approve.selector;
-        condition.allowSelectors(tokenApprove);
-
-        // Allow voting escrow createLockFor selector
-        ExecuteSelectorCondition.SelectorTarget memory createLockFor =
-            ExecuteSelectorCondition.SelectorTarget({ where: address(votingEscrow), selectors: new bytes4[](1) });
-        createLockFor.selectors[0] = bytes4(keccak256("createLockFor(uint256,address)"));
-        condition.allowSelectors(createLockFor);
-
         vm.stopPrank();
 
-        // Verify condition allows the selectors we need
+        // Configure condition for VE operations
+        // NOTE: Grant MANAGE_SELECTORS_PERMISSION to deployer since it's the one calling condition.allowSelectors()
+        bytes32 MANAGE_SELECTORS_PERMISSION_ID = keccak256("MANAGE_SELECTORS_PERMISSION");
+        vm.startPrank(address(dao));
+        dao.grant(address(condition), address(deployer), MANAGE_SELECTORS_PERMISSION_ID);
+        vm.stopPrank();
+
+        ConditionConfig[] memory conditionConfigs = new ConditionConfig[](2);
+        conditionConfigs[0] = ConditionConfig({ target: address(token), selector: IERC20.approve.selector });
+        conditionConfigs[1] = ConditionConfig({
+            target: address(votingEscrow), selector: bytes4(keccak256("createLockFor(uint256,address)"))
+        });
+
+        deployer.configureCondition(condition, conditionConfigs);
+
+        // Revoke the permission after configuration
+        vm.startPrank(address(dao));
+        dao.revoke(address(condition), address(deployer), MANAGE_SELECTORS_PERMISSION_ID);
+        vm.stopPrank();
+
+        // Verify condition is configured correctly
         require(condition.allowedSelectors(address(token), IERC20.approve.selector), "Approve selector not allowed");
         require(
-            condition.allowedSelectors(address(votingEscrow), createLockFor.selectors[0]),
+            condition.allowedSelectors(address(votingEscrow), bytes4(keccak256("createLockFor(uint256,address)"))),
             "createLockFor selector not allowed"
         );
 
@@ -442,12 +539,8 @@ contract VotingEscrowLockPayoutLocalTest is Test {
         IEscrowCurve curve = IEscrowCurve(votingEscrow.curve());
         IEscrowCurve.TokenPoint memory point = curve.tokenPointHistory(tokenId, 1);
 
-        // In base case with no time manipulation, writtenTs should be greater than or equal to checkpointStart
-        assertGe(
-            point.writtenTs,
-            checkpointStart,
-            "writtenTs should be greater than or equal to checkpointStart in base case"
-        );
+        // In base case with no time manipulation, writtenTs should be >= checkpointStart
+        assertGe(point.writtenTs, checkpointStart, "writtenTs should be >= checkpointStart in base case");
     }
 
     /// @notice Test Scenario 2: Same Deposit Interval - different writtenTs but same lock.start
