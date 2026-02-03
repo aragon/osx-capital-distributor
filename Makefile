@@ -164,12 +164,22 @@ deploy-cdp: ## Deploy CDP contracts without verification
 		--broadcast \
 		--slow
 
+ifeq ($(VERIFIER),etherscan)
+  VERIFIER_PARAMS := --verifier etherscan --etherscan-api-key $(ETHERSCAN_API_KEY)
+endif
+
+ifeq ($(VERIFIER),blockscout)
+  VERIFIER_PARAMS := --verifier blockscout --verifier-url "$(VERIFIER_URL)"
+endif
+
 deploy-verify-cdp: ## Deploy CDP contracts with verification on chain explorer
 	forge script Deploy \
 		--rpc-url $(RPC_URL) \
+		--retries 5 \
+  		--delay 7 \
 		--private-key $(PRIVATE_KEY) \
 		--broadcast \
 		--slow \
 		--verify \
 		--etherscan-api-key $(ETHERSCAN_API_KEY) \
-		--verifier-url $(ETHERSCAN_API_URL_FOR_CHAINID)
+		$(VERIFIER_PARAMS)
