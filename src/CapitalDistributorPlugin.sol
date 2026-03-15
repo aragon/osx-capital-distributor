@@ -6,6 +6,7 @@ import { ERC165Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/int
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { SafeCastUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 import { Action, IExecutor } from "@aragon/commons/executors/IExecutor.sol";
 import { IDAO } from "@aragon/commons/dao/IDAO.sol";
@@ -14,6 +15,7 @@ import { MetadataExtensionUpgradeable } from "@aragon/commons/utils/metadata/Met
 
 import { IAllocatorStrategy } from "./interfaces/IAllocatorStrategy.sol";
 import { IPayoutActionEncoder } from "./interfaces/IPayoutActionEncoder.sol";
+import { ICapitalDistributorPlugin } from "./interfaces/ICapitalDistributorPlugin.sol";
 import { AllocatorStrategyFactory } from "./factories/AllocatorStrategyFactory.sol";
 import { ActionEncoderFactory } from "./factories/ActionEncoderFactory.sol";
 import { RatioUtils } from "./utils/RatioUtils.sol";
@@ -27,22 +29,16 @@ contract CapitalDistributorPlugin is
     Initializable,
     ERC165Upgradeable,
     PluginUUPSUpgradeable,
-    MetadataExtensionUpgradeable
+    MetadataExtensionUpgradeable,
+    ICapitalDistributorPlugin
 {
     using SafeCastUpgradeable for uint256;
 
     /// @notice The ID of the permission required to create a campaign.
     bytes32 public constant CAMPAIGN_MANAGER_PERMISSION_ID = keccak256("CAMPAIGN_MANAGER_PERMISSION");
 
-    /// @notice Represents the different states a campaign can be in
-    /// @dev ACTIVE: Normal operation, claims allowed
-    /// @dev PAUSED: Temporarily paused (for updates), can be resumed
-    /// @dev ENDED: Permanently ended, cannot be resumed
-    enum CampaignState {
-        ACTIVE,
-        PAUSED,
-        ENDED
-    }
+    /// @notice Maximum number of batches claims allowed
+    uint256 public constant MAX_BATCH_SIZE = 50;
 
     /// @notice The AllocatorStrategyFactory instance used to deploy strategies.
     AllocatorStrategyFactory public allocatorStrategyFactory;
@@ -52,27 +48,6 @@ contract CapitalDistributorPlugin is
 
     /// @notice The number of campaigns created.
     uint256 public numCampaigns = 0;
-
-    /**
-     * @notice Represents a distribution campaign.
-     * @custom:storage-location erc7201:capital.distributor.campaigns.struct
-     * @param metadataURI URI pointing to the campaign's metadata (e.g., IPFS hash).
-     * @param allocationStrategy The contract address responsible for determining allocation logic.
-     * @param token The address of the token that will be used for the payouts
-     * @param actionEncoder The logic to execute when claiming the payout
-     * @param state The current state of the campaign (ACTIVE, PAUSED, or ENDED)
-     * @param startTime The timestamp when the campaign becomes active (0 means no start time restriction)
-     * @param endTime The timestamp when the campaign ends (0 means no end time restriction)
-     */
-    struct Campaign {
-        bytes metadataUri;
-        IAllocatorStrategy allocationStrategy;
-        IERC20 token;
-        IPayoutActionEncoder actionEncoder;
-        CampaignState state;
-        uint64 startTime;
-        uint64 endTime;
-    }
 
     /**
      * @notice Stores the amount claimed by a receiver for a specific campaign.
@@ -86,40 +61,6 @@ contract CapitalDistributorPlugin is
      * allocationStrategy, address token, address actionEncoder, CampaignState state)`
      */
     mapping(uint256 campaignId => Campaign) public campaigns;
-
-    /**
-     * @notice Strategy configuration for a campaign
-     * @param strategyId The strategy type ID to deploy or use
-     * @param strategyParams Deployment parameters for the strategy
-     * @param initData Additional data needed to initialize the allocation strategy
-     */
-    struct StrategyConfig {
-        bytes32 strategyId;
-        bytes strategyParams;
-        bytes initData;
-    }
-
-    /**
-     * @notice Payout configuration for a campaign
-     * @param token The token address that will be used for payouts
-     * @param actionEncoderId The action encoder type ID to deploy (use bytes32(0) for simple transfers)
-     * @param actionEncoderInitData Additional data needed to initialize the action encoder
-     */
-    struct PayoutConfig {
-        IERC20 token;
-        bytes32 actionEncoderId;
-        bytes actionEncoderInitData;
-    }
-
-    /**
-     * @notice Campaign settings for time bounds and claim behavior
-     * @param startTime The timestamp when the campaign becomes active (0 means no start time restriction)
-     * @param endTime The timestamp when the campaign ends (0 means no end time restriction)
-     */
-    struct CampaignSettings {
-        uint64 startTime;
-        uint64 endTime;
-    }
 
     /**
      * @notice Emitted when a campaign's details are created.
@@ -172,11 +113,6 @@ contract CapitalDistributorPlugin is
     /// @notice Thrown when trying to access a campaign that doesn't exist.
     /// @param campaignId The ID of the non-existent campaign.
     error CampaignNotFound(uint256 campaignId);
-
-    /// @notice Thrown when the DAO in strategy params doesn't match the plugin's DAO.
-    /// @param expected The expected DAO address.
-    /// @param provided The provided DAO address.
-    error DAOMismatch(address expected, address provided);
 
     /// @notice Thrown when empty metadata URI is provided.
     error EmptyMetadataURI();
@@ -233,6 +169,11 @@ contract CapitalDistributorPlugin is
     /// @notice Thrown when the token doesn't revert under invalid transfers
     error InvalidToken(address token);
 
+    /// @notice Thrown when batch operation exceeds maximum allowed size
+    /// @param provided The provided batch size
+    /// @param maximum The maximum allowed batch size
+    error BatchSizeExceeded(uint256 provided, uint256 maximum);
+
     /// @notice Initializes the component to be used by inheriting contracts.
     /// @dev This method is required to support [ERC-1822](https://eips.ethereum.org/EIPS/eip-1822).
     /// @param _dao The IDAO interface of the associated DAO.
@@ -264,6 +205,49 @@ contract CapitalDistributorPlugin is
         __PluginUUPSUpgradeable_init(_dao);
         allocatorStrategyFactory = _allocatorStrategyFactory;
         actionEncoderFactory = _actionEncoderFactory;
+    }
+
+    /// @notice Deploys a new strategy using the allocator strategy factory.
+    /// @param _strategyId The ID of the strategy to deploy.
+    /// @param _deploymentParams The parameters for the strategy deployment.
+    /// @return strategyAddress The address of the deployed strategy.
+    function deployStrategy(
+        bytes32 _strategyId,
+        bytes calldata _deploymentParams
+    )
+        external
+        auth(CAMPAIGN_MANAGER_PERMISSION_ID)
+        returns (address strategyAddress)
+    {
+        // Deploy and setup allocation strategy
+        {
+            strategyAddress = allocatorStrategyFactory.deployStrategy(_strategyId, dao(), _deploymentParams);
+            if (strategyAddress == address(0)) {
+                revert FactoryDeploymentFailed("AllocatorStrategy");
+            }
+        }
+    }
+
+    /// @notice Deploys a new action encoder using the action encoder factory.
+    /// @param _actionEncoderId The ID of the action encoder to deploy.
+    /// @param _deploymentParams The parameters for the action encoder deployment.
+    /// @return actionEncoderAddress The address of the deployed action encoder.
+    function deployActionEncoder(
+        bytes32 _actionEncoderId,
+        bytes calldata _deploymentParams
+    )
+        external
+        auth(CAMPAIGN_MANAGER_PERMISSION_ID)
+        returns (address actionEncoderAddress)
+    {
+        // Deploy and setup action encoder
+        {
+            actionEncoderAddress =
+                address(actionEncoderFactory.deployActionEncoder(_actionEncoderId, dao(), _deploymentParams));
+            if (actionEncoderAddress == address(0)) {
+                revert FactoryDeploymentFailed("ActionEncoder");
+            }
+        }
     }
 
     /**
@@ -300,7 +284,13 @@ contract CapitalDistributorPlugin is
         if (address(_payout.token) == address(0)) {
             revert ZeroAddress("_token");
         }
-        if (_settings.startTime > 0 && _settings.endTime > 0 && _settings.startTime >= _settings.endTime) {
+
+        // Validate that time bounds are in the future if set
+        if (_settings.startTime > 0 && _settings.startTime < block.timestamp) {
+            revert InvalidTimeBounds();
+        }
+        if (_settings.endTime > 0 && (_settings.endTime <= block.timestamp || _settings.startTime >= _settings.endTime))
+        {
             revert InvalidTimeBounds();
         }
 
@@ -391,7 +381,7 @@ contract CapitalDistributorPlugin is
      * @param _campaignId The unique identifier for the campaign.
      * @return The campaign strategy id.
      */
-    function getCampaignstrategyId(uint256 _campaignId) public view returns (bytes32) {
+    function getCampaignStrategyId(uint256 _campaignId) public view returns (bytes32) {
         return campaigns[_campaignId].allocationStrategy.strategyId();
     }
 
@@ -733,6 +723,9 @@ contract CapitalDistributorPlugin is
         returns (uint256[] memory amounts)
     {
         uint256 length = _campaignIds.length;
+        if (length > MAX_BATCH_SIZE) {
+            revert BatchSizeExceeded(length, MAX_BATCH_SIZE);
+        }
         if (length != _recipients.length || length != _strategiesAuxData.length || length != _encodersAuxData.length) {
             revert ArrayLengthMismatch();
         }
@@ -822,10 +815,10 @@ contract CapitalDistributorPlugin is
         public
         view
         virtual
-        override(ERC165Upgradeable, PluginUUPSUpgradeable, MetadataExtensionUpgradeable)
+        override(ERC165Upgradeable, PluginUUPSUpgradeable, MetadataExtensionUpgradeable, IERC165)
         returns (bool)
     {
-        return super.supportsInterface(_interfaceId);
+        return super.supportsInterface(_interfaceId) || _interfaceId == type(ICapitalDistributorPlugin).interfaceId;
     }
 
     /// @notice Internal helper to check if a campaign exists

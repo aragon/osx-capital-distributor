@@ -22,12 +22,13 @@ contract GenerateMerkleTree is Script {
      * @notice Generate merkle tree from recipients JSON file
      * @param recipientsFilePath Path to JSON file containing recipients
      */
-    function generate(string memory recipientsFilePath) external {
+    function run(string memory recipientsFilePath) public {
         // Read the recipients file
         string memory json = vm.readFile(recipientsFilePath);
 
         // Parse recipients from JSON
-        Recipient[] memory recipients = parseRecipients(json);
+        bytes memory data = vm.parseJson(json);
+        Recipient[] memory recipients = abi.decode(data, (Recipient[]));
 
         // Generate merkle tree
         bytes32[] memory leaves = generateLeaves(recipients);
@@ -43,7 +44,7 @@ contract GenerateMerkleTree is Script {
         string memory output = createOutputJson(merkleRoot, recipients, leaves, totalAmount);
 
         // Write output file to test data directory
-        string memory outputPath = "./tests/data/merkle-tree.json";
+        string memory outputPath = "./script/fixtures/merkle-tree.json";
         vm.writeFile(outputPath, output);
 
         // Log results
@@ -52,63 +53,6 @@ contract GenerateMerkleTree is Script {
         console.log("Recipients:", recipients.length);
         console.log("Total Amount:", totalAmount);
         console.log("Output:", outputPath);
-    }
-
-    /**
-     * @notice Parse recipients from JSON string
-     * @param json JSON string containing recipients array
-     * @return recipients Array of recipient structs
-     */
-    function parseRecipients(string memory json) internal view returns (Recipient[] memory) {
-        // Try to parse elements up to a reasonable limit
-        Recipient[] memory tempRecipients = new Recipient[](1000); // Max 1000 recipients
-        uint256 count = 0;
-
-        // Parse each recipient individually until we hit an error
-        for (uint256 i = 0; i < 1000; i++) {
-            try this.parseRecipientAtIndex(json, i) returns (Recipient memory recipient) {
-                tempRecipients[count] = recipient;
-                count++;
-            } catch {
-                break; // No more recipients
-            }
-        }
-
-        require(count > 0, "No recipients found");
-
-        // Create properly sized array
-        Recipient[] memory recipients = new Recipient[](count);
-        for (uint256 i = 0; i < count; i++) {
-            recipients[i] = tempRecipients[i];
-        }
-
-        // Check for duplicates
-        for (uint256 i = 0; i < recipients.length; i++) {
-            for (uint256 j = i + 1; j < recipients.length; j++) {
-                require(recipients[i].account != recipients[j].account, "Duplicate address found");
-            }
-        }
-
-        return recipients;
-    }
-
-    /**
-     * @notice Parse a single recipient at a specific index
-     * @param json JSON string
-     * @param index Array index
-     * @return recipient Parsed recipient
-     */
-    function parseRecipientAtIndex(string memory json, uint256 index) external view returns (Recipient memory) {
-        string memory accountPath = string.concat("$[", vm.toString(index), "].account");
-        string memory amountPath = string.concat("$[", vm.toString(index), "].amount");
-
-        address account = json.readAddress(accountPath);
-        uint256 amount = json.readUint(amountPath);
-
-        require(account != address(0), "Invalid address");
-        require(amount > 0, "Amount must be greater than 0");
-
-        return Recipient({ account: account, amount: amount });
     }
 
     /**
@@ -196,7 +140,7 @@ contract GenerateMerkleTree is Script {
 
         // Add metadata
         output = string.concat(output, '"totalRecipients":', vm.toString(recipients.length), ",");
-        output = string.concat(output, '"totalAmount":"', vm.toString(totalAmount), '",');
+        output = string.concat(output, '"totalAmount":', vm.toString(totalAmount), ",");
 
         // Add recipients array
         output = string.concat(output, '"recipients":[');
@@ -204,7 +148,7 @@ contract GenerateMerkleTree is Script {
             if (i > 0) output = string.concat(output, ",");
             output = string.concat(output, "{");
             output = string.concat(output, '"address":"', vm.toString(recipients[i].account), '",');
-            output = string.concat(output, '"amount":"', vm.toString(recipients[i].amount), '",');
+            output = string.concat(output, '"amount":', vm.toString(recipients[i].amount), ",");
             output = string.concat(output, '"leaf":"', vm.toString(leaves[i]), '"');
             output = string.concat(output, "}");
         }

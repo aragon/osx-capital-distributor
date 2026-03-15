@@ -163,25 +163,25 @@ contract FactoryBaseTest is Test {
         bytes memory auxData1 = abi.encode(1, 2, 3);
         bytes memory auxData2 = abi.encode(4, 5, 6);
 
-        bytes32 hash1 = factory.exposedComputeParamsHash(TYPE_ID_1, IDAO(address(dao)), auxData1);
-        bytes32 hash2 = factory.exposedComputeParamsHash(TYPE_ID_1, IDAO(address(dao)), auxData2);
-        bytes32 hash3 = factory.exposedComputeParamsHash(TYPE_ID_2, IDAO(address(dao)), auxData1);
+        bytes32 hash1 = factory.exposedComputeParamsHash(TYPE_ID_1, IDAO(address(dao)), address(this), auxData1);
+        bytes32 hash2 = factory.exposedComputeParamsHash(TYPE_ID_1, IDAO(address(dao)), address(this), auxData2);
+        bytes32 hash3 = factory.exposedComputeParamsHash(TYPE_ID_2, IDAO(address(dao)), address(this), auxData1);
 
         assertTrue(hash1 != hash2);
         assertTrue(hash1 != hash3);
         assertTrue(hash2 != hash3);
 
-        bytes32 expectedHash = keccak256(abi.encode(TYPE_ID_1, address(dao), auxData1));
+        bytes32 expectedHash = keccak256(abi.encode(TYPE_ID_1, address(dao), address(this), auxData1));
         assertEq(hash1, expectedHash);
     }
 
     /// @notice Test hash collision resistance
     function test_HashCollisionResistance() public view {
         bytes memory auxData1 = abi.encodePacked(TYPE_ID_1, address(dao));
-        bytes32 hash1 = factory.exposedComputeParamsHash(TYPE_ID_2, IDAO(address(0)), auxData1);
+        bytes32 hash1 = factory.exposedComputeParamsHash(TYPE_ID_2, IDAO(address(0)), address(this), auxData1);
 
         bytes memory auxData2 = "";
-        bytes32 hash2 = factory.exposedComputeParamsHash(TYPE_ID_1, IDAO(address(dao)), auxData2);
+        bytes32 hash2 = factory.exposedComputeParamsHash(TYPE_ID_1, IDAO(address(dao)), address(this), auxData2);
 
         assertTrue(hash1 != hash2);
     }
@@ -250,10 +250,10 @@ contract FactoryBaseTest is Test {
     function testFuzz_HashComputation(bytes32 typeId, address daoAddr, bytes memory auxData) public view {
         IDAO daoInterface = IDAO(daoAddr);
 
-        bytes32 extendedHash = factory.exposedComputeParamsHash(typeId, daoInterface, auxData);
+        bytes32 extendedHash = factory.exposedComputeParamsHash(typeId, daoInterface, address(this), auxData);
 
         if (auxData.length == 0) {
-            assertEq(extendedHash, keccak256(abi.encode(typeId, daoAddr, auxData)));
+            assertEq(extendedHash, keccak256(abi.encode(typeId, daoAddr, address(this), auxData)));
         }
     }
 
@@ -316,13 +316,14 @@ contract ConcreteFactoryBase is FactoryBase {
     function exposedComputeParamsHash(
         bytes32 _typeId,
         IDAO _dao,
+        address _plugin,
         bytes memory _auxData
     )
         external
         pure
         returns (bytes32)
     {
-        return _computeDeploymentId(_typeId, _dao, _auxData);
+        return _computeDeploymentId(_typeId, _dao, _plugin, _auxData);
     }
 }
 

@@ -100,11 +100,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     }
 
     /// @inheritdoc IAllocatorStrategy
-    function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) public override {
-        if (msg.sender != owner()) {
-            revert OnlyDAOAllowed(msg.sender);
-        }
-
+    function setAllocationCampaign(uint256 _campaignId, bytes calldata _auxData) public override ownerOrDao {
         // Check if campaign already exists
         if (merkleCampaigns[_campaignId].merkleRoot != bytes32(0)) {
             revert MerkleCampaignAlreadyExists(_campaignId);
@@ -163,11 +159,7 @@ contract MerkleDistributorStrategy is AllocatorStrategyBase {
     /// @notice Updates the merkle root for an existing campaign
     /// @param _campaignId The campaign ID to update
     /// @param _auxData The encoded data containing the new merkle root
-    function updateCampaignMerkleRoot(uint256 _campaignId, bytes calldata _auxData) external {
-        if (msg.sender != address(dao())) {
-            revert OnlyDAOAllowed(msg.sender);
-        }
-
+    function updateCampaignMerkleRoot(uint256 _campaignId, bytes calldata _auxData) external ownerOrDao {
         // Check if campaign is paused (not active, or ended)
         // The reason for this is so it's safe to take snapshots
         if (!CapitalDistributorPlugin(plugin).isCampaignPaused(_campaignId)) {
