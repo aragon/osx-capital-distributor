@@ -10,8 +10,9 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 
 // Minimal mock DAO contract for testing
 contract MockDAO {
-// Minimal implementation - just needs to be a contract
-}
+    // Minimal implementation - just needs to be a contract
+
+    }
 
 contract CapitalDistributorPluginInitializeTest is Test {
     IDAO dao;
@@ -149,10 +150,12 @@ contract CapitalDistributorPluginInitializeTest is Test {
         vm.assume(_allocatorFactory != address(0));
         vm.assume(_actionFactory != address(0)); // ActionEncoderFactory cannot be zero address
 
-        // Skip precompile addresses (0x1 to 0x9)
-        vm.assume(uint160(_dao) > 9);
-        vm.assume(uint160(_allocatorFactory) > 9);
-        vm.assume(uint160(_actionFactory) > 9);
+        // Skip precompile addresses and other special addresses that cannot be used with vm.etch()
+        // Precompile addresses are typically 0x1 through 0x9, but we exclude a wider range to be safe
+        // Exclude addresses < 0x100 (256) to avoid all precompile addresses and other special addresses
+        vm.assume(uint160(_dao) >= 0x100);
+        vm.assume(uint160(_allocatorFactory) >= 0x100);
+        vm.assume(uint160(_actionFactory) >= 0x100);
 
         // Deploy contracts at the addresses to make them valid
         vm.etch(_dao, address(dao).code);

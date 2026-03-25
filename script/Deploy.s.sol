@@ -1,311 +1,425 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-pragma solidity >=0.8.29 <0.9.0;
+pragma solidity ^0.8.29;
 
-// import { Foo } from "../src/Foo.sol";
 import { console2 as console } from "forge-std/console2.sol";
-
-import { DAO } from "@aragon/osx/core/dao/DAO.sol";
-import { PluginRepoFactory } from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
-import { PluginRepo } from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
-import { DAOFactory } from "@aragon/osx/framework/dao/DAOFactory.sol";
-
-import { IPlugin } from "@aragon/commons/plugin/IPlugin.sol";
-import { PluginSetupRef } from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
-
-import { CapitalDistributorPluginSetup } from "../src/CapitalDistributorPluginSetup.sol";
-import { AllocatorStrategyFactory } from "../src/factories/AllocatorStrategyFactory.sol";
-import { ActionEncoderFactory } from "../src/factories/ActionEncoderFactory.sol";
-
-// Allocator Strategies
-import { MerkleDistributorStrategy } from "../src/allocatorStrategies/MerkleDistributorStrategy.sol";
-
-// Action Encoders
-import { VaultDepositPayoutActionEncoder } from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
 
 import { BaseScript } from "./Base.s.sol";
 
+import {
+    CDPDeployer,
+    CDPInfraParams,
+    CDPInfraDeployment,
+    OSxAddresses,
+    ConditionConfig,
+    InstallCDPParams,
+    PreparedCDPInstallation,
+    VEConditionParams
+} from "../src/deploy/CDPDeployer.sol";
+import { AllocatorStrategyFactory } from "../src/factories/AllocatorStrategyFactory.sol";
+import { ActionEncoderFactory } from "../src/factories/ActionEncoderFactory.sol";
+import { MerkleDistributorStrategy } from "../src/allocatorStrategies/MerkleDistributorStrategy.sol";
+import {
+    VotingEscrowLockPayoutActionEncoder
+} from "../src/payoutActionEncoders/VotingEscrowLockPayoutActionEncoder.sol";
+import { VaultDepositPayoutActionEncoder } from "../src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol";
+import { CapitalDistributorPlugin } from "../src/CapitalDistributorPlugin.sol";
+import { CapitalDistributorPluginSetup } from "../src/CapitalDistributorPluginSetup.sol";
+
+import { DAO } from "@aragon/osx/core/dao/DAO.sol";
+import { PluginRepo } from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
+import { PluginSetupProcessor } from "@aragon/osx/framework/plugin/setup/PluginSetupProcessor.sol";
+import { ExecuteSelectorCondition } from "@aragon/conditions/ExecuteSelectorCondition.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Action } from "@aragon/commons/executors/IExecutor.sol";
+
+interface IMultisig {
+    function createProposal(
+        bytes calldata _metadata,
+        Action[] calldata _actions,
+        uint256 _allowFailureMap,
+        bool _approveProposal,
+        bool _tryExecution,
+        uint64 _startDate,
+        uint64 _endDate
+    )
+        external
+        returns (uint256 proposalId);
+}
+
+/// @title Deploy
+/// @notice Production deploy script for deploying Capital Distributor Plugin into existing DAO (e.g., Katana DAO)
+/// @dev Reads configuration from .env file. Copy .env.example to .env and configure.
+///
+/// Required Environment Variables (in .env):
+/// - DAO: The existing DAO address to install CDP into (e.g., Katana DAO)
+/// - PLUGIN_REPO_FACTORY: OSx PluginRepoFactory address
+/// - PSP: OSx PluginSetupProcessor address
+/// - PLUGIN_MAINTAINER: Address that can maintain the plugin repo
+/// - TOKEN: The token address (for approve selector in condition)
+/// - VOTING_ESCROW: The VotingEscrow address (for createLockFor selector in condition)
+/// - MULTISIG_ADDRESS: The Multisig address to create the proposal on
+///
+/// Optional Environment Variables:
+/// - FEE_RECIPIENT: Protocol fee recipient (default: address(0))
+/// - FEE_BASIS_POINTS: Protocol fee in basis points (default: 0)
+/// - PLUGIN_NAME: Plugin repo subdomain (default: auto-generated with timestamp)
+///
+/// Usage:
+/// ```bash
+/// # 1. Copy .env.example to .env and configure
+/// cp .env.example .env
+///
+/// # 2. Run the deployment script
+/// forge script script/Deploy.s.sol --broadcast
+///
+/// # The script will:
+/// # - Deploy CDP infrastructure (factories, strategies, encoders)
+/// # - Call prepareInstallation() on PSP
+/// # - Generate and log calldata for applyInstallation() that Katana team can execute
+/// ```
 contract Deploy is BaseScript {
-    struct DeploymentAddresses {
-        uint256 chainId;
-        uint256 timestamp;
-        string chainName;
-        address dao;
-        address capitalDistributorPlugin;
-        address executeCondition;
-        address adminPlugin;
-        address pluginSetup;
-        address pluginRepo;
-        address pluginMaintainer;
-        address allocatorStrategyFactory;
-        address actionEncoderFactory;
-        address merkleDistributorStrategy;
-        address vaultDepositPayoutActionEncoder;
-        // Metadata
-        string daoName;
-        string daoUri;
-        string pluginName;
-        address adminOwner;
-        address feeRecipient;
-        uint32 feeBasisPoints;
-    }
+    // Deployer helper
+    CDPDeployer public deployer;
 
-    PluginRepoFactory pluginRepoFactory;
-    DAOFactory daoFactory;
-    PluginRepo adminRepo;
-    string nameWithEntropy;
-    string daoName;
-    string daoUri;
-    address[] pluginAddress;
-    address pluginMaintainer;
-    address adminOwner;
-    uint32 feeBasisPoints;
-    address feeRecipient;
+    // Infrastructure contracts
+    AllocatorStrategyFactory public strategyFactory;
+    ActionEncoderFactory public encoderFactory;
+    MerkleDistributorStrategy public merkleStrategy;
+    VotingEscrowLockPayoutActionEncoder public veEncoder;
+    VaultDepositPayoutActionEncoder public vaultEncoder;
+    CapitalDistributorPluginSetup public pluginSetup;
 
-    AllocatorStrategyFactory public allocatorStrategyFactory;
-    ActionEncoderFactory public actionEncoderFactory;
+    // Installation addresses (stored separately to avoid storage issues with nested arrays)
+    PluginRepo public pluginRepo;
+    DAO public dao;
+    CapitalDistributorPlugin public cdpPlugin;
+    ExecuteSelectorCondition public condition;
+    PluginSetupProcessor public psp;
 
-    DAO createdDAO;
-    DeploymentAddresses deployment;
-
-    function setUp() public {
-        console.log("\n=== Deploy Script Environment Variables ===");
-
-        string memory chainName = vm.envString("CHAIN_NAME");
-        console.log("CHAIN_NAME:", chainName);
-        vm.createSelectFork(chainName);
-
-        uint256 timestamp = block.timestamp;
-        console.log("Current timestamp:", timestamp);
-
-        pluginRepoFactory = PluginRepoFactory(vm.envAddress("PLUGIN_REPO_FACTORY"));
-        console.log("PLUGIN_REPO_FACTORY:", address(pluginRepoFactory));
-
-        daoFactory = DAOFactory(vm.envAddress("DAO_FACTORY"));
-        console.log("DAO_FACTORY:", address(daoFactory));
-
-        adminRepo = PluginRepo(vm.envAddress("ADMIN_REPO"));
-        console.log("ADMIN_REPO:", address(adminRepo));
-
-        adminOwner = vm.envAddress("ADMIN_OWNER");
-        console.log("ADMIN_OWNER:", adminOwner);
-
-        nameWithEntropy = vm.envOr("PLUGIN_NAME", string.concat("osx-capital-distributor-", vm.toString(timestamp)));
-        console.log("PLUGIN_NAME:", nameWithEntropy);
-
-        pluginMaintainer = vm.envAddress("PLUGIN_MAINTAINER");
-        console.log("PLUGIN_MAINTAINER:", pluginMaintainer);
-
-        daoName = vm.envOr("DAO_NAME", string.concat("osx-capital-distributor-", vm.toString(timestamp)));
-        console.log("DAO_NAME:", daoName);
-
-        daoUri = vm.envOr("DAO_URI", string.concat("https://dao-uri-", vm.toString(timestamp)));
-        console.log("DAO_URI:", daoUri);
-
-        feeRecipient = vm.envOr("FEE_RECIPIENT", address(0));
-        console.log("FEE_RECIPIENT:", feeRecipient);
-
-        feeBasisPoints = uint32(vm.envOr("FEE_BASIS_POINTS", uint256(0)));
-        console.log("FEE_BASIS_POINTS:", feeBasisPoints);
-
-        console.log("=== End Environment Variables ===\n");
-    }
+    // Store calldata/actions for logging (generated during prepareInstallation)
+    bytes public applyInstallationCalldata;
+    string public actionsJson;
 
     function run() public broadcast {
-        // Initialize deployment struct with metadata
-        deployment.chainId = block.chainid;
-        deployment.timestamp = block.timestamp;
-        deployment.chainName = vm.envString("CHAIN_NAME");
-        deployment.daoName = daoName;
-        deployment.daoUri = daoUri;
-        deployment.pluginName = nameWithEntropy;
-        deployment.adminOwner = adminOwner;
-        deployment.feeRecipient = feeRecipient;
-        deployment.feeBasisPoints = feeBasisPoints;
+        console.log("\n=== CDP Deployment Script (Katana Mainnet) ===");
+        console.log("Chain ID:", block.chainid);
+        console.log("Deployer:", msg.sender);
 
-        // 1. Deploy the Factories
-        allocatorStrategyFactory = new AllocatorStrategyFactory();
-        actionEncoderFactory = new ActionEncoderFactory();
-        deployment.allocatorStrategyFactory = address(allocatorStrategyFactory);
-        deployment.actionEncoderFactory = address(actionEncoderFactory);
+        deployer = new CDPDeployer();
 
-        // 2. Add the AllocationStrategies to the Factory registry
-        MerkleDistributorStrategy merkleDistributorStrategy = new MerkleDistributorStrategy();
-        deployment.merkleDistributorStrategy = address(merkleDistributorStrategy);
-        allocatorStrategyFactory.registerStrategyType(
-            toBytes32("merkle-distributor-strategy"),
-            address(merkleDistributorStrategy),
-            "0x00",
-            feeRecipient,
-            feeBasisPoints
+        // Step 1: Deploy infrastructure
+        _deployInfrastructure();
+
+        // Step 2: Prepare installation into existing DAO
+        _prepareInstallation();
+
+        // Step 3: Log all addresses and calldata for Katana team
+        _logAllAddresses();
+        _logApplyInstallationCalldata();
+
+        // Step 4: Save deployment to file
+        _saveDeployment();
+    }
+
+    function _deployInfrastructure() internal {
+        console.log("\n[Step 1] Deploying CDP Infrastructure...");
+
+        // Deploy all infrastructure contracts
+        strategyFactory = new AllocatorStrategyFactory();
+        encoderFactory = new ActionEncoderFactory();
+        merkleStrategy = new MerkleDistributorStrategy();
+        veEncoder = new VotingEscrowLockPayoutActionEncoder();
+        vaultEncoder = new VaultDepositPayoutActionEncoder();
+        pluginSetup = new CapitalDistributorPluginSetup();
+
+        console.log("  StrategyFactory:", address(strategyFactory));
+        console.log("  EncoderFactory:", address(encoderFactory));
+        console.log("  MerkleStrategy:", address(merkleStrategy));
+        console.log("  VotingEscrowEncoder:", address(veEncoder));
+        console.log("  VaultDepositEncoder:", address(vaultEncoder));
+        console.log("  PluginSetup:", address(pluginSetup));
+
+        // Setup infrastructure (register strategies and encoders)
+        deployer.setupInfrastructure(
+            CDPInfraParams({
+                strategyFactory: address(strategyFactory),
+                encoderFactory: address(encoderFactory),
+                merkleStrategy: address(merkleStrategy),
+                votingEscrowEncoder: address(veEncoder),
+                vaultDepositEncoder: address(vaultEncoder),
+                feeRecipient: vm.envOr("FEE_RECIPIENT", address(0)),
+                feeBasisPoints: uint32(vm.envOr("FEE_BASIS_POINTS", uint256(0)))
+            })
         );
 
-        // 3. Add the ActionEncoders to the Factory registry
-        VaultDepositPayoutActionEncoder vaultDepositPayoutActionEncoder = new VaultDepositPayoutActionEncoder();
-        deployment.vaultDepositPayoutActionEncoder = address(vaultDepositPayoutActionEncoder);
-        actionEncoderFactory.registerActionEncoder(
-            toBytes32("vault-deposit-encoder"), address(vaultDepositPayoutActionEncoder), "0x00"
+        console.log("  Note: Both encoders registered. Use VOTING_ESCROW_ENCODER_ID for VE campaigns.");
+    }
+
+    function _prepareInstallation() internal {
+        console.log("\n[Step 2] Preparing CDP Installation...");
+
+        // Read existing DAO address from environment
+        dao = DAO(payable(vm.envAddress("DAO")));
+        psp = PluginSetupProcessor(vm.envAddress("PSP"));
+
+        console.log("  Target DAO:", address(dao));
+        console.log("  PSP:", address(psp));
+
+        // Prepare installation params
+        InstallCDPParams memory installParams = InstallCDPParams({
+            dao: dao,
+            osx: OSxAddresses({
+                daoFactory: address(0), // Not needed for prepareInstallation
+                pluginRepoFactory: vm.envAddress("PLUGIN_REPO_FACTORY"),
+                pluginSetupProcessor: address(psp),
+                adminPluginRepo: address(0), // Not needed for prepareInstallation
+                multisigPluginRepo: address(0) // Not needed for prepareInstallation
+            }),
+            infra: CDPInfraDeployment({
+                strategyFactory: strategyFactory,
+                encoderFactory: encoderFactory,
+                merkleStrategy: merkleStrategy,
+                votingEscrowEncoder: veEncoder,
+                vaultDepositEncoder: vaultEncoder
+            }),
+            pluginSetup: address(pluginSetup),
+            pluginMaintainer: vm.envAddress("PLUGIN_MAINTAINER"),
+            pluginRepoSubdomain: vm.envOr(
+                "PLUGIN_NAME", string.concat("test-cdp-plugin-", vm.toString(block.timestamp))
+            ),
+            releaseMetadata: vm.envOr("RELEASE_METADATA", string("ipfs://")),
+            buildMetadata: vm.envOr("BUILD_METADATA", string("ipfs://"))
+        });
+
+        // Call prepareInstallation (this is permissionless)
+        // Use memory variable to avoid storage issues with nested arrays
+        PreparedCDPInstallation memory prepared = deployer.prepareInstallation(installParams);
+
+        // Store only the addresses we need
+        pluginRepo = prepared.pluginRepo;
+        cdpPlugin = prepared.plugin;
+        condition = prepared.condition;
+
+        // Generate and store the applyInstallation calldata immediately
+        applyInstallationCalldata = deployer.buildApplyInstallationCalldata(prepared);
+
+        // Read VE params for condition configuration
+        VEConditionParams memory veParams =
+            VEConditionParams({ token: vm.envAddress("TOKEN"), votingEscrow: vm.envAddress("VOTING_ESCROW") });
+
+        console.log("  Token (for condition):", veParams.token);
+        console.log("  VotingEscrow (for condition):", veParams.votingEscrow);
+
+        // Generate and store actions JSON for UI upload
+        // Now includes condition configuration for token.approve() and votingEscrow.createLockFor()
+        Action[] memory actions = deployer.buildInstallationActions(address(dao), address(psp), prepared, veParams);
+
+        // Encode createProposal call with all the actions
+        bytes memory createProposalData = abi.encodeWithSelector(
+            IMultisig.createProposal.selector,
+            bytes("Bootstrap Katana Vault Ecosystem - Complete Initialization"),
+            actions,
+            0, // allowFailureMap - all actions must succeed
+            true, // approveProposal - approve with caller's signature
+            false, // tryExecution - don't try to execute immediately
+            uint64(0), // startDate - 0 means now
+            uint64(block.timestamp + 7 days) // endDate - 7 days from now
         );
 
-        deployment.pluginMaintainer = pluginMaintainer;
+        // Create single wrapper action that calls createProposal on multisig
+        Action[] memory wrapperAction = new Action[](1);
+        wrapperAction[0] = Action({ to: vm.envAddress("MULTISIG_ADDRESS"), value: 0, data: createProposalData });
 
-        // 4. Deploying the Plugin Setup
-        CapitalDistributorPluginSetup pluginSetup = deployPluginSetup();
-        deployment.pluginSetup = address(pluginSetup);
+        actionsJson = _serializeActions(wrapperAction);
 
-        // 5. Publishing in the Aragon OSx Plugin Repository
-        PluginRepo pluginRepo = deployPluginRepo(address(pluginSetup));
-        deployment.pluginRepo = address(pluginRepo);
-
-        // 6. Defining the DAO Settings
-        DAOFactory.DAOSettings memory daoSettings = getDAOSettings();
-
-        // 7. Defining the plugin settings
-        DAOFactory.PluginSettings[] memory pluginSettings = getPluginSettings(pluginRepo);
-
-        // 8. Deploying the DAO
-        // Two plugins, one is the capital distributor and the other one is the Admin Plugin
-        DAOFactory.InstalledPlugin[] memory installedPlugins = new DAOFactory.InstalledPlugin[](2);
-        (createdDAO, installedPlugins) = daoFactory.createDao(daoSettings, pluginSettings);
-
-        deployment.dao = address(createdDAO);
-        deployment.capitalDistributorPlugin = installedPlugins[0].plugin;
-        deployment.executeCondition = installedPlugins[0].preparedSetupData.helpers[0];
-        deployment.adminPlugin = installedPlugins[1].plugin;
-
-        console.log("ACTION_ENCODER_FACTORY=", address(actionEncoderFactory));
-        console.log("ALLOCATOR_STRATEGY_FACTORY=", address(allocatorStrategyFactory));
-        console.log("DAO=", address(createdDAO));
-        console.log("PLUGIN=", installedPlugins[0].plugin);
-        console.log("EXECUTE_CONDITION=", deployment.executeCondition);
-
-        // Save deployment to file
-        saveDeployment();
+        console.log("  Plugin Repo:", address(pluginRepo));
+        console.log("  CDP Plugin (prepared):", address(cdpPlugin));
+        console.log("  Condition (prepared):", address(condition));
     }
 
-    function deployPluginSetup() internal returns (CapitalDistributorPluginSetup) {
-        CapitalDistributorPluginSetup pluginSetup = new CapitalDistributorPluginSetup();
-        return pluginSetup;
+    function _logAllAddresses() internal view {
+        console.log("\n===========================================");
+        console.log("CDP DEPLOYMENT ADDRESSES");
+        console.log("===========================================");
+
+        console.log("\n--- Infrastructure ---");
+        console.log("CDPDeployer:", address(deployer));
+        console.log("StrategyFactory:", address(strategyFactory));
+        console.log("EncoderFactory:", address(encoderFactory));
+        console.log("MerkleStrategy:", address(merkleStrategy));
+        console.log("VotingEscrowEncoder:", address(veEncoder));
+        console.log("VaultDepositEncoder:", address(vaultEncoder));
+        console.log("PluginSetup:", address(pluginSetup));
+
+        console.log("\n--- Encoder IDs (for createCampaign PayoutConfig.actionEncoderId) ---");
+        console.log("VOTING_ESCROW_ENCODER_ID:", vm.toString(deployer.VOTING_ESCROW_ENCODER_ID()));
+        console.log("VAULT_DEPOSIT_ENCODER_ID:", vm.toString(deployer.VAULT_DEPOSIT_ENCODER_ID()));
+
+        console.log("\n--- Prepared Installation ---");
+        console.log("Target DAO:", address(dao));
+        console.log("PSP:", address(psp));
+        console.log("Plugin Repo:", address(pluginRepo));
+        console.log("CDP Plugin:", address(cdpPlugin));
+        console.log("Execute Condition:", address(condition));
     }
 
-    function deployPluginRepo(address pluginSetup) public returns (PluginRepo pluginRepo) {
-        pluginRepo = pluginRepoFactory.createPluginRepoWithFirstVersion(
-            nameWithEntropy, pluginSetup, pluginMaintainer, "0x00", "0x00"
-        );
+    function _logApplyInstallationCalldata() internal view {
+        console.log("\n===========================================");
+        console.log("INSTALLATION INSTRUCTIONS FOR KATANA TEAM");
+        console.log("===========================================");
+        console.log("\nThe DAO needs to execute 5 actions to complete the installation:");
+        console.log("  1. dao.grant(dao, psp, ROOT_PERMISSION_ID)");
+        console.log("  2. psp.applyInstallation(dao, params)");
+        console.log("  3. dao.revoke(dao, psp, ROOT_PERMISSION_ID)");
+        console.log("  4. condition.allowSelectors(token, approve)");
+        console.log("  5. condition.allowSelectors(votingEscrow, createLockFor)");
+
+        console.log("\n--- RECOMMENDED: Use the actions JSON file ---");
+        console.log("Upload the actions-*.json file to the DAO UI.");
+        console.log("It contains all 5 actions ready for DAO.execute().");
+
+        console.log("\n--- Individual Calldata (for reference) ---");
+
+        console.log("\n1. Grant ROOT to PSP (target: DAO):");
+        console.logBytes(deployer.buildGrantRootToPSPCalldata(address(dao), address(psp)));
+
+        console.log("\n2. Apply Installation (target: PSP):");
+        console.logBytes(applyInstallationCalldata);
+
+        console.log("\n3. Revoke ROOT from PSP (target: DAO):");
+        console.logBytes(deployer.buildRevokeRootFromPSPCalldata(address(dao), address(psp)));
+
+        console.log("\n4-5. Condition configuration (target: Condition):");
+        console.log("  See actions JSON file for full calldata");
     }
 
-    function getDAOSettings() internal view returns (DAOFactory.DAOSettings memory) {
-        return DAOFactory.DAOSettings(address(0), daoUri, daoName, "");
+    // =========================================================================
+    // Deployment File Saving
+    // =========================================================================
+
+    function _saveDeployment() internal {
+        string memory timestamp = vm.toString(block.timestamp);
+        string memory chainId = vm.toString(block.chainid);
+
+        // Save deployment info JSON
+        string memory deploymentFilename = string.concat("deployments/deployment-", chainId, "-", timestamp, ".json");
+        string memory deploymentJson =
+            string.concat(_jsonHeader(), _jsonInfrastructure(), _jsonPreparedInstallation(), "}");
+        vm.writeFile(deploymentFilename, deploymentJson);
+
+        // Save actions JSON (for UI upload)
+        string memory actionsFilename = string.concat("deployments/actions-", chainId, "-", timestamp, ".json");
+        vm.writeFile(actionsFilename, actionsJson);
+
+        console.log("\n===========================================");
+        console.log("FILES SAVED");
+        console.log("===========================================");
+        console.log("Deployment info:", deploymentFilename);
+        console.log("Actions (for UI):", actionsFilename);
     }
 
-    address trustedForwarder;
-    string daoURI;
-    string subdomain;
-    bytes metadata;
+    /// @notice Serialize Action array to JSON format expected by the DAO UI
+    /// @param _actions Array of actions to serialize
+    /// @return serialized JSON string representation of actions
+    function _serializeActions(Action[] memory _actions) internal returns (string memory serialized) {
+        string memory json = "[";
 
-    function getPluginSettings(PluginRepo pluginRepo)
-        public
-        view
-        returns (DAOFactory.PluginSettings[] memory pluginSettings)
-    {
-        bytes memory pluginSettingsData = abi.encode(address(allocatorStrategyFactory), address(actionEncoderFactory));
-        PluginRepo.Tag memory tag = PluginRepo.Tag(1, 1);
-        pluginSettings = new DAOFactory.PluginSettings[](2);
-        pluginSettings[0] = DAOFactory.PluginSettings(PluginSetupRef(tag, pluginRepo), pluginSettingsData);
+        for (uint256 i = 0; i < _actions.length; i++) {
+            Action memory a = _actions[i];
 
-        // Settings for the admin
-        IPlugin.TargetConfig memory targetConfig = IPlugin.TargetConfig(address(0), IPlugin.Operation.Call);
-        bytes memory adminSettingsData = abi.encode(adminOwner, targetConfig);
-        PluginRepo.Tag memory adminTag = PluginRepo.Tag(1, 2);
-        pluginSettings[1] = DAOFactory.PluginSettings(PluginSetupRef(adminTag, adminRepo), adminSettingsData);
-    }
+            // Build individual action JSON
+            json = string.concat(
+                json,
+                '{"to":"',
+                vm.toString(a.to),
+                '","value":',
+                vm.toString(a.value),
+                ',"data":"',
+                vm.toString(a.data),
+                '"}'
+            );
 
-    function toBytes32(string memory source) public pure returns (bytes32 result) {
-        bytes memory temp = bytes(source);
-        require(temp.length <= 32, "String too long");
-
-        assembly ("memory-safe") {
-            result := mload(add(temp, 32))
+            // Add comma if not last element
+            if (i < _actions.length - 1) {
+                json = string.concat(json, ",");
+            }
         }
+
+        json = string.concat(json, "]");
+        return json;
     }
 
-    function saveDeployment() internal {
-        string memory filename = string.concat(
-            "deployments/deployment-", vm.toString(deployment.chainId), "-", vm.toString(deployment.timestamp), ".json"
-        );
-
-        // Build JSON in parts to avoid stack too deep
-        string memory jsonPart1 = string.concat(
+    function _jsonHeader() internal view returns (string memory) {
+        return string.concat(
             "{\n",
             '  "chainId": ',
-            vm.toString(deployment.chainId),
+            vm.toString(block.chainid),
             ",\n",
             '  "timestamp": ',
-            vm.toString(deployment.timestamp),
+            vm.toString(block.timestamp),
             ",\n",
-            '  "chainName": "',
-            deployment.chainName,
-            '",\n',
-            '  "metadata": {\n',
-            '    "daoName": "',
-            deployment.daoName,
-            '",\n',
-            '    "daoUri": "',
-            deployment.daoUri,
-            '",\n',
-            '    "pluginName": "',
-            deployment.pluginName,
-            '",\n',
-            '    "adminOwner": "',
-            vm.toString(deployment.adminOwner),
-            '",\n',
-            '    "feeRecipient": "',
-            vm.toString(deployment.feeRecipient),
-            '",\n',
-            '    "feeBasisPoints": ',
-            vm.toString(deployment.feeBasisPoints),
-            "\n",
-            "  },\n"
+            '  "deployer": "',
+            vm.toString(msg.sender),
+            '",\n'
         );
+    }
 
-        string memory jsonPart2 = string.concat(
-            '  "addresses": {\n',
-            '    "dao": "',
-            vm.toString(deployment.dao),
+    function _jsonInfrastructure() internal view returns (string memory) {
+        return string.concat(
+            '  "infrastructure": {\n',
+            '    "cdpDeployer": "',
+            vm.toString(address(deployer)),
             '",\n',
-            '    "capitalDistributorPlugin": "',
-            vm.toString(deployment.capitalDistributorPlugin),
+            '    "strategyFactory": "',
+            vm.toString(address(strategyFactory)),
             '",\n',
-            '    "adminPlugin": "',
-            vm.toString(deployment.adminPlugin),
+            '    "encoderFactory": "',
+            vm.toString(address(encoderFactory)),
             '",\n',
-            '    "executeCondition": "',
-            vm.toString(deployment.executeCondition),
+            '    "merkleStrategy": "',
+            vm.toString(address(merkleStrategy)),
+            '",\n',
+            '    "votingEscrowEncoder": "',
+            vm.toString(address(veEncoder)),
+            '",\n',
+            '    "vaultDepositEncoder": "',
+            vm.toString(address(vaultEncoder)),
             '",\n',
             '    "pluginSetup": "',
-            vm.toString(deployment.pluginSetup),
+            vm.toString(address(pluginSetup)),
+            '"\n',
+            "  },\n",
+            '  "encoderIds": {\n',
+            '    "votingEscrow": "',
+            vm.toString(deployer.VOTING_ESCROW_ENCODER_ID()),
+            '",\n',
+            '    "vaultDeposit": "',
+            vm.toString(deployer.VAULT_DEPOSIT_ENCODER_ID()),
+            '"\n',
+            "  },\n"
+        );
+    }
+
+    function _jsonPreparedInstallation() internal view returns (string memory) {
+        return string.concat(
+            '  "preparedInstallation": {\n',
+            '    "targetDao": "',
+            vm.toString(address(dao)),
+            '",\n',
+            '    "psp": "',
+            vm.toString(address(psp)),
             '",\n',
             '    "pluginRepo": "',
-            vm.toString(deployment.pluginRepo),
+            vm.toString(address(pluginRepo)),
             '",\n',
-            '    "allocatorStrategyFactory": "',
-            vm.toString(deployment.allocatorStrategyFactory),
+            '    "cdpPlugin": "',
+            vm.toString(address(cdpPlugin)),
             '",\n',
-            '    "actionEncoderFactory": "',
-            vm.toString(deployment.actionEncoderFactory),
-            '",\n',
-            '    "merkleDistributorStrategy": "',
-            vm.toString(deployment.merkleDistributorStrategy),
-            '",\n',
-            '    "vaultDepositPayoutActionEncoder": "',
-            vm.toString(deployment.vaultDepositPayoutActionEncoder),
+            '    "executeCondition": "',
+            vm.toString(address(condition)),
             '"\n',
-            "  }\n",
-            "}"
+            "  },\n"
         );
-
-        string memory json = string.concat(jsonPart1, jsonPart2);
-
-        vm.writeFile(filename, json);
-        console.log("\nDeployment saved to:", filename);
     }
+
 }

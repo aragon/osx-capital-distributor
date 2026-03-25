@@ -1,14 +1,14 @@
 # Full reference https://github.com/foundry-rs/foundry/tree/master/crates/config
 
 [profile.default]
-auto_detect_solc = false
-block_timestamp = 1_738_368_000                           # Feb 1, 2025 at 00:00 GMT
+auto_detect_solc = false                          
+block_timestamp = 1_738_368_000             # Feb 1, 2025 at 00:00 GMT
 bytecode_hash = "none"
-evm_version = "shanghai"
+evm_version = "cancun"
 fuzz = { runs = 1_000 }
 gas_reports = ["*"]
 optimizer = true
-optimizer_runs = 10_000
+optimizer_runs = 2_000
 out = "out"
 script = "script"
 solc = "0.8.29"
@@ -26,6 +26,7 @@ verbosity = 4
 [etherscan]
 mainnet = { key = "${API_KEY_ETHERSCAN}" }
 sepolia = { key = "${API_KEY_ETHERSCAN}" }
+katana = { key = "${ETHERSCAN_API_KEY}", url = "${ETHERSCAN_API_URL_FOR_CHAINID}" }
 
 [fmt]
 bracket_spacing = true
@@ -48,3 +49,4 @@ mainnet = "https://eth-mainnet.g.alchemy.com/v2/${API_KEY_ALCHEMY}"
 optimism = "https://optimism-rpc.publicnode.com"
 polygon = "https://polygon-bor-rpc.publicnode.com"
 sepolia = "https://eth-sepolia.g.alchemy.com/v2/${API_KEY_ALCHEMY}"
+katana = "https://rpc.katana.network"
