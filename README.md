@@ -12,16 +12,9 @@ allocation strategy, direct token transfers, and a vault deposit encoder.
 
 ## Documentation
 
-User and developer guides live in [protocol-doc](https://github.com/aragon/protocol-doc). Start with the
-[Distributor overview](https://github.com/aragon/protocol-doc/blob/main/plugins/capital-distributor.md) or the
-[Merkle campaign walkthrough](https://github.com/aragon/protocol-doc/blob/main/guides/distribute-tokens.md). Component
-references cover
-[campaigns and fees](https://github.com/aragon/protocol-doc/blob/main/plugins/capital-distributor/campaigns.md),
-[Merkle allocations](https://github.com/aragon/protocol-doc/blob/main/plugins/capital-distributor/merkle-allocations.md),
-[payout actions](https://github.com/aragon/protocol-doc/blob/main/plugins/capital-distributor/payouts.md), and
-[installation permissions](https://github.com/aragon/protocol-doc/blob/main/plugins/capital-distributor/setup.md).
-
-This repository covers the source, build, tests, deployment script, and Merkle tooling.
+User and developer guides live in
+[protocol-doc](https://github.com/aragon/protocol-doc/blob/main/plugins/capital-distributor.md). Use the task links
+below to create campaigns, deploy the plugin, or generate proofs.
 
 ## Technical stack and source
 
@@ -63,15 +56,14 @@ The [CI workflow](.github/workflows/ci.yml) uses the `ci` profile, which raises 
 | Goal                                                          | Read                                                                                                                                     |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Create campaigns, serve proofs, and integrate claims          | [Campaign walkthrough](https://github.com/aragon/protocol-doc/blob/main/guides/distribute-tokens.md)                                     |
-| Configure deployment, installation, and execution permissions | [Deployment guide](docs/deployment.md)                                                                                                   |
-| Generate Merkle roots and proof files                         | [Merkle tools](script/utils/README.md)                                                                                                   |
+| Configure deployment, installation, and execution permissions | [Deployment guide](https://github.com/aragon/protocol-doc/blob/main/deployment/capital-distributor.md)                                   |
+| Generate Merkle roots and proof files                         | [Merkle tools](https://github.com/aragon/protocol-doc/blob/main/tooling/capital-distributor-merkle.md)                                   |
 | Look up campaign structs and external methods                 | [Plugin interface](src/interfaces/ICapitalDistributorPlugin.sol)                                                                         |
 | Extend allocation or payout behavior                          | [Strategy base](src/allocatorStrategies/AllocatorStrategyBase.sol), [encoder base](src/payoutActionEncoders/PayoutActionEncoderBase.sol) |
 | Review tests                                                  | [Test directory](tests/)                                                                                                                 |
 | Review audit material                                         | [Audit directory](audits/)                                                                                                               |
 
-Audit reports apply to their stated code revisions and scope. The directory also contains a report for a voting-escrow
-payout encoder, which is not included in this checkout's `src/payoutActionEncoders/` directory.
+Audit reports are stored in [`audits/`](audits/); each report identifies its covered revision and scope.
 
 ## License
 
