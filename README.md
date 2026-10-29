@@ -1,276 +1,129 @@
-# Capital Distributor [![Github Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: AGPL v3][license-badge]][license]
+# Capital Distributor
 
-[gha]: https://github.com/aragon/osx-capital-distributor/actions
-[gha-badge]: https://github.com/aragon/osx-capital-distributor/actions/workflows/ci.yml/badge.svg
-[foundry]: https://getfoundry.sh/
-[foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg
-[license]: https://www.gnu.org/licenses/agpl-3.0
-[license-badge]: https://img.shields.io/badge/License-AGPL%20v3-blue.svg
+Capital Distributor is an Aragon OSx plugin for paying token allocations from a DAO treasury. A DAO creates a campaign,
+specifies who can claim and how payouts are delivered, and lets recipients claim their allocation onchain.
 
-## Overview
+The included Merkle strategy supports distributions from a recipient list. It can serve airdrops, grants, rewards, or
+allocations calculated from gauge votes. Your protocol calculates the amounts and publishes the proofs; the plugin
+checks claims and asks the DAO to execute the payments.
 
-Capital Distributor is an Aragon OSx plugin that enables onchain organizations to create and manage capital distribution
-campaigns. Organizations can distribute tokens to their members through various allocation strategies and payout
-methods, making it ideal for airdrops, gauge distributions, incentive programs, grants, and rewards.
+## Is it a fit for your protocol?
 
-## Architecture
+Use Capital Distributor when a DAO needs recipients to claim allocated ERC-20 tokens, with campaign timing, pause
+controls, and a record of amounts already claimed. A campaign can pay tokens directly or use an action encoder to
+deposit them into a configured vault.
 
-The system follows a modular architecture where the main plugin orchestrates campaigns using dynamically deployed
-strategies and encoders through factory contracts:
+Your team supplies the allocation calculation, recipient data, proof delivery, claim interface, and treasury funding.
+Creating a campaign records its configuration without reserving or transferring its budget. Successful claims depend on
+the DAO having the funds and permission to execute every payout action.
+
+These guides describe the contracts in this checkout. The [deployment guide](docs/deployment.md) explains installation;
+the [integration guide](docs/integration.md) covers campaign creation, proofs, claims, and updates.
+
+## Included strategies and payout paths
+
+| Component                  | Behavior                                                                                     | Source                                                                                          |
+| -------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Merkle allocation strategy | Verifies a recipient and their total entitlement against a campaign root                     | [MerkleDistributorStrategy](src/allocatorStrategies/MerkleDistributorStrategy.sol)              |
+| Direct transfer            | Asks the DAO to transfer tokens to the payout address; selected with encoder ID `bytes32(0)` | [CapitalDistributorPlugin](src/CapitalDistributorPlugin.sol)                                    |
+| Vault deposit encoder      | Builds an approval and a `deposit(uint256,address)` call to a campaign's vault               | [VaultDepositPayoutActionEncoder](src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol) |
+
+The vault encoder assumes the vault accepts the configured token and credits the supplied recipient. It does not check
+the vault's asset or set a minimum number of shares. Additional allocation strategies or payout methods require
+implementations of [IAllocatorStrategy](src/interfaces/IAllocatorStrategy.sol) or
+[IPayoutActionEncoder](src/interfaces/IPayoutActionEncoder.sol), registration in the relevant factory, and DAO
+authorization for the resulting payout calls.
+
+## How a claim works
 
 ```mermaid
-graph TB
-    subgraph "Setup"
-        PS[PluginSetup] -->|deploys| P[Plugin]
-        PS -->|connects| F1[AllocatorStrategyFactory]
-        PS -->|connects| F2[ActionEncoderFactory]
-    end
-
-    subgraph "Campaign Creation"
-        P -->|creates campaign| C[Campaign]
-        F1 -->|deploys| AS[Allocation Strategy Instance]
-        F2 -->|deploys| AE[Action Encoder Instance]
-        AS -->|linked to| C
-        AE -->|linked to| C
-    end
-
-    subgraph "Campaign Execution"
-        U[User] -->|claims from| C
-        C -->|validates via| AS
-        C -->|encodes payout via| AE
-        AE -->|executes| T[Token Transfer]
-        T -->|to| U
-    end
+flowchart LR
+    Caller[Claim caller] -->|Recipient and proof| Plugin[Capital Distributor]
+    Plugin -->|Check entitlement| Strategy[Allocation strategy]
+    Plugin -->|Build optional payout actions| Encoder[Action encoder]
+    Plugin -->|Execute payout actions| DAO[OSx DAO]
+    Condition[Execution condition] -->|Authorize targets and selectors| DAO
+    DAO -->|Transfer or deposit treasury tokens| Recipient[Payout recipient]
 ```
 
-## Core Components
+1. The DAO creates a campaign with an allocation strategy, payout token, optional encoder, and time bounds.
+2. A caller submits a claim. The strategy returns the recipient's total entitlement.
+3. The plugin subtracts the amount already claimed and any configured strategy fee, then records the new claimed total.
+4. The DAO executes the recipient payout and fee transfer. A reverting execution rolls back the claim record.
 
-### CapitalDistributorPlugin
+Anyone can submit `claimCampaignPayout` for a recipient; the payout remains assigned to that recipient. A holder who
+wants to redirect their own allocation uses `claimCampaignPayoutToAddress`, which verifies entitlement for `msg.sender`.
 
-The main plugin contract that manages the lifecycle of distribution campaigns. It handles:
+## Campaign controls and fees
 
-- Campaign creation with customizable parameters
-- Claim processing and validation
-- Campaign state management (active, paused, ended)
-- Integration with allocation strategies and payout encoders
+Claims require an active campaign within its time bounds. The start is inclusive and the end is exclusive; zero disables
+the corresponding time bound. A campaign manager can pause, resume, or permanently end a campaign before its end time.
 
-### Factory Contracts
+The Merkle strategy permits root updates while `isCampaignPaused(campaignId)` is true. Previously claimed amounts remain
+recorded, so replacement roots describe total entitlements rather than additional payouts. Increasing a recipient's
+total from 1,000 to 1,200 units after they have claimed 1,000 makes another 200 units available before fees.
 
-#### AllocatorStrategyFactory
+Strategy registration sets a fee recipient and rate, capped at 1,000 basis points (10%) by the strategy factory. Each
+claim deducts the fee from the newly claimable amount, rounding the fee up to the next token unit. The DAO transfers
+that fee alongside the recipient's payout.
 
-Manages the deployment and registration of allocation strategies. Each strategy determines how tokens are allocated to
-recipients.
+The [integration guide](docs/integration.md) gives the exact claim data, accounting queries, and root-update sequence.
 
-**Available Strategies:**
+## Installation and authority
 
-- **MerkleDistributorStrategy**: Uses Merkle trees for efficient large-scale distributions (airdrops)
+[CapitalDistributorPluginSetup](src/CapitalDistributorPluginSetup.sol) installs an upgradeable plugin and an
+`ExecuteSelectorCondition` helper. The DAO receives campaign management, metadata, upgrade, and condition-management
+permissions. The plugin receives conditional permission to execute DAO actions.
 
-#### ActionEncoderFactory
+The condition starts with no allowed calls. Before claims can succeed, the DAO must allow the token transfer call and
+any approval or vault deposit calls required by its campaigns. Campaign creation alone does not grant those permissions.
 
-Manages payout action encoders that transform distribution amounts into executable DAO actions.
+Factory registration is permissionless and each type ID can be registered only once. The implementation and fee terms
+stored under an ID therefore matter when selecting a strategy; an ID's name is not evidence of who registered it.
 
-**Available Encoders:**
+Sources: [plugin setup](src/CapitalDistributorPluginSetup.sol),
+[strategy factory](src/factories/AllocatorStrategyFactory.sol),
+[encoder factory](src/factories/ActionEncoderFactory.sol),
+[execution-condition integration tests](tests/integration/ExecuteConditionIntegrationTest.t.sol).
 
-- **Direct Transfer**: Simple ERC20 token transfers
-- **VaultDepositPayoutActionEncoder**: Deposits tokens into ERC-4626 vaults
+## Local development
 
-### Campaign Structure
+Install [Foundry](https://getfoundry.sh/), [Bun](https://bun.sh/), and Git. The repository configures Solidity 0.8.29;
+its CI uses Foundry v1.3.0. Solidity dependencies are installed through Bun into `node_modules` using the checked-in
+lockfile.
 
-```solidity
-struct Campaign {
-    bytes metadataURI;              // Campaign metadata (IPFS)
-    IAllocatorStrategy strategy;     // Allocation logic
-    IERC20 token;                    // Token to distribute
-    IPayoutActionEncoder encoder;    // Payout method
-    CampaignState state;             // ACTIVE, PAUSED, ENDED
-    uint256 startTime;               // Campaign start timestamp
-    uint256 endTime;                 // Campaign end timestamp
-}
-```
-
-## Features
-
-- **Flexible Allocation Strategies**: Choose from multiple methods to determine recipient allocations
-- **Multiple Payout Methods**: Direct transfers, vault deposits, or streaming payments
-- **Campaign Management**: Full lifecycle control with pause, resume, and end capabilities
-- **Batch Operations**: Process multiple claims in a single transaction for gas efficiency
-- **Modular Architecture**: Easily extend with new strategies and encoders
-- **Permission System**: Integrated with Aragon's permission management
-- **Event Tracking**: Comprehensive events for monitoring and indexing
-
-## Installation
-
-### Prerequisites
-
-- [Foundry](https://getfoundry.sh/) development framework
-- [Bun](https://bun.sh/) or Node.js package manager
-- Git
-
-### Setup
-
-Clone the repository and install dependencies:
-
-```bash
-git clone https://github.com/aragon/osx-capital-distributor
+```sh
+git clone https://github.com/aragon/osx-capital-distributor.git
 cd osx-capital-distributor
-bun install # or npm install
-```
-
-## Build & Test
-
-### Build
-
-```bash
+bun install --frozen-lockfile
 forge build
+forge test
 ```
 
-### Test
+| Command                   | Purpose                                           |
+| ------------------------- | ------------------------------------------------- |
+| `bun run lint`            | Check Solidity formatting and Prettier formatting |
+| `forge test -vvv`         | Run tests with detailed failure output            |
+| `forge coverage`          | Generate a coverage summary                       |
+| `forge test --gas-report` | Report gas used by tested calls                   |
 
-Run the test suite with verbose output:
+The [CI workflow](.github/workflows/ci.yml) uses the `ci` profile, which raises fuzz runs from 1,000 to 10,000.
 
-```bash
-forge test -vvv
-```
+## Guides and source
 
-### Coverage
+| Goal                                                          | Read                                                                                                                                     |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Create campaigns, serve proofs, and integrate claims          | [Integration guide](docs/integration.md)                                                                                                 |
+| Configure deployment, installation, and execution permissions | [Deployment guide](docs/deployment.md)                                                                                                   |
+| Generate Merkle roots and proof files                         | [Merkle tools](script/utils/README.md)                                                                                                   |
+| Look up campaign structs and external methods                 | [Plugin interface](src/interfaces/ICapitalDistributorPlugin.sol)                                                                         |
+| Extend allocation or payout behavior                          | [Strategy base](src/allocatorStrategies/AllocatorStrategyBase.sol), [encoder base](src/payoutActionEncoders/PayoutActionEncoderBase.sol) |
+| Review tests                                                  | [Test directory](tests/)                                                                                                                 |
+| Review audit material                                         | [Audit directory](audits/)                                                                                                               |
 
-Generate test coverage report:
-
-```bash
-forge coverage
-```
-
-### Gas Analysis
-
-Generate gas reports for optimization:
-
-```bash
-# Gas report for tests
-forge test --gas-report
-
-# Create gas snapshot
-forge snapshot
-```
-
-## Deployment
-
-The deployment process follows these steps:
-
-1. **Deploy Factory Contracts**
-
-   ```solidity
-   AllocatorStrategyFactory allocatorFactory = new AllocatorStrategyFactory();
-   ActionEncoderFactory actionFactory = new ActionEncoderFactory();
-   ```
-
-2. **Register Strategies and Encoders**
-
-   ```solidity
-   // Register allocation strategies
-   allocatorFactory.registerStrategyType("merkle-distributor", merkleStrategy, ...);
-   allocatorFactory.registerStrategyType("gauge-voter", gaugeStrategy, ...);
-
-   // Register action encoders
-   actionFactory.registerActionEncoder("vault-deposit", vaultEncoder, ...);
-   ```
-
-3. **Deploy Plugin Setup**
-
-   ```solidity
-   CapitalDistributorPluginSetup setup = new CapitalDistributorPluginSetup();
-   ```
-
-4. **Publish to Aragon Registry**
-
-   ```solidity
-   PluginRepo repo = repoFactory.createPluginRepoWithFirstVersion(
-       "capital-distributor",
-       address(setup),
-       maintainer,
-       buildMetadata,
-       releaseMetadata
-   );
-   ```
-
-5. **Install Plugin in DAO**
-
-   ```solidity
-   DAO.createDao(daoSettings, pluginSettings);
-   ```
-
-### Deployment Script
-
-Deploy using the provided script:
-
-```bash
-forge script script/Deploy.s.sol --rpc-url <RPC_URL> --broadcast
-```
-
-Required environment variables:
-
-- `PLUGIN_REPO_FACTORY`: Aragon Plugin Repository Factory address
-- `DAO_FACTORY`: Aragon DAO Factory address
-- `ADMIN_REPO`: Admin plugin repository address
-- `ADMIN_OWNER`: Address of the admin owner
-
-## Deployment Addresses
-
-| Network          | Plugin Setup | AllocatorStrategyFactory | ActionEncoderFactory |
-| ---------------- | ------------ | ------------------------ | -------------------- |
-| Ethereum Mainnet | TBD          | TBD                      | TBD                  |
-| Polygon          | TBD          | TBD                      | TBD                  |
-| Arbitrum One     | TBD          | TBD                      | TBD                  |
-| Optimism         | TBD          | TBD                      | TBD                  |
-| Base             | TBD          | TBD                      | TBD                  |
-| Sepolia Testnet  | TBD          | TBD                      | TBD                  |
-
-## Usage Examples
-
-### Creating a Campaign
-
-```solidity
-// Example: Create an airdrop campaign with Merkle distribution
-plugin.createCampaign(
-    "ipfs://QmCampaignMetadata",     // Metadata URI
-    "merkle-distributor",             // Strategy ID
-    address(token),                   // Token to distribute
-    "direct-transfer",                // Encoder ID (simple transfer)
-    false,                           // Single claim per user
-    block.timestamp,                 // Start immediately
-    block.timestamp + 30 days        // End in 30 days
-);
-```
-
-### Claiming from a Campaign
-
-```solidity
-// User claims their allocation with proof
-bytes memory proof = abi.encode(merkleProof, amount);
-plugin.claimCampaignPayout(campaignId, recipient, proof);
-
-// Batch claim for multiple recipients
-plugin.batchClaimCampaignPayout(campaignId, recipients, proofs);
-```
-
-## Security
-
-- Built on battle-tested Aragon OSx framework
-- Follows checks-effects-interactions pattern
-- Comprehensive access control via Aragon permissions
-- Input validation and bounds checking
-- Events for all state changes
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
-
-### Code Style
-
-- Run formatter: `forge fmt`
-- Run linter: `bun run lint`
-- Follow Solidity style guide and NatSpec documentation
+Audit reports apply to their stated code revisions and scope. The directory also contains a report for a voting-escrow
+payout encoder, which is not included in this checkout's `src/payoutActionEncoders/` directory.
 
 ## License
 
-This project is licensed under the GNU Affero General Public License v3.0 or later - see the [LICENSE](LICENSE) file for
-details.
+[GNU Affero General Public License v3.0 or later](LICENSE.md).
