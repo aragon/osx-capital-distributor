@@ -7,270 +7,64 @@
 [license]: https://www.gnu.org/licenses/agpl-3.0
 [license-badge]: https://img.shields.io/badge/License-AGPL%20v3-blue.svg
 
-## Overview
+Capital Distributor is an Aragon OSx plugin for claimable token distributions from a DAO treasury. It includes a Merkle
+allocation strategy, direct token transfers, and a vault deposit encoder.
 
-Capital Distributor is an Aragon OSx plugin that enables onchain organizations to create and manage capital distribution
-campaigns. Organizations can distribute tokens to their members through various allocation strategies and payout
-methods, making it ideal for airdrops, gauge distributions, incentive programs, grants, and rewards.
+## Documentation
 
-## Architecture
+User and developer guides live in
+[protocol-doc](https://github.com/aragon/protocol-doc/blob/main/plugins/capital-distributor.md). Use the task links
+below to create campaigns, deploy the plugin, or generate proofs.
 
-The system follows a modular architecture where the main plugin orchestrates campaigns using dynamically deployed
-strategies and encoders through factory contracts:
+## Technical stack and source
 
-```mermaid
-graph TB
-    subgraph "Setup"
-        PS[PluginSetup] -->|deploys| P[Plugin]
-        PS -->|connects| F1[AllocatorStrategyFactory]
-        PS -->|connects| F2[ActionEncoderFactory]
-    end
+The contracts use Solidity 0.8.29, the Aragon OSx plugin framework, and OpenZeppelin 4.9.6. The plugin uses UUPS
+upgrades authorized through the DAO. Foundry builds and tests the contracts; Bun installs Solidity dependencies into
+`node_modules` from the checked-in lockfile.
 
-    subgraph "Campaign Creation"
-        P -->|creates campaign| C[Campaign]
-        F1 -->|deploys| AS[Allocation Strategy Instance]
-        F2 -->|deploys| AE[Action Encoder Instance]
-        AS -->|linked to| C
-        AE -->|linked to| C
-    end
+| Component                                 | Source                                                                                          |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Campaign and claim execution              | [CapitalDistributorPlugin](src/CapitalDistributorPlugin.sol)                                    |
+| Merkle allocation strategy                | [MerkleDistributorStrategy](src/allocatorStrategies/MerkleDistributorStrategy.sol)              |
+| Vault deposit encoder                     | [VaultDepositPayoutActionEncoder](src/payoutActionEncoders/VaultDepositPayoutActionEncoder.sol) |
+| Implementation registration and instances | [Factories](src/factories/)                                                                     |
+| Installation and permissions              | [CapitalDistributorPluginSetup](src/CapitalDistributorPluginSetup.sol)                          |
 
-    subgraph "Campaign Execution"
-        U[User] -->|claims from| C
-        C -->|validates via| AS
-        C -->|encodes payout via| AE
-        AE -->|executes| T[Token Transfer]
-        T -->|to| U
-    end
-```
+## Local development
 
-## Core Components
+Install [Foundry v1.3.0](https://getfoundry.sh/) to match CI, [Bun](https://bun.sh/), and Git.
 
-### CapitalDistributorPlugin
-
-The main plugin contract that manages the lifecycle of distribution campaigns. It handles:
-
-- Campaign creation with customizable parameters
-- Claim processing and validation
-- Campaign state management (active, paused, ended)
-- Integration with allocation strategies and payout encoders
-
-### Factory Contracts
-
-#### AllocatorStrategyFactory
-
-Manages the deployment and registration of allocation strategies. Each strategy determines how tokens are allocated to
-recipients.
-
-**Available Strategies:**
-
-- **MerkleDistributorStrategy**: Uses Merkle trees for efficient large-scale distributions (airdrops)
-
-#### ActionEncoderFactory
-
-Manages payout action encoders that transform distribution amounts into executable DAO actions.
-
-**Available Encoders:**
-
-- **Direct Transfer**: Simple ERC20 token transfers
-- **VaultDepositPayoutActionEncoder**: Deposits tokens into ERC-4626 vaults
-
-### Campaign Structure
-
-```solidity
-struct Campaign {
-    bytes metadataURI;              // Campaign metadata (IPFS)
-    IAllocatorStrategy strategy;     // Allocation logic
-    IERC20 token;                    // Token to distribute
-    IPayoutActionEncoder encoder;    // Payout method
-    CampaignState state;             // ACTIVE, PAUSED, ENDED
-    uint256 startTime;               // Campaign start timestamp
-    uint256 endTime;                 // Campaign end timestamp
-}
-```
-
-## Features
-
-- **Flexible Allocation Strategies**: Choose from multiple methods to determine recipient allocations
-- **Multiple Payout Methods**: Direct transfers, vault deposits, or streaming payments
-- **Campaign Management**: Full lifecycle control with pause, resume, and end capabilities
-- **Batch Operations**: Process multiple claims in a single transaction for gas efficiency
-- **Modular Architecture**: Easily extend with new strategies and encoders
-- **Permission System**: Integrated with Aragon's permission management
-- **Event Tracking**: Comprehensive events for monitoring and indexing
-
-## Installation
-
-### Prerequisites
-
-- [Foundry](https://getfoundry.sh/) development framework
-- [Bun](https://bun.sh/) or Node.js package manager
-- Git
-
-### Setup
-
-Clone the repository and install dependencies:
-
-```bash
-git clone https://github.com/aragon/osx-capital-distributor
+```sh
+git clone https://github.com/aragon/osx-capital-distributor.git
 cd osx-capital-distributor
-bun install # or npm install
-```
-
-## Build & Test
-
-### Build
-
-```bash
+bun install --frozen-lockfile
 forge build
+forge test
 ```
 
-### Test
+| Command                   | Purpose                                           |
+| ------------------------- | ------------------------------------------------- |
+| `bun run lint`            | Check Solidity formatting and Prettier formatting |
+| `forge test -vvv`         | Run tests with detailed failure output            |
+| `forge coverage`          | Generate a coverage summary                       |
+| `forge test --gas-report` | Report gas used by tested calls                   |
 
-Run the test suite with verbose output:
+The [CI workflow](.github/workflows/ci.yml) uses the `ci` profile, which raises fuzz runs from 1,000 to 10,000.
 
-```bash
-forge test -vvv
-```
+## Guides and source
 
-### Coverage
+| Goal                                                          | Read                                                                                                                                     |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Create campaigns, serve proofs, and integrate claims          | [Campaign walkthrough](https://github.com/aragon/protocol-doc/blob/main/guides/distribute-tokens.md)                                     |
+| Configure deployment, installation, and execution permissions | [Deployment guide](https://github.com/aragon/protocol-doc/blob/main/deployment/capital-distributor.md)                                   |
+| Generate Merkle roots and proof files                         | [Merkle tools](https://github.com/aragon/protocol-doc/blob/main/tooling/capital-distributor-merkle.md)                                   |
+| Look up campaign structs and external methods                 | [Plugin interface](src/interfaces/ICapitalDistributorPlugin.sol)                                                                         |
+| Extend allocation or payout behavior                          | [Strategy base](src/allocatorStrategies/AllocatorStrategyBase.sol), [encoder base](src/payoutActionEncoders/PayoutActionEncoderBase.sol) |
+| Review tests                                                  | [Test directory](tests/)                                                                                                                 |
+| Review audit material                                         | [Audit directory](audits/)                                                                                                               |
 
-Generate test coverage report:
-
-```bash
-forge coverage
-```
-
-### Gas Analysis
-
-Generate gas reports for optimization:
-
-```bash
-# Gas report for tests
-forge test --gas-report
-
-# Create gas snapshot
-forge snapshot
-```
-
-## Deployment
-
-The deployment process follows these steps:
-
-1. **Deploy Factory Contracts**
-
-   ```solidity
-   AllocatorStrategyFactory allocatorFactory = new AllocatorStrategyFactory();
-   ActionEncoderFactory actionFactory = new ActionEncoderFactory();
-   ```
-
-2. **Register Strategies and Encoders**
-
-   ```solidity
-   // Register allocation strategies
-   allocatorFactory.registerStrategyType("merkle-distributor", merkleStrategy, ...);
-   allocatorFactory.registerStrategyType("gauge-voter", gaugeStrategy, ...);
-
-   // Register action encoders
-   actionFactory.registerActionEncoder("vault-deposit", vaultEncoder, ...);
-   ```
-
-3. **Deploy Plugin Setup**
-
-   ```solidity
-   CapitalDistributorPluginSetup setup = new CapitalDistributorPluginSetup();
-   ```
-
-4. **Publish to Aragon Registry**
-
-   ```solidity
-   PluginRepo repo = repoFactory.createPluginRepoWithFirstVersion(
-       "capital-distributor",
-       address(setup),
-       maintainer,
-       buildMetadata,
-       releaseMetadata
-   );
-   ```
-
-5. **Install Plugin in DAO**
-
-   ```solidity
-   DAO.createDao(daoSettings, pluginSettings);
-   ```
-
-### Deployment Script
-
-Deploy using the provided script:
-
-```bash
-forge script script/Deploy.s.sol --rpc-url <RPC_URL> --broadcast
-```
-
-Required environment variables:
-
-- `PLUGIN_REPO_FACTORY`: Aragon Plugin Repository Factory address
-- `DAO_FACTORY`: Aragon DAO Factory address
-- `ADMIN_REPO`: Admin plugin repository address
-- `ADMIN_OWNER`: Address of the admin owner
-
-## Deployment Addresses
-
-| Network          | Plugin Setup | AllocatorStrategyFactory | ActionEncoderFactory |
-| ---------------- | ------------ | ------------------------ | -------------------- |
-| Ethereum Mainnet | TBD          | TBD                      | TBD                  |
-| Polygon          | TBD          | TBD                      | TBD                  |
-| Arbitrum One     | TBD          | TBD                      | TBD                  |
-| Optimism         | TBD          | TBD                      | TBD                  |
-| Base             | TBD          | TBD                      | TBD                  |
-| Sepolia Testnet  | TBD          | TBD                      | TBD                  |
-
-## Usage Examples
-
-### Creating a Campaign
-
-```solidity
-// Example: Create an airdrop campaign with Merkle distribution
-plugin.createCampaign(
-    "ipfs://QmCampaignMetadata",     // Metadata URI
-    "merkle-distributor",             // Strategy ID
-    address(token),                   // Token to distribute
-    "direct-transfer",                // Encoder ID (simple transfer)
-    false,                           // Single claim per user
-    block.timestamp,                 // Start immediately
-    block.timestamp + 30 days        // End in 30 days
-);
-```
-
-### Claiming from a Campaign
-
-```solidity
-// User claims their allocation with proof
-bytes memory proof = abi.encode(merkleProof, amount);
-plugin.claimCampaignPayout(campaignId, recipient, proof);
-
-// Batch claim for multiple recipients
-plugin.batchClaimCampaignPayout(campaignId, recipients, proofs);
-```
-
-## Security
-
-- Built on battle-tested Aragon OSx framework
-- Follows checks-effects-interactions pattern
-- Comprehensive access control via Aragon permissions
-- Input validation and bounds checking
-- Events for all state changes
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
-
-### Code Style
-
-- Run formatter: `forge fmt`
-- Run linter: `bun run lint`
-- Follow Solidity style guide and NatSpec documentation
+Audit reports are stored in [`audits/`](audits/); each report identifies its covered revision and scope.
 
 ## License
 
-This project is licensed under the GNU Affero General Public License v3.0 or later - see the [LICENSE](LICENSE) file for
-details.
+[GNU Affero General Public License v3.0 or later](LICENSE.md).
