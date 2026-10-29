@@ -1550,7 +1550,7 @@
 
     "staged-proposal-processor-plugin/@aragon/osx/@ensdomains/ens-contracts": ["@ensdomains/ens-contracts@0.0.11", "", { "dependencies": { "@ensdomains/buffer": "^0.0.13", "@ensdomains/solsha1": "0.0.3", "@openzeppelin/contracts": "^4.1.0", "dns-packet": "^5.3.0" } }, "sha512-b74OlFcds9eyHy26uE2fGcM+ZCSFtPeRGVbUYWq3NRlf+9t8TIgPwF3rCNwpAFQG0B/AHb4C4hYX2BBJYR1zPg=="],
 
-    "staged-proposal-processor-plugin/@ensdomains/ens-contracts/@ensdomains/buffer": ["@ensdomains/buffer@0.1.1", "", {}, "sha512-92SfSiNS8XorgU7OUBHo/i1ZU7JV7iz/6bKuLPNVsMxV79/eI7fJR6jfJJc40zAHjs3ha+Xo965Idomlq3rqnw=="],
+    "staged-proposal-processor-plugin/@ensdomains/ens-contracts/@ensdomains/buffer": ["@ensdomains/buffer@0.1.3", "", {}, "sha512-L/GoCkQFePjSn4DeVnBNfkGdm2CI8UxTxwgQztcZ1L9aHaFefRD+mTUXxtikk946KwwMHRQJDn38wo1IWtEpSg=="],
 
     "swarm-js/got/@szmarczak/http-timer": ["@szmarczak/http-timer@4.0.6", "", { "dependencies": { "defer-to-connect": "^2.0.0" } }, "sha512-4BAffykYOgO+5nzBWYwE3W90sBgLJoUPRWWcL8wlyiM8IB8ipJz3UMJ9KXQd1RKQXpKp8Tutn80HZtWsu2u76w=="],
 
