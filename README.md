@@ -1,4 +1,11 @@
-# Capital Distributor
+# Capital Distributor [![Github Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: AGPL v3][license-badge]][license]
+
+[gha]: https://github.com/aragon/osx-capital-distributor/actions
+[gha-badge]: https://github.com/aragon/osx-capital-distributor/actions/workflows/ci.yml/badge.svg
+[foundry]: https://getfoundry.sh/
+[foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg
+[license]: https://www.gnu.org/licenses/agpl-3.0
+[license-badge]: https://img.shields.io/badge/License-AGPL%20v3-blue.svg
 
 Capital Distributor is an Aragon OSx plugin for paying token allocations from a DAO treasury. A DAO creates a campaign,
 specifies who can claim and how payouts are delivered, and lets recipients claim their allocation onchain.
