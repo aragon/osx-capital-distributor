@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.19;
 
-import { Script, console } from "forge-std/Script.sol";
+import { Script, console2 as console } from "forge-std/Script.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 
 /**
@@ -26,36 +26,74 @@ contract GenerateProof is Script {
         Recipient[] recipients;
     }
 
-    /**
-     * @notice Generate merkle proof for a specific recipient
-     * @param merkleTreeFilePath Path to merkle tree JSON file
-     * @param recipientAddress Address of the recipient
-     */
-    function generateProof(string memory merkleTreeFilePath, address recipientAddress) external {
+    function run() public {
+        string memory merkleTreeFilePath = "./script/fixtures/merkle-tree.json";
+        console.log("Recipient Address:");
+
         // Read the merkle tree file
         string memory json = vm.readFile(merkleTreeFilePath);
 
         // Parse merkle tree data
         MerkleTreeData memory treeData = parseMerkleTreeData(json);
 
+        console.log("Total Recipients:", treeData.totalRecipients);
+
+        for (uint256 i = 0; i < treeData.recipients.length; i++) {
+            Recipient memory recipient = treeData.recipients[i];
+            generateProof(treeData, recipient.account);
+            console.log("============================================================");
+        }
+    }
+
+    /**
+     * @notice Generate merkle proof for a specific recipient
+     * @param treeData Merkle tree data
+     * @param recipientAddress Address of the recipient
+     */
+    function generateProof(MerkleTreeData memory treeData, address recipientAddress) internal {
         // Find recipient
         uint256 recipientIndex = findRecipientIndex(treeData.recipients, recipientAddress);
         require(recipientIndex < treeData.recipients.length, "Recipient not found");
+        console.log("Recipient found at index:", recipientIndex);
 
         Recipient memory recipient = treeData.recipients[recipientIndex];
 
         // Generate proof
-        bytes32[] memory proof = generateMerkleProof(treeData.recipients, recipientIndex);
+        bytes32[] memory tempProof = generateMerkleProof(treeData.recipients, recipientIndex);
+
+        bytes32[] memory proof = new bytes32[](tempProof.length);
+        uint256 count = 0;
+
+        for (uint256 i = 0; i < tempProof.length; i++) {
+            if (tempProof[i] != bytes32(0)) {
+                proof[count++] = tempProof[i];
+            }
+        }
+
+        // Resize array
+        assembly {
+            mstore(proof, count)
+        }
 
         // Verify proof
         bool isValid = verifyProof(proof, recipient.leaf, treeData.merkleRoot);
+        console.log("Proof is valid adddress:", recipientAddress);
+        //Print proof
+        for (uint256 i = 0; i < proof.length; i++) {
+            console.logBytes32(proof[i]);
+        }
+        console.log("recipient.leaf");
+        console.logBytes32(recipient.leaf);
+        console.log("treeData.merkleRoot");
+        console.logBytes32(treeData.merkleRoot);
         require(isValid, "Generated proof is invalid");
 
         // Create output JSON
         string memory output = createProofJson(recipient, proof, treeData.merkleRoot, isValid);
 
         // Write output file to test data directory
-        string memory outputPath = string.concat("./tests/data/proof-", vm.toString(recipientAddress), ".json");
+        string memory outputPath =
+            string.concat("./script/fixtures/proofs/proof-", vm.toString(recipientAddress), ".json");
         vm.writeFile(outputPath, output);
 
         // Log results
@@ -78,7 +116,6 @@ contract GenerateProof is Script {
         uint256 totalAmount = json.readUint(".totalAmount");
 
         // Parse recipients array
-        bytes memory recipientsData = json.parseRaw(".recipients");
         Recipient[] memory recipients = new Recipient[](totalRecipients);
 
         for (uint256 i = 0; i < totalRecipients; i++) {

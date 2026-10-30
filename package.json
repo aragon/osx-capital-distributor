@@ -25,6 +25,9 @@
     "forge-std": "github:foundry-rs/forge-std#v1.8.1",
     "prettier": "^3.0.0"
   },
+  "overrides": {
+    "@ensdomains/buffer": "0.0.13"
+  },
   "keywords": [
     "blockchain",
     "ethereum",

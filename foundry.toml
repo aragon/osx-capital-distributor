@@ -25,6 +25,7 @@ verbosity = 4
 
 [etherscan]
 mainnet = { key = "${API_KEY_ETHERSCAN}" }
+sepolia = { key = "${API_KEY_ETHERSCAN}" }
 
 [fmt]
 bracket_spacing = true
@@ -46,4 +47,4 @@ localhost = "http://localhost:8545"
 mainnet = "https://eth-mainnet.g.alchemy.com/v2/${API_KEY_ALCHEMY}"
 optimism = "https://optimism-rpc.publicnode.com"
 polygon = "https://polygon-bor-rpc.publicnode.com"
-sepolia = "https://ethereum-sepolia-rpc.publicnode.com"
+sepolia = "https://eth-sepolia.g.alchemy.com/v2/${API_KEY_ALCHEMY}"

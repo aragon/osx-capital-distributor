@@ -2,6 +2,7 @@
 pragma solidity >=0.8.29 <0.9.0;
 
 import { CapitalDistributorPlugin } from "../src/CapitalDistributorPlugin.sol";
+import { ICapitalDistributorPlugin } from "../src/interfaces/ICapitalDistributorPlugin.sol";
 import { AragonTest } from "./helpers/AragonTest.sol";
 import { MintableERC20 } from "./mocks/MintableERC20.sol";
 import { AllocatorStrategyMock } from "./mocks/AllocatorStrategyMock.sol";
@@ -25,9 +26,9 @@ contract CampaignStateManagementTest is AragonTest {
         vm.startPrank(address(createdDao));
         campaignId = capitalDistributorPlugin.createCampaign(
             "ipfs://test",
-            CapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
-            CapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
-            CapitalDistributorPlugin.CampaignSettings(0, 0)
+            ICapitalDistributorPlugin.StrategyConfig(toBytes32("mock-strategy"), "", ""),
+            ICapitalDistributorPlugin.PayoutConfig(IERC20(token), bytes32(0), ""),
+            ICapitalDistributorPlugin.CampaignSettings(0, 0)
         );
         vm.stopPrank();
     }
@@ -37,7 +38,7 @@ contract CampaignStateManagementTest is AragonTest {
         uint256 campaignId = createBasicCampaign();
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        assertTrue(campaign.state == CapitalDistributorPlugin.CampaignState.ACTIVE, "Campaign should start active");
+        assertTrue(campaign.state == ICapitalDistributorPlugin.CampaignState.ACTIVE, "Campaign should start active");
         assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be active via function");
     }
 
@@ -54,7 +55,7 @@ contract CampaignStateManagementTest is AragonTest {
         capitalDistributorPlugin.pauseCampaign(campaignId);
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        assertTrue(campaign.state == CapitalDistributorPlugin.CampaignState.PAUSED, "Campaign should be paused");
+        assertTrue(campaign.state == ICapitalDistributorPlugin.CampaignState.PAUSED, "Campaign should be paused");
         assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should not be active");
 
         vm.stopPrank();
@@ -77,7 +78,7 @@ contract CampaignStateManagementTest is AragonTest {
         capitalDistributorPlugin.resumeCampaign(campaignId);
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        assertTrue(campaign.state == CapitalDistributorPlugin.CampaignState.ACTIVE, "Campaign should be active again");
+        assertTrue(campaign.state == ICapitalDistributorPlugin.CampaignState.ACTIVE, "Campaign should be active again");
         assertTrue(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should be active via function");
 
         vm.stopPrank();
@@ -96,7 +97,7 @@ contract CampaignStateManagementTest is AragonTest {
         capitalDistributorPlugin.endCampaign(campaignId);
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        assertTrue(campaign.state == CapitalDistributorPlugin.CampaignState.ENDED, "Campaign should be ended");
+        assertTrue(campaign.state == ICapitalDistributorPlugin.CampaignState.ENDED, "Campaign should be ended");
         assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should not be active");
 
         vm.stopPrank();
@@ -119,7 +120,7 @@ contract CampaignStateManagementTest is AragonTest {
         capitalDistributorPlugin.endCampaign(campaignId);
 
         CapitalDistributorPlugin.Campaign memory campaign = capitalDistributorPlugin.getCampaign(campaignId);
-        assertTrue(campaign.state == CapitalDistributorPlugin.CampaignState.ENDED, "Campaign should be ended");
+        assertTrue(campaign.state == ICapitalDistributorPlugin.CampaignState.ENDED, "Campaign should be ended");
         assertFalse(capitalDistributorPlugin.isCampaignActive(campaignId), "Campaign should not be active");
 
         vm.stopPrank();
@@ -137,8 +138,8 @@ contract CampaignStateManagementTest is AragonTest {
             abi.encodeWithSelector(
                 CapitalDistributorPlugin.InvalidStateTransition.selector,
                 campaignId,
-                CapitalDistributorPlugin.CampaignState.ENDED,
-                CapitalDistributorPlugin.CampaignState.PAUSED
+                ICapitalDistributorPlugin.CampaignState.ENDED,
+                ICapitalDistributorPlugin.CampaignState.PAUSED
             )
         );
         capitalDistributorPlugin.pauseCampaign(campaignId);
@@ -157,8 +158,8 @@ contract CampaignStateManagementTest is AragonTest {
             abi.encodeWithSelector(
                 CapitalDistributorPlugin.InvalidStateTransition.selector,
                 campaignId,
-                CapitalDistributorPlugin.CampaignState.ACTIVE,
-                CapitalDistributorPlugin.CampaignState.ACTIVE
+                ICapitalDistributorPlugin.CampaignState.ACTIVE,
+                ICapitalDistributorPlugin.CampaignState.ACTIVE
             )
         );
         capitalDistributorPlugin.resumeCampaign(campaignId);
@@ -180,8 +181,8 @@ contract CampaignStateManagementTest is AragonTest {
             abi.encodeWithSelector(
                 CapitalDistributorPlugin.InvalidStateTransition.selector,
                 campaignId,
-                CapitalDistributorPlugin.CampaignState.ENDED,
-                CapitalDistributorPlugin.CampaignState.ENDED
+                ICapitalDistributorPlugin.CampaignState.ENDED,
+                ICapitalDistributorPlugin.CampaignState.ENDED
             )
         );
         capitalDistributorPlugin.endCampaign(campaignId);
@@ -207,7 +208,7 @@ contract CampaignStateManagementTest is AragonTest {
             abi.encodeWithSelector(
                 CapitalDistributorPlugin.CampaignNotActive.selector,
                 campaignId,
-                CapitalDistributorPlugin.CampaignState.PAUSED
+                ICapitalDistributorPlugin.CampaignState.PAUSED
             )
         );
         capitalDistributorPlugin.claimCampaignPayout(campaignId, address(this), "", "");
@@ -223,7 +224,7 @@ contract CampaignStateManagementTest is AragonTest {
             abi.encodeWithSelector(
                 CapitalDistributorPlugin.CampaignNotActive.selector,
                 campaignId,
-                CapitalDistributorPlugin.CampaignState.ENDED
+                ICapitalDistributorPlugin.CampaignState.ENDED
             )
         );
         capitalDistributorPlugin.claimCampaignPayout(campaignId, address(this), "", "");
@@ -245,7 +246,7 @@ contract CampaignStateManagementTest is AragonTest {
             abi.encodeWithSelector(
                 CapitalDistributorPlugin.CampaignNotActive.selector,
                 campaignId,
-                CapitalDistributorPlugin.CampaignState.PAUSED
+                ICapitalDistributorPlugin.CampaignState.PAUSED
             )
         );
         capitalDistributorPlugin.claimCampaignPayout(campaignId, address(this), "", "");

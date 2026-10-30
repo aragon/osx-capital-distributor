@@ -11,6 +11,7 @@ import { IDAO } from "@aragon/commons/dao/IDAO.sol";
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
 import { MerkleDistributorStrategy } from "../../src/allocatorStrategies/MerkleDistributorStrategy.sol";
 import { AllocatorStrategyMock } from "../mocks/AllocatorStrategyMock.sol";
+import { CapitalDistributorPluginMock } from "../mocks/CapitalDistributorPluginMock.sol";
 
 /// @title AllocatorStrategyFactory Test Suite
 /// @author AragonX - 2025
@@ -20,6 +21,7 @@ contract AllocatorStrategyFactoryTest is Test {
     AllocatorStrategyFactory factory;
     DAO dao;
     DAO dao2;
+    CapitalDistributorPluginMock pluginMock;
 
     address alice = makeAddr("alice");
     address bob = makeAddr("bob");
@@ -50,10 +52,27 @@ contract AllocatorStrategyFactoryTest is Test {
     );
     event StrategyFeeConfigured(bytes32 indexed strategyId, address indexed feeRecipient, uint32 feeBasisPoints);
 
+    /// @notice Helper function to deploy strategy through authorized plugin mock
+    function _deployStrategy(bytes32 strategyId, IDAO daoAddr, bytes memory auxData) internal returns (address) {
+        vm.startPrank(address(pluginMock));
+        address strategy = factory.deployStrategy(strategyId, daoAddr, auxData);
+        vm.stopPrank();
+        return strategy;
+    }
+
+    /// @notice Helper function to get or deploy strategy through authorized plugin mock
+    function _getOrDeployStrategy(bytes32 strategyId, IDAO daoAddr, bytes memory auxData) internal returns (address) {
+        vm.startPrank(address(pluginMock));
+        address strategy = factory.getOrDeployStrategy(strategyId, daoAddr, auxData);
+        vm.stopPrank();
+        return strategy;
+    }
+
     function setUp() public {
         factory = new AllocatorStrategyFactory();
         dao = DAO(payable(makeAddr("dao")));
         dao2 = DAO(payable(makeAddr("dao2")));
+        pluginMock = new CapitalDistributorPluginMock();
 
         // Deploy strategy implementations
         merkleImplementation = new MerkleDistributorStrategy();
@@ -63,6 +82,7 @@ contract AllocatorStrategyFactoryTest is Test {
         vm.label(address(factory), "Factory");
         vm.label(address(dao), "DAO");
         vm.label(address(dao2), "DAO2");
+        vm.label(address(pluginMock), "PluginMock");
         vm.label(alice, "Alice");
         vm.label(bob, "Bob");
         vm.label(charlie, "Charlie");
@@ -78,8 +98,6 @@ contract AllocatorStrategyFactoryTest is Test {
 
     /// @notice Test successful strategy type registration
     function test_RegisterStrategyType_Success() public {
-        vm.startPrank(alice);
-
         vm.expectEmit(true, true, false, true);
         emit TypeRegistered(MERKLE_STRATEGY_ID, address(merkleImplementation), MERKLE_METADATA, alice);
 
@@ -92,8 +110,6 @@ contract AllocatorStrategyFactoryTest is Test {
         assertEq(implementation, address(merkleImplementation));
         assertEq(metadata, MERKLE_METADATA);
         assertTrue(factory.isTypeRegistered(MERKLE_STRATEGY_ID));
-
-        vm.stopPrank();
     }
 
     /// @notice Test multiple strategy type registrations
@@ -156,12 +172,12 @@ contract AllocatorStrategyFactoryTest is Test {
         bytes memory auxData = abi.encode(bytes32(keccak256("test-merkle-root")));
 
         vm.expectEmit(true, false, false, false);
-        emit InstanceDeployed(MERKLE_STRATEGY_ID, address(0), bytes32(0), address(this));
+        emit InstanceDeployed(MERKLE_STRATEGY_ID, address(0), bytes32(0), address(pluginMock));
 
         vm.expectEmit(true, false, false, false);
         emit StrategyDeployed(MERKLE_STRATEGY_ID, address(0));
 
-        address strategy = factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
+        address strategy = _deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
 
         assertTrue(strategy != address(0));
         assertEq(factory.instanceToType(strategy), MERKLE_STRATEGY_ID);
@@ -175,7 +191,7 @@ contract AllocatorStrategyFactoryTest is Test {
         bytes memory auxData = abi.encode(bytes32(keccak256("test-data")));
 
         vm.expectRevert(abi.encodeWithSelector(FactoryBase.TypeNotFound.selector, MERKLE_STRATEGY_ID));
-        factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
+        _deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
     }
 
     /// @notice Test deployment with duplicate parameters
@@ -185,13 +201,13 @@ contract AllocatorStrategyFactoryTest is Test {
         bytes memory auxData = abi.encode(bytes32(keccak256("test-merkle-root")));
 
         // First deployment should succeed
-        address strategy1 = factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
+        address strategy1 = _deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
         assertTrue(strategy1 != address(0));
 
         // Second deployment with same parameters should revert
-        bytes32 deploymentId = keccak256(abi.encode(MERKLE_STRATEGY_ID, address(dao), auxData));
+        bytes32 deploymentId = keccak256(abi.encode(MERKLE_STRATEGY_ID, address(dao), address(pluginMock), auxData));
         vm.expectRevert(abi.encodeWithSelector(FactoryBase.InstanceAlreadyDeployed.selector, deploymentId, strategy1));
-        factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
+        _deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
     }
 
     /// @notice Test deployment with different auxiliary data creates different instances
@@ -201,8 +217,8 @@ contract AllocatorStrategyFactoryTest is Test {
         bytes memory auxData1 = abi.encode(bytes32(keccak256("root1")));
         bytes memory auxData2 = abi.encode(bytes32(keccak256("root2")));
 
-        address strategy1 = factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData1);
-        address strategy2 = factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData2);
+        address strategy1 = _deployStrategy(MERKLE_STRATEGY_ID, dao, auxData1);
+        address strategy2 = _deployStrategy(MERKLE_STRATEGY_ID, dao, auxData2);
 
         assertTrue(strategy1 != strategy2);
         assertEq(factory.instanceToType(strategy1), MERKLE_STRATEGY_ID);
@@ -215,8 +231,8 @@ contract AllocatorStrategyFactoryTest is Test {
 
         bytes memory auxData = abi.encode(bytes32(keccak256("test-merkle-root")));
 
-        address strategy1 = factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
-        address strategy2 = factory.deployStrategy(MERKLE_STRATEGY_ID, dao2, auxData);
+        address strategy1 = _deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
+        address strategy2 = _deployStrategy(MERKLE_STRATEGY_ID, dao2, auxData);
 
         assertTrue(strategy1 != strategy2);
         assertEq(factory.instanceToType(strategy1), MERKLE_STRATEGY_ID);
@@ -233,11 +249,11 @@ contract AllocatorStrategyFactoryTest is Test {
 
         bytes memory auxData = abi.encode(bytes32(keccak256("test-merkle-root")));
 
-        address strategy1 = factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
+        address strategy1 = _deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
 
         bytes32 expectedDeploymentId = keccak256(abi.encode(MERKLE_STRATEGY_ID, address(dao), auxData));
 
-        address strategy2 = factory.getOrDeployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
+        address strategy2 = _getOrDeployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
 
         assertEq(strategy1, strategy2);
     }
@@ -248,7 +264,7 @@ contract AllocatorStrategyFactoryTest is Test {
 
         bytes memory auxData = abi.encode(bytes32(keccak256("test-merkle-root")));
 
-        address strategy = factory.getOrDeployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
+        address strategy = _getOrDeployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
 
         assertTrue(strategy != address(0));
         assertEq(factory.instanceToType(strategy), MERKLE_STRATEGY_ID);
@@ -265,15 +281,15 @@ contract AllocatorStrategyFactoryTest is Test {
         bytes memory auxData = abi.encode(bytes32(keccak256("test-merkle-root")));
 
         // Should not exist initially
-        (bool exists, address strategy) = factory.hasDeployment(MERKLE_STRATEGY_ID, dao, auxData);
+        (bool exists, address strategy) = factory.hasDeployment(MERKLE_STRATEGY_ID, dao, address(pluginMock), auxData);
         assertFalse(exists);
         assertEq(strategy, address(0));
 
         // Deploy strategy
-        address deployedStrategy = factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
+        address deployedStrategy = _deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
 
         // Should exist after deployment
-        (exists, strategy) = factory.hasDeployment(MERKLE_STRATEGY_ID, dao, auxData);
+        (exists, strategy) = factory.hasDeployment(MERKLE_STRATEGY_ID, dao, address(pluginMock), auxData);
         assertTrue(exists);
         assertEq(strategy, deployedStrategy);
     }
@@ -331,20 +347,7 @@ contract AllocatorStrategyFactoryTest is Test {
 
         // Deployment should fail due to malicious implementation's initialize function
         vm.expectRevert();
-        factory.deployStrategy(MALICIOUS_STRATEGY_ID, dao, auxData);
-    }
-
-    /// @notice Test access control - anyone can register strategy types (no access control)
-    function test_Security_NoAccessControlOnRegistration() public {
-        vm.startPrank(maliciousActor);
-
-        // Should succeed - no access control on registration
-        factory.registerStrategyType(
-            MALICIOUS_STRATEGY_ID, address(mockImplementation), MALICIOUS_METADATA, address(0), 0
-        );
-        assertTrue(factory.isTypeRegistered(MALICIOUS_STRATEGY_ID));
-
-        vm.stopPrank();
+        _deployStrategy(MALICIOUS_STRATEGY_ID, dao, auxData);
     }
 
     /// @notice Test large auxiliary data handling
@@ -358,7 +361,7 @@ contract AllocatorStrategyFactoryTest is Test {
         }
 
         // Should handle large data without issues
-        address strategy = factory.deployStrategy(MERKLE_STRATEGY_ID, dao, largeAuxData);
+        address strategy = _deployStrategy(MERKLE_STRATEGY_ID, dao, largeAuxData);
         assertTrue(strategy != address(0));
     }
 
@@ -371,7 +374,7 @@ contract AllocatorStrategyFactoryTest is Test {
             abi.encode(bytes32(keccak256("malicious")), address(maliciousActor), "injected data");
 
         // Deployment should succeed but malicious data should be contained
-        address strategy = factory.deployStrategy(MOCK_STRATEGY_ID, dao, maliciousAuxData);
+        address strategy = _deployStrategy(MOCK_STRATEGY_ID, dao, maliciousAuxData);
         assertTrue(strategy != address(0));
 
         // Verify the strategy was initialized with correct parameters
@@ -397,14 +400,14 @@ contract AllocatorStrategyFactoryTest is Test {
         // Deployment gas test
         bytes memory auxData = abi.encode(bytes32(keccak256("test-merkle-root")));
         gasStart = gasleft();
-        factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
+        _deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
         gasUsed = gasStart - gasleft();
         console2.log("Gas used for strategy deployment:", gasUsed);
         assertTrue(gasUsed < 250_000); // Increased due to plugin address and fee storage
 
         // Instance exists check gas test
         gasStart = gasleft();
-        factory.hasDeployment(MERKLE_STRATEGY_ID, dao, auxData);
+        factory.hasDeployment(MERKLE_STRATEGY_ID, dao, address(pluginMock), auxData);
         gasUsed = gasStart - gasleft();
         console2.log("Gas used for hasDeployment:", gasUsed);
         assertTrue(gasUsed < 10_000);
@@ -419,7 +422,7 @@ contract AllocatorStrategyFactoryTest is Test {
         factory.registerStrategyType(MOCK_STRATEGY_ID, address(mockImplementation), MOCK_METADATA, address(0), 0);
 
         bytes memory emptyAuxData = "";
-        address strategy = factory.deployStrategy(MOCK_STRATEGY_ID, dao, emptyAuxData);
+        address strategy = _deployStrategy(MOCK_STRATEGY_ID, dao, emptyAuxData);
 
         assertTrue(strategy != address(0));
         assertEq(factory.instanceToType(strategy), MOCK_STRATEGY_ID);
@@ -435,7 +438,7 @@ contract AllocatorStrategyFactoryTest is Test {
             maxAuxData[i] = bytes1(uint8(i % 256));
         }
 
-        address strategy = factory.deployStrategy(MOCK_STRATEGY_ID, dao, maxAuxData);
+        address strategy = _deployStrategy(MOCK_STRATEGY_ID, dao, maxAuxData);
         assertTrue(strategy != address(0));
     }
 
@@ -447,9 +450,9 @@ contract AllocatorStrategyFactoryTest is Test {
         bytes memory auxData1 = abi.encode(bytes32(keccak256("concurrent1")));
         bytes memory auxData2 = abi.encode(bytes32(keccak256("concurrent2")));
 
-        address strategy1 = factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData1);
-        address strategy2 = factory.deployStrategy(MOCK_STRATEGY_ID, dao, auxData2);
-        address strategy3 = factory.deployStrategy(MERKLE_STRATEGY_ID, dao2, auxData1);
+        address strategy1 = _deployStrategy(MERKLE_STRATEGY_ID, dao, auxData1);
+        address strategy2 = _deployStrategy(MOCK_STRATEGY_ID, dao, auxData2);
+        address strategy3 = _deployStrategy(MERKLE_STRATEGY_ID, dao2, auxData1);
 
         assertTrue(strategy1 != strategy2);
         assertTrue(strategy1 != strategy3);
@@ -544,7 +547,7 @@ contract AllocatorStrategyFactoryTest is Test {
 
         // Deploy strategy
         bytes memory auxData = abi.encode(bytes32(keccak256("test-merkle-root")));
-        address strategy = factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
+        address strategy = _deployStrategy(MERKLE_STRATEGY_ID, dao, auxData);
 
         // Get fee by instance
         (address recipient, uint32 basisPoints) = factory.getStrategyFeeByInstance(strategy);
@@ -585,8 +588,8 @@ contract AllocatorStrategyFactoryTest is Test {
         bytes memory auxData1 = abi.encode(bytes32(keccak256("root1")));
         bytes memory auxData2 = abi.encode(bytes32(keccak256("root2")));
 
-        address strategy1 = factory.deployStrategy(MERKLE_STRATEGY_ID, dao, auxData1);
-        address strategy2 = factory.deployStrategy(MERKLE_STRATEGY_ID, dao2, auxData2);
+        address strategy1 = _deployStrategy(MERKLE_STRATEGY_ID, dao, auxData1);
+        address strategy2 = _deployStrategy(MERKLE_STRATEGY_ID, dao2, auxData2);
 
         // Both should have same fee configuration
         (address recipient1, uint32 basisPoints1) = factory.getStrategyFeeByInstance(strategy1);
@@ -665,7 +668,7 @@ contract AllocatorStrategyFactoryTest is Test {
 
         factory.registerStrategyType(strategyId, address(mockImplementation), "Fuzz Test Strategy", address(0), 0);
 
-        address strategy = factory.deployStrategy(strategyId, IDAO(daoAddr), auxData);
+        address strategy = _deployStrategy(strategyId, IDAO(daoAddr), auxData);
         assertTrue(strategy != address(0));
         assertEq(factory.instanceToType(strategy), strategyId);
     }

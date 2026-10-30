@@ -4,6 +4,7 @@ pragma solidity ^0.8.29;
 
 import { Test } from "forge-std/Test.sol";
 import { CapitalDistributorPlugin } from "../../src/CapitalDistributorPlugin.sol";
+import { ICapitalDistributorPlugin } from "../../src/interfaces/ICapitalDistributorPlugin.sol";
 import { CapitalDistributorPluginSetup } from "../../src/CapitalDistributorPluginSetup.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { AllocatorStrategyFactory } from "../../src/factories/AllocatorStrategyFactory.sol";
@@ -95,9 +96,9 @@ contract ExecuteConditionIntegrationTest is Test {
         vm.startPrank(address(dao));
         uint256 campaignId = plugin.createCampaign(
             "ipfs://test-campaign-metadata",
-            CapitalDistributorPlugin.StrategyConfig(bytes32("mock-strategy"), "", ""),
-            CapitalDistributorPlugin.PayoutConfig(token, bytes32(0), ""),
-            CapitalDistributorPlugin.CampaignSettings(0, 0)
+            ICapitalDistributorPlugin.StrategyConfig(bytes32("mock-strategy"), "", ""),
+            ICapitalDistributorPlugin.PayoutConfig(token, bytes32(0), ""),
+            ICapitalDistributorPlugin.CampaignSettings(0, 0)
         );
         vm.stopPrank();
 
@@ -118,9 +119,9 @@ contract ExecuteConditionIntegrationTest is Test {
         vm.startPrank(address(dao));
         uint256 campaignId = plugin.createCampaign(
             "ipfs://test-campaign-metadata",
-            CapitalDistributorPlugin.StrategyConfig(bytes32("mock-strategy"), "", ""),
-            CapitalDistributorPlugin.PayoutConfig(token, bytes32(0), ""),
-            CapitalDistributorPlugin.CampaignSettings(0, 0)
+            ICapitalDistributorPlugin.StrategyConfig(bytes32("mock-strategy"), "", ""),
+            ICapitalDistributorPlugin.PayoutConfig(token, bytes32(0), ""),
+            ICapitalDistributorPlugin.CampaignSettings(0, 0)
         );
 
         // Setup allocation for alice

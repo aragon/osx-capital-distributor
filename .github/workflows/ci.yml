@@ -22,6 +22,8 @@ jobs:
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
+        with:
+          version: "v1.3.0"
 
       - name: "Install Bun"
         uses: "oven-sh/setup-bun@v1"
@@ -45,6 +47,8 @@ jobs:
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
+        with:
+          version: "v1.3.0"
 
       - name: "Install Bun"
         uses: "oven-sh/setup-bun@v1"
@@ -68,6 +72,8 @@ jobs:
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
+        with:
+          version: "v1.3.0"
 
       - name: "Install Bun"
         uses: "oven-sh/setup-bun@v1"
@@ -75,8 +81,9 @@ jobs:
       - name: "Install the Node.js dependencies"
         run: "bun install"
 
-      - name: "Build the contracts and print their size"
-        run: "forge build --sizes"
+      # Only src/ is deployed; test helpers pull in unrelated plugins (e.g. StagedProposalProcessor) that exceed EIP-170
+      - name: "Check the size of the deployable contracts"
+        run: "forge build src --sizes"
 
       - name: "Add build summary"
         run: |
@@ -92,6 +99,8 @@ jobs:
 
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
+        with:
+          version: "v1.3.0"
 
       - name: "Install Bun"
         uses: "oven-sh/setup-bun@v1"
